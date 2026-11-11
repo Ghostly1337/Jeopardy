@@ -127,7 +127,7 @@
 
   function stat(pid) {
     if (!state.stats) state.stats = {};
-    return state.stats[pid] || (state.stats[pid] = { right: 0, wrong: 0, buzzWins: 0 });
+    return state.stats[pid] || (state.stats[pid] = { right: 0, wrong: 0, buzzWins: 0, steals: 0 });
   }
 
   // Fairer Buzzer: Jedes Handy misst die Reaktionszeit ab dem Moment, in dem der Knopf dort
@@ -164,10 +164,6 @@
       cur.buzz = { open: false, winner, id: pb.id, reactions };
       cur.timer = null;
       stat(winner).buzzWins++;
-      pb.entries.forEach((ms, pid) => {
-        const st = stat(pid);
-        if (st.fastest == null || ms < st.fastest) st.fastest = ms;
-      });
     });
     sound('buzz');
   }
@@ -289,6 +285,7 @@
           p.score += gain;
           state.current.judged[p.id] = 'right';
           stat(p.id).right++;
+          if (stolen) stat(p.id).steals = (stat(p.id).steals || 0) + 1;
           state.turn = p.id; // Wer richtig liegt, wählt das nächste Feld
           state.current.buzz = closedBuzz();
           state.current.timer = null;

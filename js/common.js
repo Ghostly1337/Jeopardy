@@ -433,7 +433,7 @@
   // Auszeichnungen aus der Spielstatistik (nur vergeben, wenn es etwas zu zeigen gibt)
   const AWARDS = [
     { icon: '⚡', title: 'Buzzer-König', key: 'buzzWins', best: 'max', fmt: (v) => v + '× zuerst gebuzzert' },
-    { icon: '🏎️', title: 'Schnellste Reaktion', key: 'fastest', best: 'min', fmt: fmtMs },
+    { icon: '🦝', title: 'Meisterdieb', key: 'steals', best: 'max', fmt: (v) => v + '× geklaut' },
     { icon: '🎯', title: 'Treffsicher', key: 'right', best: 'max', fmt: (v) => v + ' richtig' },
     { icon: '🙈', title: 'Meiste Fehlversuche', key: 'wrong', best: 'max', fmt: (v) => v + ' falsch' },
   ];

@@ -8,22 +8,23 @@
 </head>
 <body>
   <main class="home">
-    <h1>JEOPARDY!</h1>
+    <h1 class="logo">JEOPARDY!</h1>
+    <p class="tagline">Das Quiz für eure Runde – live auf jedem Gerät.</p>
 
     <div class="card">
-      <h2>Als Spieler beitreten</h2>
+      <h2>Mitspielen</h2>
       <form class="row" id="joinForm">
-        <input id="code" maxlength="6" placeholder="RAUMCODE" autocomplete="off" required>
+        <input id="code" maxlength="6" placeholder="CODE" autocomplete="off" required>
         <button class="gold" type="submit">Beitreten</button>
       </form>
     </div>
 
     <div class="card">
       <h2>Spielleitung</h2>
-      <p class="row">
-        <a href="host.html"><button class="gold" type="button">Spiel hosten</button></a>
-        <a href="editor.html"><button type="button">Fragen bearbeiten</button></a>
-      </p>
+      <div class="row">
+        <a class="btn gold" href="host.html">Spiel hosten</a>
+        <a class="btn" href="editor.html">Fragen bearbeiten</a>
+      </div>
       <p class="hint">Fragen und Spielstand werden nur in deinem Browser gespeichert.</p>
     </div>
   </main>

@@ -9,25 +9,25 @@
 <body>
   <main class="editor">
     <div class="topbar">
-      <a href="index.html">← Start</a>
+      <a href="index.html" class="logo" style="font-size:34px;text-decoration:none">JEOPARDY!</a>
       <div class="spacer"></div>
       <span class="saved" id="saved"></span>
-      <button id="export">Export (.json)</button>
-      <button id="importBtn" type="button">Import (.json)</button>
+      <button id="export">Export</button>
+      <button id="importBtn" type="button">Import</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <button class="ghost" id="reset">Alles zurücksetzen</button>
-      <a href="host.html"><button class="gold" type="button">Zum Host-Pult</button></a>
+      <button class="ghost" id="reset">Zurücksetzen</button>
+      <a class="btn gold" href="host.html">Zum Host-Pult →</a>
     </div>
 
-    <label>Titel <input id="title"></label>
+    <input id="title" class="title-field" placeholder="Titel des Spiels">
 
-    <div class="tabs">
-      <button data-round="0" class="active">Runde 1 (100–500)</button>
-      <button data-round="1">Runde 2 (200–1000)</button>
+    <div class="tabs seg">
+      <button data-round="0">Runde 1 · 100–500</button>
+      <button data-round="1">Runde 2 · 200–1000</button>
     </div>
-    <p class="hint">Weißes Feld: Frage/Hinweis, den die Spieler sehen. Gelbes Feld: Antwort, die nur du im Host-Pult siehst. Änderungen werden automatisch gespeichert.</p>
+    <p class="hint">Oberes Feld: Frage bzw. Hinweis, den die Spieler sehen. Gelbes Feld: Antwort, die nur du im Host-Pult siehst. Alles wird automatisch gespeichert.</p>
 
-    <div class="ed-grid" id="grid"></div>
+    <div class="ed-grid" id="grid" style="margin-top:16px"></div>
   </main>
   <script src="js/common.js"></script>
   <script src="js/editor.js"></script>

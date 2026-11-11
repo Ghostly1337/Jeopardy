@@ -1,5 +1,7 @@
 # Jeopardy
 
+**▶ Spielen: https://ghostly1337.github.io/Jeopardy/**
+
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung.
 
 ## So funktioniert's

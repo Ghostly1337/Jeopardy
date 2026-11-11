@@ -334,7 +334,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   font-size: clamp(10px, 1.1vw, 16px);
   line-height: 1.2;
   min-height: 84px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 .cell.val {
   position: relative;
@@ -633,7 +635,9 @@ body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
   line-height: .95;
   letter-spacing: 2px;
   text-transform: uppercase;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
   text-shadow: 0 6px 40px rgba(0, 0, 0, 0.35);
 }
 .intro-sub { margin-top: 2vh; font-size: clamp(14px, 1.8vw, 22px); color: color-mix(in srgb, var(--stage-text) 65%, transparent); }

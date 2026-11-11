@@ -4,25 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jeopardy</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem("jeopardy.theme")||"graphit"}catch(e){}</script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main class="home">
-    <h1 class="logo">JEOPARDY!</h1>
+    <h1 class="logo">JEOPARDY<span>!</span></h1>
     <p class="tagline">Das Quiz für eure Runde – live auf jedem Gerät.</p>
 
     <div class="card">
       <h2>Mitspielen</h2>
       <form class="row" id="joinForm">
         <input id="code" maxlength="6" placeholder="CODE" autocomplete="off" required>
-        <button class="gold" type="submit">Beitreten</button>
+        <button class="primary" type="submit">Beitreten</button>
       </form>
     </div>
 
     <div class="card">
       <h2>Spielleitung</h2>
       <div class="row">
-        <a class="btn gold" href="host.html">Spiel hosten</a>
+        <a class="btn primary" href="host.html">Spiel hosten</a>
         <a class="btn" href="editor.html">Fragen bearbeiten</a>
       </div>
       <p class="hint">Fragen und Spielstand werden nur in deinem Browser gespeichert.</p>

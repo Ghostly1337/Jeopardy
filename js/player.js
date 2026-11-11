@@ -14,6 +14,7 @@
   }
 
   function render(s) {
+    J.applyTheme(s.theme);
     $('waiting').hidden = true;
     const board = $('board');
     board.hidden = false;

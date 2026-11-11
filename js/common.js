@@ -128,6 +128,7 @@
     }
     return {
       title: set.title,
+      theme: getTheme(),
       round: r,
       categories: set.rounds[r].categories.map((c) => c.name),
       values: Array.from({ length: ROWS }, (_, row) => pointsFor(r, row)),
@@ -135,6 +136,31 @@
       players: state.players.map((p) => ({ name: p.name, score: p.score })),
       current,
     };
+  }
+
+  // Farbthemen (Werte nur für die Vorschau im Host; das eigentliche Styling steckt in style.css)
+  const THEMES = [
+    { id: 'graphit', name: 'Graphit', sw: ['#1d1e22', '#34d399'] },
+    { id: 'hell', name: 'Hell', sw: ['#ffffff', '#18181b'] },
+    { id: 'nacht', name: 'Nacht', sw: ['#5b21b6', '#f472b6'] },
+    { id: 'wald', name: 'Wald', sw: ['#1b5e3b', '#e9d8a6'] },
+    { id: 'klassisch', name: 'Klassisch', sw: ['#2f55f0', '#ffc940'] },
+  ];
+  const THEME_KEY = 'jeopardy.theme';
+  function getTheme() {
+    try {
+      const t = localStorage.getItem(THEME_KEY);
+      if (THEMES.some((x) => x.id === t)) return t;
+    } catch (e) {}
+    return 'graphit';
+  }
+  function applyTheme(id) {
+    if (!THEMES.some((x) => x.id === id)) id = 'graphit';
+    document.documentElement.dataset.theme = id;
+  }
+  function setTheme(id) {
+    try { localStorage.setItem(THEME_KEY, id); } catch (e) {}
+    applyTheme(id);
   }
 
   function escapeHtml(s) {
@@ -160,5 +186,6 @@
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
+    THEMES, getTheme, applyTheme, setTheme,
   };
 })();

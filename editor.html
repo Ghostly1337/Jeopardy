@@ -4,19 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jeopardy Editor</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem("jeopardy.theme")||"graphit"}catch(e){}</script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main class="editor">
     <div class="topbar">
-      <a href="index.html" class="logo" style="font-size:34px;text-decoration:none">JEOPARDY!</a>
+      <a href="index.html" class="logo" style="font-size:34px;text-decoration:none">JEOPARDY<span>!</span></a>
       <div class="spacer"></div>
       <span class="saved" id="saved"></span>
       <button id="export">Export</button>
       <button id="importBtn" type="button">Import</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
       <button class="ghost" id="reset">Zurücksetzen</button>
-      <a class="btn gold" href="host.html">Zum Host-Pult →</a>
+      <a class="btn primary" href="host.html">Zum Host-Pult →</a>
     </div>
 
     <input id="title" class="title-field" placeholder="Titel des Spiels">

@@ -218,6 +218,9 @@
     const penalty = J.penaltyFor(cur.round, cur.row);
     const judged = cur.judged || (cur.judged = {});
     const solved = Object.values(judged).includes('right');
+    // Geklaut: Hat schon jemand falsch geantwortet, gibt es für die richtige Antwort nur die Hälfte
+    const stolen = Object.values(judged).includes('wrong');
+    const gain = stolen ? J.stealFor(cur.round, cur.row) : value;
     $('clueMeta').textContent = `${cat.name} – ${value}` + (cur.revealed ? ' · Antwort ist für Spieler sichtbar' : '');
     $('clueQ').textContent = clue.q;
     const img = J.safeImg(clue.img);
@@ -232,7 +235,9 @@
     if (solved) {
       status.textContent = '';
     } else if (buzz.open) {
-      status.textContent = '🔔 Buzzer offen – wer zuerst drückt, darf antworten';
+      status.textContent = stolen
+        ? `🔔 Buzzer offen – wer zuerst drückt, darf klauen (+${gain} bei richtig)`
+        : '🔔 Buzzer offen – wer zuerst drückt, darf antworten';
     } else if (buzz.winner && !judged[buzz.winner]) {
       const rx = buzz.reactions || {};
       const others = Object.keys(rx).filter((id) => id !== buzz.winner)
@@ -269,18 +274,19 @@
       if (verdict) {
         const tag = document.createElement('span');
         tag.className = 'verdict';
-        tag.textContent = verdict === 'right' ? `✓ +${value}` : `✗ −${penalty}`;
+        tag.textContent = verdict === 'right' ? `✓ +${gain}` + (stolen ? ' (geklaut)' : '') : `✗ −${penalty}`;
         rowEl.append(name, tag);
         judge.appendChild(rowEl);
         return;
       }
       const ok = document.createElement('button');
       ok.className = 'green small';
-      ok.textContent = `✓ +${value}`;
+      ok.textContent = `✓ +${gain}`;
+      if (stolen) ok.title = 'Geklaut: halbe Punkte';
       ok.disabled = solved;
       ok.addEventListener('click', () => {
-        mutate(`${p.name} richtig (+${value})`, () => {
-          p.score += value;
+        mutate(`${p.name} richtig (+${gain}${stolen ? ', geklaut' : ''})`, () => {
+          p.score += gain;
           state.current.judged[p.id] = 'right';
           stat(p.id).right++;
           state.turn = p.id; // Wer richtig liegt, wählt das nächste Feld

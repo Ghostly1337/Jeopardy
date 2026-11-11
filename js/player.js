@@ -191,6 +191,8 @@
       } else {
         text = `⚡ ${w ? w.name : '?'} ist dran` + (t(buzz.winner) ? ` (${t(buzz.winner)})` : '');
       }
+    } else if (canBuzz && Object.values(judged).includes('wrong')) {
+      text = `Klauen bringt +${cur.value / 2}`;
     } else if (buzz.open && isPlayer && judged[me]) {
       text = 'Du hast schon geantwortet';
     } else if (buzz.open && !isPlayer) {

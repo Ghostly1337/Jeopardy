@@ -27,6 +27,7 @@
   function undo() {
     const snap = state.history.pop();
     if (!snap) return;
+    stopIntro(false);
     state.round = snap.round;
     state.used = snap.used;
     state.players = snap.players;
@@ -50,6 +51,9 @@
     renderPlayers();
     renderLog();
     renderFinish();
+    J.renderIntro($('intro'), state.intro && state.intro.round === state.round ? state.intro : null,
+      state.round, Array.from({ length: J.ROWS }, (_, row) => J.pointsFor(state.round, row)));
+    $('introBtn').disabled = !!state.current || !!state.intro;
     J.renderTurn($('turnBanner'), state.players, state.turn);
     $('r0').className = state.round === 0 ? 'primary' : '';
     $('r1').className = state.round === 1 ? 'primary' : '';
@@ -61,9 +65,11 @@
     const cats = set.rounds[r].categories;
     const board = $('board');
     board.innerHTML = '';
-    cats.forEach((c) => {
+    const intro = state.intro && state.intro.round === r ? state.intro : null;
+    board.classList.toggle('intro-active', !!intro);
+    cats.forEach((c, i) => {
       const el = document.createElement('div');
-      el.className = 'cell cat';
+      el.className = 'cell cat' + J.introCellClass(intro, i);
       el.textContent = c.name;
       board.appendChild(el);
     });
@@ -76,6 +82,7 @@
         el.className = 'cell val' + (used ? ' used' : '') + (active ? ' active' : '');
         el.textContent = J.pointsFor(r, row);
         el.title = cats[c].clues[row].q;
+        el.style.setProperty('--i', row * J.CATS + c);
         el.addEventListener('click', () => onCell(c, row));
         board.appendChild(el);
       }
@@ -83,6 +90,7 @@
   }
 
   function onCell(cat, row) {
+    if (state.intro) return;
     const r = state.round;
     if (state.used[r][cat][row]) {
       if (confirm('Dieses Feld wieder freigeben?')) {
@@ -394,8 +402,50 @@
     mutate('Zurück zum Spiel', () => { state.finished = false; })
   );
   $('timerStop').addEventListener('click', stopTimer);
-  $('r0').addEventListener('click', () => state.round !== 0 && mutate('Runde 1', () => { state.round = 0; state.current = null; }));
-  $('r1').addEventListener('click', () => state.round !== 1 && mutate('Runde 2', () => { state.round = 1; state.current = null; }));
+  function switchRound(r) {
+    if (state.round === r) return;
+    stopIntro(false);
+    mutate('Runde ' + (r + 1), () => { state.round = r; state.current = null; });
+    startIntro();
+  }
+  $('r0').addEventListener('click', () => switchRound(0));
+  $('r1').addEventListener('click', () => switchRound(1));
+
+  // ---------- Runden-Intro ----------
+  // Läuft ohne Undo-Eintrag; der Host taktet die Schritte, die Spieler zeigen nur an.
+  const INTRO_TITLE_MS = window.JEOP_INTRO_MS || 2600;
+  const INTRO_CAT_MS = window.JEOP_INTRO_MS || 1900;
+  let introTimer = null;
+  let dealTimer = null;
+  function startIntro() {
+    if (state.current) return;
+    clearTimeout(introTimer);
+    state.intro = { round: state.round, step: 0 };
+    commit();
+    sound('intro');
+    introTimer = setTimeout(nextIntroStep, INTRO_TITLE_MS);
+  }
+  function nextIntroStep() {
+    if (!state.intro) return;
+    const step = state.intro.step + 1;
+    if (step > J.CATS) { stopIntro(true); return; }
+    state.intro.step = step;
+    commit();
+    sound('catreveal');
+    introTimer = setTimeout(nextIntroStep, INTRO_CAT_MS);
+  }
+  function stopIntro(deal) {
+    clearTimeout(introTimer);
+    if (!state.intro) return;
+    state.intro = null;
+    // Punktefelder „austeilen“
+    $('board').classList.toggle('deal', !!deal);
+    clearTimeout(dealTimer);
+    dealTimer = setTimeout(() => $('board').classList.remove('deal'), 2000);
+    commit();
+  }
+  $('introBtn').addEventListener('click', startIntro);
+  $('introSkip').addEventListener('click', () => stopIntro(true));
   $('undo').addEventListener('click', undo);
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();

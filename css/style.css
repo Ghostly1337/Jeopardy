@@ -520,6 +520,58 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .clue-overlay .score-value { color: var(--stage-text); font-size: clamp(22px, 2.2vw, 34px); }
 .clue-overlay .score-value.neg { color: var(--red); }
 
+/* ---------- Runden-Intro ---------- */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 22;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--stage-text);
+  /* halbtransparent, damit man das Board dahinter aufklappen sieht */
+  background: color-mix(in srgb, var(--stage-2) 62%, transparent);
+  backdrop-filter: blur(1.5px);
+}
+.intro.show { display: flex; }
+.intro[data-step$=":0"] { background: radial-gradient(1000px 600px at 50% 40%, var(--stage-1), var(--stage-2) 75%); }
+.intro-inner.anim { animation: introIn .7s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes introIn {
+  from { opacity: 0; transform: translateY(24px) scale(.92); letter-spacing: 12px; }
+  to { opacity: 1; transform: none; }
+}
+.intro-kicker {
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-size: clamp(12px, 1.6vw, 20px);
+  margin-bottom: 1vh;
+}
+.intro-title {
+  font-family: var(--display);
+  font-size: clamp(52px, 11vw, 170px);
+  line-height: .95;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  text-shadow: 0 6px 40px rgba(0, 0, 0, 0.35);
+}
+.intro-sub { margin-top: 2vh; font-size: clamp(14px, 1.8vw, 22px); color: color-mix(in srgb, var(--stage-text) 65%, transparent); }
+.intro-sub:empty { display: none; }
+.intro-skip { position: absolute; right: 20px; bottom: 20px; }
+.cell.cat.hidden-cat { color: transparent; background: transparent; border-style: dashed; }
+.cell.cat.flip { animation: flipIn .7s .25s cubic-bezier(.2, .8, .2, 1) both; border-color: var(--accent); }
+@keyframes flipIn { from { transform: rotateX(90deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.board.intro-active .cell.val { opacity: 0; transform: scale(.85); }
+.board.deal .cell.val { animation: deal .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 28ms); }
+@keyframes deal { from { opacity: 0; transform: scale(.6) translateY(-12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .intro-inner.anim, .cell.cat.flip, .board.deal .cell.val { animation: none; }
+}
+
 /* ---------- Am Zug ---------- */
 .turn-banner {
   align-self: center;

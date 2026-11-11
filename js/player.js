@@ -20,12 +20,22 @@
     board.hidden = false;
     document.title = `${s.title} – Runde ${s.round + 1}`;
 
-    let html = s.categories.map((c) => `<div class="cell cat">${J.escapeHtml(c)}</div>`).join('');
+    const intro = s.intro;
+    board.classList.toggle('intro-active', !!intro);
+    // Intro gerade fertig → Punktefelder austeilen
+    if (prevIntro && !intro) {
+      board.classList.add('deal');
+      clearTimeout(dealTimer);
+      dealTimer = setTimeout(() => board.classList.remove('deal'), 2000);
+    }
+    prevIntro = !!intro;
+    J.renderIntro($('intro'), intro, s.round, s.values);
+    let html = s.categories.map((c, i) => `<div class="cell cat${J.introCellClass(intro, i)}">${J.escapeHtml(c)}</div>`).join('');
     for (let row = 0; row < s.values.length; row++) {
       for (let c = 0; c < s.categories.length; c++) {
         const used = s.used[c][row];
         const active = s.current && s.current.cat === c && s.current.row === row;
-        html += `<div class="cell val${used ? ' used' : ''}${active ? ' active' : ''}">${s.values[row]}</div>`;
+        html += `<div class="cell val${used ? ' used' : ''}${active ? ' active' : ''}" style="--i:${row * s.categories.length + c}">${s.values[row]}</div>`;
       }
     }
     board.innerHTML = html;
@@ -64,6 +74,8 @@
   let me = null; // Spieler-ID, 'watch' oder null (noch nicht gewählt)
   try { me = localStorage.getItem(ME_KEY); } catch (e) {}
   let last = null;
+  let prevIntro = false;
+  let dealTimer = null;
   let wasFinished = false;
 
   const myPlayer = () => (last && last.players.find((p) => p.id === me)) || null;

@@ -14,6 +14,7 @@
       current: state.current ? JSON.parse(JSON.stringify(state.current)) : null,
       turn: state.turn,
       finished: state.finished,
+      stats: JSON.parse(JSON.stringify(state.stats || {})),
     };
   }
 
@@ -34,6 +35,8 @@
     state.current = snap.current;
     state.turn = snap.turn || null;
     state.finished = !!snap.finished;
+    state.stats = snap.stats || {};
+    pendingBuzz = null;
     if (state.current) state.current.timer = null; // alte Timer nicht wiederbeleben
     commit();
   }
@@ -103,7 +106,7 @@
     mutate(`Frage ${J.pointsFor(r, row)} „${set.rounds[r].categories[cat].name}“ geöffnet`, () => {
       state.current = {
         round: r, cat, row, revealed: false, judged: {},
-        buzz: { open: false, winner: null }, timer: null,
+        buzz: closedBuzz(), timer: null,
       };
     });
     sound('open');
@@ -118,14 +121,53 @@
     return state.players.filter((p) => !j[p.id]);
   }
 
-  function handleBuzz(conn) {
+  // Neue Buzzer-Runde mit eigener ID, damit verspätete Buzzes aus einer älteren Runde nicht zählen
+  const openBuzz = () => ({ open: true, winner: null, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) });
+  const closedBuzz = () => ({ open: false, winner: null });
+
+  function stat(pid) {
+    if (!state.stats) state.stats = {};
+    return state.stats[pid] || (state.stats[pid] = { right: 0, wrong: 0, buzzWins: 0 });
+  }
+
+  // Fairer Buzzer: Jedes Handy misst die Reaktionszeit ab dem Moment, in dem der Knopf dort
+  // erschien. Der Host sammelt nach dem ersten Buzz kurz alle weiteren ein und nimmt die
+  // schnellste Reaktion – so entscheidet der Reflex, nicht die Internetleitung.
+  let pendingBuzz = null;
+  function handleBuzz(conn, msg) {
     const cur = state.current;
     const pid = conn.playerId;
     if (!cur || !cur.buzz || !cur.buzz.open || !pid) return;
+    if (msg.id !== cur.buzz.id) return;
     if (!state.players.some((p) => p.id === pid) || (cur.judged || {})[pid]) return;
-    mutate(`⚡ ${nameOf(pid)} buzzert`, () => {
-      cur.buzz = { open: false, winner: pid };
+    let reaction = Number(msg.reaction);
+    if (!Number.isFinite(reaction)) reaction = 60000;
+    reaction = Math.min(60000, Math.max(0, Math.round(reaction)));
+    if (!pendingBuzz || pendingBuzz.id !== cur.buzz.id) {
+      pendingBuzz = { id: cur.buzz.id, entries: new Map() };
+      setTimeout(decideBuzz, window.JEOP_BUZZ_WINDOW_MS || J.BUZZ_WINDOW_MS);
+    }
+    if (!pendingBuzz.entries.has(pid)) pendingBuzz.entries.set(pid, reaction);
+  }
+
+  function decideBuzz() {
+    const pb = pendingBuzz;
+    pendingBuzz = null;
+    const cur = state.current;
+    if (!pb || !cur || !cur.buzz || !cur.buzz.open || cur.buzz.id !== pb.id) return; // inzwischen geschlossen
+    let winner = null;
+    let best = Infinity;
+    pb.entries.forEach((ms, pid) => { if (ms < best) { best = ms; winner = pid; } });
+    if (!winner) return;
+    const reactions = Object.fromEntries(pb.entries);
+    mutate(`⚡ ${nameOf(winner)} buzzert (${J.fmtMs(best)})`, () => {
+      cur.buzz = { open: false, winner, id: pb.id, reactions };
       cur.timer = null;
+      stat(winner).buzzWins++;
+      pb.entries.forEach((ms, pid) => {
+        const st = stat(pid);
+        if (st.fastest == null || ms < st.fastest) st.fastest = ms;
+      });
     });
     sound('buzz');
   }
@@ -192,7 +234,12 @@
     } else if (buzz.open) {
       status.textContent = '🔔 Buzzer offen – wer zuerst drückt, darf antworten';
     } else if (buzz.winner && !judged[buzz.winner]) {
-      status.textContent = `⚡ ${nameOf(buzz.winner)} hat gebuzzert und ist dran`;
+      const rx = buzz.reactions || {};
+      const others = Object.keys(rx).filter((id) => id !== buzz.winner)
+        .sort((a, b) => rx[a] - rx[b]).map((id) => `${nameOf(id)} ${J.fmtMs(rx[id])}`);
+      status.textContent = `⚡ ${nameOf(buzz.winner)} hat gebuzzert und ist dran` +
+        (rx[buzz.winner] != null ? ` (${J.fmtMs(rx[buzz.winner])})` : '') +
+        (others.length ? ` · danach: ${others.join(', ')}` : '');
     } else {
       status.textContent = '';
     }
@@ -235,8 +282,9 @@
         mutate(`${p.name} richtig (+${value})`, () => {
           p.score += value;
           state.current.judged[p.id] = 'right';
+          stat(p.id).right++;
           state.turn = p.id; // Wer richtig liegt, wählt das nächste Feld
-          state.current.buzz = { open: false, winner: null };
+          state.current.buzz = closedBuzz();
           state.current.timer = null;
           state.current.revealed = true;
           state.used[cur.round][cur.cat][cur.row] = true;
@@ -252,10 +300,11 @@
         mutate(`${p.name} falsch (−${penalty})`, () => {
           p.score -= penalty;
           state.current.judged[p.id] = 'wrong';
+          stat(p.id).wrong++;
           state.current.timer = null;
           // Klauen: Buzzer öffnet für alle, die noch nicht gewertet wurden
           opened = unjudged().length > 0;
-          state.current.buzz = { open: opened, winner: null };
+          state.current.buzz = opened ? openBuzz() : closedBuzz();
         });
         sound('wrong');
         if (opened) {
@@ -376,7 +425,7 @@
   $('buzzBtn').addEventListener('click', () => {
     const open = !state.current.buzz.open;
     mutate(open ? 'Buzzer geöffnet' : 'Buzzer geschlossen', () => {
-      state.current.buzz = { open, winner: null };
+      state.current.buzz = open ? openBuzz() : closedBuzz();
     });
     if (open) sound('buzzopen');
   });
@@ -388,7 +437,7 @@
     const el = $('finish');
     el.classList.toggle('show', !!state.finished);
     if (state.finished) {
-      J.renderPodium($('podium'), state.players, set.title);
+      J.renderPodium($('podium'), state.players, set.title, state.stats);
       if (!shownFinished) J.confetti(el);
     }
     shownFinished = !!state.finished;
@@ -465,6 +514,7 @@
       state.round = 0;
       state.turn = null;
       state.finished = false;
+      state.stats = {};
     });
   });
   $('newCode').addEventListener('click', () => {
@@ -568,8 +618,23 @@
       renderPlayers();
       broadcast(); // Belegung an alle schicken
     } else if (msg.type === 'buzz') {
-      handleBuzz(conn);
+      handleBuzz(conn, msg);
+    } else if (msg.type === 'react') {
+      handleReaction(conn, msg);
     }
+  }
+
+  // Live-Reaktionen: prüfen, drosseln (max. ~3 pro Sekunde und Gerät) und an alle verteilen
+  function handleReaction(conn, msg) {
+    if (!J.REACTIONS.includes(msg.emoji)) return;
+    const now = Date.now();
+    conn.reactTimes = (conn.reactTimes || []).filter((t) => now - t < 1000);
+    if (conn.reactTimes.length >= 3) return;
+    conn.reactTimes.push(now);
+    const name = conn.playerId ? nameOf(conn.playerId) : '👀';
+    const out = { type: 'react', emoji: msg.emoji, name };
+    conns.forEach((c) => { if (c.open) c.send(out); });
+    J.showReaction(msg.emoji, name);
   }
 
   function message() {

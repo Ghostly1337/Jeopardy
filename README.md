@@ -15,11 +15,12 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - Pro Spieler **✓ +Wert** (richtig, deckt Antwort auf, Feld wird verbraucht) oder **✗ −halber Wert** (falsch).
 - Jeder Spieler wird pro Frage nur einmal gewertet, und nur einer kann richtig liegen. Fehler korrigierst du mit *Rückgängig*.
 - **⏱ 15-s-Timer**: per Button starten, läuft bei allen sichtbar runter, Signal bei 0.
-- **Buzzer zum Klauen**: Wird ein Spieler mit ✗ gewertet, öffnet sich bei allen anderen ein BUZZ-Knopf. Wer zuerst drückt, ist dran (⚡ im Host-Pult). Bei erneutem ✗ öffnet er für die Übrigen. Manuell öffnen/schließen geht auch.
+- **Buzzer zum Klauen**: Wird ein Spieler mit ✗ gewertet, öffnet sich bei allen anderen ein BUZZ-Knopf. Es zählt die **Reaktionszeit** auf dem eigenen Gerät (ab dem Erscheinen des Knopfs), nicht wessen Signal zuerst ankommt – eine langsame Internetleitung ist also kein Nachteil. Der Host sammelt dafür nach dem ersten Buzz 0,4 s lang ein. Alle sehen die Zeiten (⚡ im Host-Pult). Bei erneutem ✗ öffnet er für die Übrigen. Manuell öffnen/schließen geht auch.
 - Spieler wählen beim Beitreten ihren Namen aus deiner Liste (oder „Nur zuschauen“). Jeder Name kann nur von einem Gerät belegt werden (vergebene Namen sind ausgegraut). Ein grüner Punkt im Punkte-Panel zeigt, wer ein Gerät verbunden hat; Klick darauf trennt das Gerät und gibt den Namen frei.
 - **✨ Runden-Intro**: Beim Rundenwechsel (oder per ✨-Knopf) erscheint bei allen „Runde X“, dann werden die 6 Kategorien nacheinander groß aufgedeckt und die Punktefelder ausgeteilt. Mit „Überspringen“ abkürzbar.
 - **🎯 Am Zug**: Wer richtig antwortet, wählt das nächste Feld – angezeigt als Banner über dem Board und markierte Punktekachel. Mit 🎯 im Punkte-Panel manuell setzen.
-- **🏆 Siegerehrung**: Podium mit Platz 1–3 (Gleichstand teilt sich den Platz), restliche Plätze darunter, Konfetti und Fanfare bei allen. „Zurück zum Spiel“ oder Rückgängig schließt sie wieder.
+- **🏆 Siegerehrung**: Podium mit Platz 1–3 (Gleichstand teilt sich den Platz), restliche Plätze darunter, Auszeichnungen (Buzzer-König, Schnellste Reaktion, Treffsicher, Meiste Fehlversuche), Konfetti und Fanfare bei allen. „Zurück zum Spiel“ oder Rückgängig schließt sie wieder.
+- **Live-Reaktionen**: Spieler tippen 😂 👏 😱 🔥 🤔 am Rand, das Emoji fliegt mit Namen bei allen über den Bildschirm.
 - **Sounds** beim Öffnen, Aufdecken, Richtig und Falsch – bei dir und bei allen Spielern. Abschaltbar im Host-Pult; Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
 - *Antwort aufdecken*, *Fertig → zurück zum Board*, *Abbrechen (Feld bleibt frei)*.
 - Punkte direkt ins Zahlenfeld tippen oder ±100. Namen anklicken zum Umbenennen.

@@ -58,7 +58,7 @@
     // Siegerehrung
     $('finish').classList.toggle('show', !!s.finished);
     if (s.finished) {
-      J.renderPodium($('podium'), s.players, s.title);
+      J.renderPodium($('podium'), s.players, s.title, s.stats);
       if (!wasFinished) J.confetti($('finish'));
     }
     wasFinished = !!s.finished;
@@ -136,6 +136,7 @@
     }
     const btn = $('me');
     btn.hidden = !valid;
+    $('reactBar').hidden = !valid;
     btn.textContent = me === 'watch' ? '👀 Zuschauer' : myPlayer() ? 'Du: ' + myPlayer().name : '';
   }
 
@@ -153,6 +154,8 @@
 
   // ---------- Buzzer ----------
   let pressed = false; // lokal gesperrt nach dem Drücken, bis der Host antwortet
+  let shownId = null;  // Buzzer-Runde, für die der Knopf gerade angezeigt wird
+  let shownAt = 0;     // Zeitpunkt, an dem der Knopf auf DIESEM Gerät erschien
 
   function renderBuzz() {
     const cur = last && last.current;
@@ -165,6 +168,12 @@
     if (!buzz.open) pressed = false;
 
     const canBuzz = buzz.open && isPlayer && !judged[me];
+    // Reaktionszeit startet, sobald der Knopf hier sichtbar wird (Netzlaufzeit zählt nicht)
+    if (canBuzz && shownId !== buzz.id) {
+      shownId = buzz.id;
+      shownAt = performance.now();
+      pressed = false;
+    }
     buzzer.hidden = !canBuzz;
     buzzer.disabled = pressed;
     buzzer.textContent = pressed ? '…' : 'BUZZ';
@@ -173,7 +182,15 @@
     const solved = Object.values(judged).includes('right');
     if (buzz.winner && !judged[buzz.winner] && !solved) {
       const w = last.players.find((p) => p.id === buzz.winner);
-      text = buzz.winner === me ? 'Du bist dran!' : `⚡ ${w ? w.name : '?'} ist dran`;
+      const rx = buzz.reactions || {};
+      const t = (id) => (rx[id] != null ? J.fmtMs(rx[id]) : '');
+      if (buzz.winner === me) {
+        text = 'Du bist dran!' + (t(me) ? ` (${t(me)})` : '');
+      } else if (rx[me] != null) {
+        text = `⚡ ${w ? w.name : '?'} war schneller: ${t(buzz.winner)} vs. deine ${t(me)}`;
+      } else {
+        text = `⚡ ${w ? w.name : '?'} ist dran` + (t(buzz.winner) ? ` (${t(buzz.winner)})` : '');
+      }
     } else if (buzz.open && isPlayer && judged[me]) {
       text = 'Du hast schon geantwortet';
     } else if (buzz.open && !isPlayer) {
@@ -188,12 +205,28 @@
     const b = $('buzzer');
     if (b.hidden || b.disabled || !conn || !conn.open) return;
     pressed = true;
-    conn.send({ type: 'buzz' });
+    const buzz = (last && last.current && last.current.buzz) || {};
+    conn.send({ type: 'buzz', id: buzz.id, reaction: performance.now() - shownAt });
     renderBuzz();
   }
   $('buzzer').addEventListener('click', pressBuzz);
   document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') { e.preventDefault(); pressBuzz(); }
+  });
+
+  // ---------- Live-Reaktionen ----------
+  let lastReact = 0;
+  J.REACTIONS.forEach((emoji) => {
+    const b = document.createElement('button');
+    b.className = 'react-btn';
+    b.textContent = emoji;
+    b.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastReact < 350 || !conn || !conn.open) return; // lokal drosseln
+      lastReact = now;
+      conn.send({ type: 'react', emoji });
+    });
+    $('reactBar').appendChild(b);
   });
 
   // ---------- Timer ----------
@@ -243,6 +276,7 @@
       if (!msg) return;
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
+      else if (msg.type === 'react') J.showReaction(msg.emoji, msg.name);
       else if (msg.type === 'taken' && msg.playerId === me) forget('Dieser Name ist schon auf einem anderen Gerät vergeben.');
       else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle deinen Namen neu.');
     });

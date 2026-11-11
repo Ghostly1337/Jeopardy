@@ -520,6 +520,83 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .clue-overlay .score-value { color: var(--stage-text); font-size: clamp(22px, 2.2vw, 34px); }
 .clue-overlay .score-value.neg { color: var(--red); }
 
+/* ---------- Live-Reaktionen ---------- */
+.react-bar {
+  position: fixed;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+}
+.react-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.react-btn:hover { background: var(--surface-2); }
+.react-btn:active { transform: scale(.85); }
+body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
+.react-layer { position: fixed; inset: 0; z-index: 27; pointer-events: none; overflow: hidden; }
+.react-float {
+  position: absolute;
+  bottom: -60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: floatUp 2.8s cubic-bezier(.2, .6, .4, 1) forwards;
+}
+.react-emoji { font-size: clamp(34px, 5vw, 56px); line-height: 1; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3)); }
+.react-name {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+@keyframes floatUp {
+  0% { transform: translate(0, 0) scale(.6); opacity: 0; }
+  12% { opacity: 1; transform: translate(calc(var(--sway) * .2), -12vh) scale(1.1); }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--sway), -70vh) scale(1); opacity: 0; }
+}
+
+/* ---------- Auszeichnungen (Siegerehrung) ---------- */
+.awards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 28px;
+}
+.award {
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: var(--stage-chip);
+  border: 1px solid var(--stage-line);
+  animation: clueIn .5s var(--d, 1s) cubic-bezier(.2, .8, .2, 1) both;
+}
+.award-icon { font-size: 28px; line-height: 1; margin-bottom: 6px; }
+.award-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); }
+.award-name { font-weight: 800; font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; }
+.award-value { font-size: 13px; color: color-mix(in srgb, var(--stage-text) 65%, transparent); margin-top: 2px; }
+
 /* ---------- Runden-Intro ---------- */
 .intro {
   position: fixed;

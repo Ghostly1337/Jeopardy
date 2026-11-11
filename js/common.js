@@ -96,7 +96,7 @@
   }
 
   function defaultState() {
-    return { round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false, history: [] };
+    return { round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false, stats: {}, history: [] };
   }
 
   function load(key, fallback) {
@@ -130,6 +130,7 @@
       players: Array.isArray(s.players) ? s.players : [],
       current: s.current || null,
       turn: typeof s.turn === 'string' ? s.turn : null,
+      stats: s.stats && typeof s.stats === 'object' ? s.stats : {},
       finished: !!s.finished,
       history: Array.isArray(s.history) ? s.history : [],
     };
@@ -189,6 +190,7 @@
       players: state.players.map((p) => ({ id: p.id, name: p.name, score: p.score })),
       turn: state.turn || null,
       finished: !!state.finished,
+      stats: state.stats || {},
       current,
     };
   }
@@ -418,7 +420,34 @@
     });
   }
 
-  function renderPodium(el, players, title) {
+  // 420 → „0,42 s“
+  function fmtMs(ms) {
+    return (ms / 1000).toFixed(2).replace('.', ',') + ' s';
+  }
+
+  // Auszeichnungen aus der Spielstatistik (nur vergeben, wenn es etwas zu zeigen gibt)
+  const AWARDS = [
+    { icon: '⚡', title: 'Buzzer-König', key: 'buzzWins', best: 'max', fmt: (v) => v + '× zuerst gebuzzert' },
+    { icon: '🏎️', title: 'Schnellste Reaktion', key: 'fastest', best: 'min', fmt: fmtMs },
+    { icon: '🎯', title: 'Treffsicher', key: 'right', best: 'max', fmt: (v) => v + ' richtig' },
+    { icon: '🙈', title: 'Meiste Fehlversuche', key: 'wrong', best: 'max', fmt: (v) => v + ' falsch' },
+  ];
+  function awards(players, stats) {
+    stats = stats || {};
+    const out = [];
+    AWARDS.forEach((a) => {
+      const vals = players
+        .map((p) => ({ p, v: (stats[p.id] || {})[a.key] }))
+        .filter((x) => typeof x.v === 'number' && (a.best === 'min' || x.v > 0));
+      if (!vals.length) return;
+      const best = a.best === 'min' ? Math.min(...vals.map((x) => x.v)) : Math.max(...vals.map((x) => x.v));
+      const who = vals.filter((x) => x.v === best).map((x) => x.p.name);
+      out.push({ ...a, names: who, value: a.fmt(best) });
+    });
+    return out;
+  }
+
+  function renderPodium(el, players, title, stats) {
     const ranked = ranking(players);
     const top = ranked.filter((p) => p.place <= 3);
     const rest = ranked.filter((p) => p.place > 3);
@@ -439,7 +468,38 @@
       <div class="pod-winner">${winners ? '🏆 ' + winners : 'Keine Spieler'}</div>
       <div class="podium">${col(2)}${col(1)}${col(3)}</div>
       ${rest.length ? `<div class="pod-rest">${rest.map((p) =>
-        `<div><span>${p.place}.</span> ${escapeHtml(p.name)} <b>${p.score}</b></div>`).join('')}</div>` : ''}`;
+        `<div><span>${p.place}.</span> ${escapeHtml(p.name)} <b>${p.score}</b></div>`).join('')}</div>` : ''}
+      ${(() => {
+        const list = awards(players, stats);
+        return list.length ? `<div class="awards">${list.map((a, i) => `
+          <div class="award" style="--d:${1.2 + i * 0.25}s">
+            <div class="award-icon">${a.icon}</div>
+            <div class="award-title">${escapeHtml(a.title)}</div>
+            <div class="award-name">${a.names.map(escapeHtml).join(' & ')}</div>
+            <div class="award-value">${escapeHtml(a.value)}</div>
+          </div>`).join('')}</div>` : '';
+      })()}`;
+  }
+
+  // ---------- Live-Reaktionen ----------
+  const REACTIONS = ['😂', '👏', '😱', '🔥', '🤔'];
+  function showReaction(emoji, name) {
+    if (!REACTIONS.includes(emoji)) return;
+    let layer = document.getElementById('reactLayer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'reactLayer';
+      layer.className = 'react-layer';
+      document.body.appendChild(layer);
+    }
+    if (layer.childElementCount > 40) layer.firstElementChild.remove(); // bei Spam begrenzen
+    const el = document.createElement('div');
+    el.className = 'react-float';
+    el.style.left = (8 + Math.random() * 84) + '%';
+    el.style.setProperty('--sway', (Math.random() * 80 - 40).toFixed(0) + 'px');
+    el.innerHTML = `<span class="react-emoji">${emoji}</span>${name ? `<span class="react-name">${escapeHtml(name)}</span>` : ''}`;
+    el.addEventListener('animationend', () => el.remove());
+    layer.appendChild(el);
   }
 
   // Konfetti als DOM-Elemente (keine Bibliothek nötig)
@@ -473,5 +533,6 @@
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,
+    fmtMs, awards, REACTIONS, showReaction, BUZZ_WINDOW_MS: 400,
   };
 })();

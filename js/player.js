@@ -54,7 +54,25 @@
 
   const myPlayer = () => (last && last.players.find((p) => p.id === me)) || null;
 
+  // Stabile Geräte-ID, damit derselbe Spieler nach einem Verbindungsabbruch seinen Namen behält
+  const DEVICE_KEY = 'jeopardy.device';
+  let deviceId = null;
+  try { deviceId = localStorage.getItem(DEVICE_KEY); } catch (e) {}
+  if (!deviceId) {
+    deviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { localStorage.setItem(DEVICE_KEY, deviceId); } catch (e) {}
+  }
+  let pickerError = '';
+
+  function forget(reason) {
+    me = null;
+    pickerError = reason;
+    try { localStorage.removeItem(ME_KEY); } catch (e) {}
+    renderMe();
+  }
+
   function choose(id) {
+    pickerError = '';
     me = id;
     try { localStorage.setItem(ME_KEY, id); } catch (e) {}
     $('picker').hidden = true;
@@ -71,13 +89,21 @@
       const list = $('pickerList');
       list.innerHTML = '';
       $('pickerEmpty').hidden = last.players.length > 0;
+      const taken = new Set(last.taken || []);
       last.players.forEach((p) => {
         const b = document.createElement('button');
         b.className = 'pick';
         b.textContent = p.name;
+        if (taken.has(p.id)) {
+          b.disabled = true;
+          b.classList.add('taken');
+          b.title = 'Schon vergeben';
+        }
         b.addEventListener('click', () => choose(p.id));
         list.appendChild(b);
       });
+      $('pickerError').hidden = !pickerError;
+      $('pickerError').textContent = pickerError;
       $('picker').hidden = false;
     } else {
       $('picker').hidden = true;
@@ -96,7 +122,7 @@
   $('watchOnly').addEventListener('click', () => choose('watch'));
 
   function sendHello() {
-    if (conn && conn.open) conn.send({ type: 'hello', playerId: me && me !== 'watch' ? me : null });
+    if (conn && conn.open) conn.send({ type: 'hello', playerId: me && me !== 'watch' ? me : null, deviceId });
   }
 
   // ---------- Buzzer ----------
@@ -191,6 +217,8 @@
       if (!msg) return;
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
+      else if (msg.type === 'taken' && msg.playerId === me) forget('Dieser Name ist schon auf einem anderen Gerät vergeben.');
+      else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle deinen Namen neu.');
     });
     conn.on('close', () => {
       if (thisConn !== conn) return;

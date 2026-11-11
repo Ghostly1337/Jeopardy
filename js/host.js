@@ -264,7 +264,11 @@
       if (linkedPlayers().has(p.id)) {
         const dev = document.createElement('span');
         dev.className = 'device';
-        dev.title = 'Gerät verbunden';
+        dev.title = 'Gerät verbunden – klicken zum Trennen';
+        dev.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Gerät von ${p.name} trennen? Der Name wird wieder frei.`)) releasePlayer(p.id);
+        });
         name.prepend(dev);
       }
       name.addEventListener('click', () => {
@@ -453,15 +457,46 @@
     if (!msg || typeof msg !== 'object') return;
     if (msg.type === 'hello') {
       const pid = typeof msg.playerId === 'string' ? msg.playerId : null;
-      conn.playerId = state.players.some((p) => p.id === pid) ? pid : null;
+      conn.deviceId = typeof msg.deviceId === 'string' ? msg.deviceId : null;
+      let ok = state.players.some((p) => p.id === pid) ? pid : null;
+      if (ok) {
+        // Jeder Name darf nur von einem Gerät belegt sein. Dasselbe Gerät (z. B. nach
+        // Verbindungsabbruch) darf übernehmen, ein fremdes nicht.
+        for (const c of conns) {
+          if (c === conn || !c.open || c.playerId !== ok) continue;
+          if (conn.deviceId && c.deviceId === conn.deviceId) {
+            c.playerId = null;
+            c.close();
+          } else {
+            ok = null;
+            conn.send({ type: 'taken', playerId: pid });
+          }
+        }
+      }
+      conn.playerId = ok;
       renderPlayers();
+      broadcast(); // Belegung an alle schicken
     } else if (msg.type === 'buzz') {
       handleBuzz(conn);
     }
   }
 
   function message() {
-    return { type: 'state', data: J.publicState(set, state) };
+    const data = J.publicState(set, state);
+    data.taken = [...linkedPlayers()];
+    return { type: 'state', data };
+  }
+
+  // Host gibt einen Namen frei (z. B. wenn sich jemand verwählt hat)
+  function releasePlayer(pid) {
+    conns.forEach((c) => {
+      if (c.playerId === pid) {
+        c.playerId = null;
+        if (c.open) c.send({ type: 'released' });
+      }
+    });
+    renderPlayers();
+    broadcast();
   }
 
   function broadcast() {
@@ -483,8 +518,13 @@
         conn.send(message());
       });
       conn.on('data', (msg) => onData(conn, msg));
-      conn.on('close', () => { conns.delete(conn); updateViewers(); });
-      conn.on('error', () => { conns.delete(conn); updateViewers(); });
+      const gone = () => {
+        if (!conns.delete(conn)) return;
+        updateViewers();
+        if (conn.playerId) broadcast(); // Name wird wieder frei
+      };
+      conn.on('close', gone);
+      conn.on('error', gone);
     });
     peer.on('disconnected', () => {
       setStatus('Verbindung zum Server verloren – neuer Versuch…', false);

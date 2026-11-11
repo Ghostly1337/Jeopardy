@@ -64,7 +64,9 @@
     const thisConn = conn;
     conn.on('open', () => setStatus(`Raum ${room}`, true));
     conn.on('data', (msg) => {
-      if (msg && msg.type === 'state') render(msg.data);
+      if (!msg) return;
+      if (msg.type === 'state') render(msg.data);
+      else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
     });
     conn.on('close', () => {
       if (thisConn !== conn) return;
@@ -96,6 +98,33 @@
     });
     peer.on('disconnected', scheduleRetry);
   }
+
+  // ---------- Ton ----------
+  // Browser spielen Ton erst nach einer Nutzeraktion ab. Bis dahin zeigt der Button „Ton aktivieren“.
+  const soundBtn = $('sound');
+  function renderSound() {
+    if (!J.audioUnlocked()) {
+      soundBtn.textContent = '🔇 Ton aktivieren';
+      soundBtn.classList.add('attention');
+    } else {
+      soundBtn.textContent = J.soundOn() ? '🔊' : '🔇';
+      soundBtn.classList.remove('attention');
+    }
+  }
+  soundBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!J.audioUnlocked()) {
+      J.setSoundOn(true);
+      J.unlockAudio();
+    } else {
+      J.setSoundOn(!J.soundOn());
+    }
+    setTimeout(renderSound, 50);
+  });
+  document.addEventListener('pointerdown', () => {
+    if (!J.audioUnlocked()) { J.unlockAudio(); setTimeout(renderSound, 50); }
+  });
+  renderSound();
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
   startPeer();

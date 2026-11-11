@@ -13,6 +13,11 @@
     return (row + 1) * 100 * (round + 1);
   }
 
+  // Falsche Antwort kostet die Hälfte des Feldwerts
+  function penaltyFor(round, row) {
+    return pointsFor(round, row) / 2;
+  }
+
   function defaultSet() {
     return {
       title: 'Jeopardy',
@@ -163,6 +168,86 @@
     applyTheme(id);
   }
 
+  // ---------- Sounds (per Web Audio erzeugt, keine Dateien nötig) ----------
+  const SOUND_KEY = 'jeopardy.sound';
+  let audio = null;
+  function soundOn() {
+    try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch (e) { return true; }
+  }
+  function setSoundOn(on) {
+    try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch (e) {}
+  }
+  function audioCtx() {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio = new AC();
+    }
+    if (audio.state === 'suspended') audio.resume();
+    return audio;
+  }
+  // Browser erlauben Ton erst nach einer Nutzeraktion → beim ersten Tippen freischalten.
+  function unlockAudio() {
+    const ctx = audioCtx();
+    return !!ctx && ctx.state === 'running';
+  }
+  function audioUnlocked() {
+    return !!audio && audio.state === 'running';
+  }
+
+  function tone(ctx, { freq, to, start = 0, dur = 0.15, type = 'sine', vol = 0.2, filter }) {
+    const t = ctx.currentTime + start;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (to) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = osc;
+    if (filter) {
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = filter;
+      osc.connect(f);
+      node = f;
+    }
+    node.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
+
+  const SOUNDS = {
+    // Aufsteigender Dreiklang
+    right(ctx) {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+        tone(ctx, { freq: f, start: i * 0.08, dur: i === 3 ? 0.45 : 0.18, type: 'triangle', vol: 0.22 })
+      );
+    },
+    // Tiefer Summer
+    wrong(ctx) {
+      tone(ctx, { freq: 180, to: 110, dur: 0.55, type: 'sawtooth', vol: 0.16, filter: 900 });
+      tone(ctx, { freq: 186, to: 113, dur: 0.55, type: 'square', vol: 0.06, filter: 700 });
+    },
+    // Kurzes „Swoosh“ beim Öffnen einer Frage
+    open(ctx) {
+      tone(ctx, { freq: 380, to: 900, dur: 0.18, type: 'sine', vol: 0.14 });
+      tone(ctx, { freq: 760, start: 0.12, dur: 0.25, type: 'triangle', vol: 0.08 });
+    },
+    // Heller Glockenton beim Aufdecken
+    reveal(ctx) {
+      tone(ctx, { freq: 880, dur: 0.5, type: 'sine', vol: 0.16 });
+      tone(ctx, { freq: 1320, start: 0.04, dur: 0.45, type: 'sine', vol: 0.08 });
+    },
+  };
+
+  function sfx(name) {
+    const ctx = audioCtx();
+    if (!ctx || !SOUNDS[name]) return;
+    try { SOUNDS[name](ctx); } catch (e) { console.warn('Sound fehlgeschlagen', e); }
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (ch) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -187,5 +272,6 @@
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
+    penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked,
   };
 })();

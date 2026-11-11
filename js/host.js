@@ -11,7 +11,7 @@
       round: state.round,
       used: JSON.parse(JSON.stringify(state.used)),
       players: JSON.parse(JSON.stringify(state.players)),
-      current: state.current ? { ...state.current } : null,
+      current: state.current ? JSON.parse(JSON.stringify(state.current)) : null,
     };
   }
 
@@ -86,8 +86,17 @@
       return;
     }
     mutate(`Frage ${J.pointsFor(r, row)} „${set.rounds[r].categories[cat].name}“ geöffnet`, () => {
-      state.current = { round: r, cat, row, revealed: false };
+      state.current = { round: r, cat, row, revealed: false, judged: {} };
     });
+    sound('open');
+  }
+
+  // Sounds lokal abspielen und an alle Spieler schicken
+  function sound(name) {
+    if (!J.soundOn()) return;
+    J.sfx(name);
+    const msg = { type: 'sfx', name };
+    conns.forEach((c) => { if (c.open) c.send(msg); });
   }
 
   function renderClue() {
@@ -97,6 +106,9 @@
     const cat = set.rounds[cur.round].categories[cur.cat];
     const clue = cat.clues[cur.row];
     const value = J.pointsFor(cur.round, cur.row);
+    const penalty = J.penaltyFor(cur.round, cur.row);
+    const judged = cur.judged || (cur.judged = {});
+    const solved = Object.values(judged).includes('right');
     $('clueMeta').textContent = `${cat.name} – ${value}` + (cur.revealed ? ' · Antwort ist für Spieler sichtbar' : '');
     $('clueQ').textContent = clue.q;
     $('clueA').textContent = clue.a;
@@ -108,27 +120,46 @@
       judge.innerHTML = '<span class="hint">Lege rechts Spieler an, um Punkte zu vergeben.</span>';
     }
     state.players.forEach((p) => {
+      const verdict = judged[p.id];
       const rowEl = document.createElement('div');
-      rowEl.className = 'jrow';
+      rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '');
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = p.name;
+      // Pro Frage: nur ein Spieler kann richtig liegen, jeder Spieler wird höchstens einmal gewertet.
+      // Korrekturen gehen über „Rückgängig“.
+      if (verdict) {
+        const tag = document.createElement('span');
+        tag.className = 'verdict';
+        tag.textContent = verdict === 'right' ? `✓ +${value}` : `✗ −${penalty}`;
+        rowEl.append(name, tag);
+        judge.appendChild(rowEl);
+        return;
+      }
       const ok = document.createElement('button');
       ok.className = 'green small';
       ok.textContent = `✓ +${value}`;
-      ok.addEventListener('click', () =>
+      ok.disabled = solved;
+      ok.addEventListener('click', () => {
         mutate(`${p.name} richtig (+${value})`, () => {
           p.score += value;
+          state.current.judged[p.id] = 'right';
           state.current.revealed = true;
           state.used[cur.round][cur.cat][cur.row] = true;
-        })
-      );
+        });
+        sound('right');
+      });
       const bad = document.createElement('button');
       bad.className = 'red small';
-      bad.textContent = `✗ −${value}`;
-      bad.addEventListener('click', () =>
-        mutate(`${p.name} falsch (−${value})`, () => { p.score -= value; })
-      );
+      bad.textContent = `✗ −${penalty}`;
+      bad.disabled = solved;
+      bad.addEventListener('click', () => {
+        mutate(`${p.name} falsch (−${penalty})`, () => {
+          p.score -= penalty;
+          state.current.judged[p.id] = 'wrong';
+        });
+        sound('wrong');
+      });
       rowEl.append(name, ok, bad);
       judge.appendChild(rowEl);
     });
@@ -197,9 +228,19 @@
   }
 
   // ---------- Buttons ----------
-  $('reveal').addEventListener('click', () =>
-    mutate('Antwort aufgedeckt', () => { state.current.revealed = true; })
-  );
+  $('reveal').addEventListener('click', () => {
+    mutate('Antwort aufgedeckt', () => { state.current.revealed = true; });
+    sound('reveal');
+  });
+  function renderSoundToggle() {
+    $('soundToggle').textContent = J.soundOn() ? '🔊 Sounds an' : '🔇 Sounds aus';
+  }
+  $('soundToggle').addEventListener('click', () => {
+    J.setSoundOn(!J.soundOn());
+    renderSoundToggle();
+    if (J.soundOn()) J.sfx('right');
+  });
+  renderSoundToggle();
   $('close').addEventListener('click', () => {
     const cur = state.current;
     mutate('Frage geschlossen', () => {

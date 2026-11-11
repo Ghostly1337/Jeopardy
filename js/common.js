@@ -129,6 +129,12 @@
         value: pointsFor(cur.round, cur.row),
         q: clue.q,
         a: cur.revealed ? clue.a : null,
+        judged: cur.judged || {},
+        buzz: cur.buzz || { open: false, winner: null },
+        // Restzeit statt Uhrzeit, damit abweichende Geräteuhren egal sind
+        timer: cur.timer
+          ? { remaining: Math.max(0, cur.timer.endsAt - Date.now()), total: cur.timer.total }
+          : null,
       };
     }
     return {
@@ -138,7 +144,7 @@
       categories: set.rounds[r].categories.map((c) => c.name),
       values: Array.from({ length: ROWS }, (_, row) => pointsFor(r, row)),
       used: state.used[r],
-      players: state.players.map((p) => ({ name: p.name, score: p.score })),
+      players: state.players.map((p) => ({ id: p.id, name: p.name, score: p.score })),
       current,
     };
   }
@@ -235,6 +241,25 @@
       tone(ctx, { freq: 380, to: 900, dur: 0.18, type: 'sine', vol: 0.14 });
       tone(ctx, { freq: 760, start: 0.12, dur: 0.25, type: 'triangle', vol: 0.08 });
     },
+    // Jemand hat gebuzzert
+    buzz(ctx) {
+      tone(ctx, { freq: 1046.5, dur: 0.12, type: 'square', vol: 0.12, filter: 3000 });
+      tone(ctx, { freq: 1568, start: 0.1, dur: 0.3, type: 'square', vol: 0.1, filter: 3000 });
+    },
+    // Buzzer ist offen
+    buzzopen(ctx) {
+      tone(ctx, { freq: 660, dur: 0.1, type: 'triangle', vol: 0.18 });
+      tone(ctx, { freq: 660, start: 0.16, dur: 0.1, type: 'triangle', vol: 0.18 });
+    },
+    // Zeit abgelaufen
+    timeup(ctx) {
+      tone(ctx, { freq: 330, dur: 0.35, type: 'square', vol: 0.12, filter: 1200 });
+      tone(ctx, { freq: 247, start: 0.4, dur: 0.6, type: 'square', vol: 0.12, filter: 1200 });
+    },
+    // Sekunden-Tick in den letzten 5 Sekunden
+    tick(ctx) {
+      tone(ctx, { freq: 1200, dur: 0.05, type: 'sine', vol: 0.12 });
+    },
     // Heller Glockenton beim Aufdecken
     reveal(ctx) {
       tone(ctx, { freq: 880, dur: 0.5, type: 'sine', vol: 0.16 });
@@ -246,6 +271,16 @@
     const ctx = audioCtx();
     if (!ctx || !SOUNDS[name]) return;
     try { SOUNDS[name](ctx); } catch (e) { console.warn('Sound fehlgeschlagen', e); }
+  }
+
+  // Timer-Anzeige (Host und Spieler): Balken + Sekunden
+  function renderTimer(el, remaining, total) {
+    if (remaining == null) { el.hidden = true; return; }
+    el.hidden = false;
+    const secs = Math.ceil(remaining / 1000);
+    el.classList.toggle('urgent', secs <= 5);
+    el.querySelector('.timer-num').textContent = secs;
+    el.querySelector('.timer-fill').style.width = (100 * remaining / total) + '%';
   }
 
   function escapeHtml(s) {
@@ -272,6 +307,7 @@
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
-    penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked,
+    penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
+    TIMER_MS: 15000,
   };
 })();

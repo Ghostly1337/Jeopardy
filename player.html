@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div class="topleft">
+    <button class="small me-btn" id="me" hidden></button>
+  </div>
   <div class="topright">
     <button class="small sound-btn" id="sound">🔇 Ton aktivieren</button>
     <div class="status bad" id="status">verbinde…</div>
@@ -19,9 +22,25 @@
 
   <div class="clue-overlay" id="overlay">
     <div class="clue-meta" id="meta"></div>
+    <div class="timer big" id="timerBox" hidden>
+      <div class="timer-track"><div class="timer-fill"></div></div>
+      <span class="timer-num"></span>
+    </div>
     <div class="clue-text" id="q"></div>
     <div class="clue-answer" id="a"></div>
+    <div class="buzz-area">
+      <button class="buzzer" id="buzzer" hidden>BUZZ</button>
+      <div class="buzz-info" id="buzzInfo" hidden></div>
+    </div>
     <div class="scores" id="overlayScores"></div>
+  </div>
+
+  <div class="picker" id="picker" hidden>
+    <div class="picker-card">
+      <h2>Wer bist du?</h2>
+      <div class="picker-list" id="pickerList"></div>
+      <button class="ghost" id="watchOnly">Nur zuschauen</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>

@@ -520,6 +520,108 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .clue-overlay .score-value { color: var(--stage-text); font-size: clamp(22px, 2.2vw, 34px); }
 .clue-overlay .score-value.neg { color: var(--red); }
 
+/* ---------- Timer ---------- */
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+}
+.timer-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--stage-chip);
+  border: 1px solid var(--stage-line);
+  overflow: hidden;
+}
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width .1s linear, background .2s;
+}
+.timer-num {
+  font-family: var(--display);
+  font-size: 28px;
+  line-height: 1;
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.timer.urgent .timer-fill { background: var(--red); }
+.timer.urgent .timer-num { color: var(--red); animation: pulse 1s infinite; }
+.timer.big { max-width: 720px; margin: 0 0 4vh; }
+.timer.big .timer-track { height: 12px; }
+.timer.big .timer-num { font-size: clamp(36px, 5vw, 72px); }
+
+/* ---------- Buzzer (Spieler) ---------- */
+.buzz-area {
+  margin-top: 4vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.buzzer {
+  width: clamp(140px, 30vw, 220px);
+  height: clamp(140px, 30vw, 220px);
+  border-radius: 50%;
+  border: 0;
+  font-family: var(--display);
+  font-size: clamp(36px, 7vw, 60px);
+  letter-spacing: 3px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #ff8a8a, #e11d48 55%, #9f1239);
+  box-shadow: 0 10px 0 #7f1028, 0 18px 40px rgba(225, 29, 72, 0.45);
+  animation: buzzPulse 1.2s ease-in-out infinite;
+  touch-action: manipulation;
+}
+.buzzer:hover { border-color: transparent; filter: brightness(1.08); }
+.buzzer:active, .buzzer:disabled { transform: translateY(8px); box-shadow: 0 2px 0 #7f1028, 0 8px 20px rgba(225, 29, 72, 0.4); animation: none; }
+.buzzer:disabled { opacity: .7; }
+@keyframes buzzPulse { 50% { box-shadow: 0 10px 0 #7f1028, 0 18px 60px rgba(225, 29, 72, 0.75); } }
+.buzz-info {
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--stage-chip);
+  border: 1px solid var(--stage-line);
+  font-weight: 700;
+  font-size: clamp(16px, 2vw, 26px);
+}
+.buzz-info.mine { border-color: var(--accent); color: var(--accent); animation: pulse 1.2s infinite; }
+
+/* ---------- Namensauswahl & „Du bist…“ ---------- */
+.topleft { position: fixed; top: 12px; left: 12px; z-index: 20; }
+.me-btn { border-radius: 999px; padding: 6px 12px; font-size: 12px; background: var(--surface); backdrop-filter: blur(8px); }
+.picker {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(10px);
+}
+.picker-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.picker-card h2 { margin: 0 0 16px; font-size: 22px; }
+.picker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.pick { padding: 16px 10px; font-size: 16px; }
+.pick:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---------- Host ---------- */
 .host-page {
   display: grid;
@@ -669,6 +771,25 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   padding: 8px 8px 8px 14px;
   border-radius: 12px;
   background: var(--stage-chip);
+}
+.judge .jrow.buzzed { box-shadow: inset 0 0 0 2px var(--accent); }
+.buzz-status {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--stage-chip);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.device {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 8px;
+  vertical-align: middle;
 }
 .judge .jrow.right { box-shadow: inset 0 0 0 1px var(--green); }
 .judge .jrow.wrong { box-shadow: inset 0 0 0 1px var(--red); opacity: .75; }

@@ -54,7 +54,8 @@
     renderPlayers();
     renderLog();
     renderFinish();
-    J.renderIntro($('intro'), state.intro && state.intro.round === state.round ? state.intro : null,
+    // Gleiche Daten wie bei den Spielern (inkl. Kategoriename) – sonst bleibt der Titel leer
+    J.renderIntro($('intro'), J.publicState(set, state).intro,
       state.round, Array.from({ length: J.ROWS }, (_, row) => J.pointsFor(state.round, row)));
     $('introBtn').disabled = !!state.current || !!state.intro;
     J.renderTurn($('turnBanner'), state.players, state.turn);

@@ -274,7 +274,6 @@
     const el = $('peerStatus');
     el.textContent = text;
     el.className = 'status-inline ' + (ok ? 'ok' : 'bad');
-    el.style.color = ok ? '#3ddc84' : '#ff7b7b';
   }
 
   function updateViewers() {

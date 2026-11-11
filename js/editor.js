@@ -16,7 +16,7 @@
   function render() {
     titleEl.value = set.title;
     document.querySelectorAll('.tabs button').forEach((b) =>
-      b.classList.toggle('active', Number(b.dataset.round) === round)
+      b.classList.toggle('gold', Number(b.dataset.round) === round)
     );
     grid.innerHTML = '';
     set.rounds[round].categories.forEach((cat, c) => {

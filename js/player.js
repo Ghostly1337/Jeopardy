@@ -29,16 +29,29 @@
       }
     }
     board.innerHTML = html;
-    J.renderScores($('scores'), s.players);
+    J.renderScores($('scores'), s.players, s.turn);
+    J.renderTurn($('turnBanner'), s.players, s.turn);
 
     const cur = s.current;
     $('overlay').classList.toggle('show', !!cur);
     if (cur) {
       $('meta').textContent = `${cur.category} – ${cur.value}`;
       $('q').textContent = cur.q;
+      const img = $('img');
+      img.hidden = !cur.img;
+      if (cur.img && img.getAttribute('src') !== cur.img) img.src = cur.img;
+      if (!cur.img) img.removeAttribute('src');
       $('a').textContent = cur.a || '';
-      J.renderScores($('overlayScores'), s.players);
+      J.renderScores($('overlayScores'), s.players, s.turn);
     }
+
+    // Siegerehrung
+    $('finish').classList.toggle('show', !!s.finished);
+    if (s.finished) {
+      J.renderPodium($('podium'), s.players, s.title);
+      if (!wasFinished) J.confetti($('finish'));
+    }
+    wasFinished = !!s.finished;
 
     last = s;
     renderMe();
@@ -51,6 +64,7 @@
   let me = null; // Spieler-ID, 'watch' oder null (noch nicht gewählt)
   try { me = localStorage.getItem(ME_KEY); } catch (e) {}
   let last = null;
+  let wasFinished = false;
 
   const myPlayer = () => (last && last.players.find((p) => p.id === me)) || null;
 

@@ -27,6 +27,7 @@
           clues: Array.from({ length: ROWS }, (_, row) => ({
             q: `Frage für ${pointsFor(r, row)}`,
             a: 'Antwort',
+            img: '',
           })),
         })),
       })),
@@ -50,10 +51,42 @@
           if (!cl) continue;
           if (typeof cl.q === 'string') cat.clues[row].q = cl.q;
           if (typeof cl.a === 'string') cat.clues[row].a = cl.a;
+          const img = safeImg(cl.img);
+          if (img) cat.clues[row].img = img;
         }
       }
     }
     return base;
+  }
+
+  // Nur Web-Adressen oder hochgeladene Bilder zulassen (kein javascript: o. ä.)
+  function safeImg(v) {
+    if (typeof v !== 'string') return '';
+    v = v.trim();
+    return /^https?:\/\//i.test(v) || /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(v) ? v : '';
+  }
+
+  // Hochgeladenes Bild verkleinern (max. 1000 px, JPEG), damit es in den Browserspeicher
+  // passt und schnell an die Spieler übertragen wird.
+  function compressImage(file, max = 1000, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; // transparente PNGs nicht schwarz werden lassen
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Bild konnte nicht gelesen werden')); };
+      img.src = url;
+    });
   }
 
   function emptyUsed() {
@@ -63,7 +96,7 @@
   }
 
   function defaultState() {
-    return { round: 0, used: emptyUsed(), players: [], current: null, history: [] };
+    return { round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false, history: [] };
   }
 
   function load(key, fallback) {
@@ -78,8 +111,10 @@
   function save(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      return true;
     } catch (e) {
       console.warn('Speichern fehlgeschlagen', e);
+      return false;
     }
   }
 
@@ -94,6 +129,8 @@
       used: Array.isArray(s.used) && s.used.length === ROUNDS ? s.used : d.used,
       players: Array.isArray(s.players) ? s.players : [],
       current: s.current || null,
+      turn: typeof s.turn === 'string' ? s.turn : null,
+      finished: !!s.finished,
       history: Array.isArray(s.history) ? s.history : [],
     };
   }
@@ -128,6 +165,7 @@
         category: set.rounds[cur.round].categories[cur.cat].name,
         value: pointsFor(cur.round, cur.row),
         q: clue.q,
+        img: safeImg(clue.img) || null,
         a: cur.revealed ? clue.a : null,
         judged: cur.judged || {},
         buzz: cur.buzz || { open: false, winner: null },
@@ -145,6 +183,8 @@
       values: Array.from({ length: ROWS }, (_, row) => pointsFor(r, row)),
       used: state.used[r],
       players: state.players.map((p) => ({ id: p.id, name: p.name, score: p.score })),
+      turn: state.turn || null,
+      finished: !!state.finished,
       current,
     };
   }
@@ -260,6 +300,15 @@
     tick(ctx) {
       tone(ctx, { freq: 1200, dur: 0.05, type: 'sine', vol: 0.12 });
     },
+    // Fanfare zur Siegerehrung
+    fanfare(ctx) {
+      const notes = [[523.25, 0, 0.14], [523.25, 0.16, 0.14], [523.25, 0.32, 0.14], [659.25, 0.48, 0.5],
+        [587.33, 1.0, 0.14], [659.25, 1.16, 0.14], [783.99, 1.32, 0.9]];
+      notes.forEach(([f, s, d]) => {
+        tone(ctx, { freq: f, start: s, dur: d, type: 'sawtooth', vol: 0.1, filter: 2200 });
+        tone(ctx, { freq: f * 2, start: s, dur: d, type: 'triangle', vol: 0.06 });
+      });
+    },
     // Heller Glockenton beim Aufdecken
     reveal(ctx) {
       tone(ctx, { freq: 880, dur: 0.5, type: 'sine', vol: 0.16 });
@@ -289,16 +338,79 @@
     })[ch]);
   }
 
-  function renderScores(el, players) {
+  function renderScores(el, players, turnId) {
     if (!players.length) {
       el.innerHTML = '<div class="score-empty">Noch keine Spieler</div>';
       return;
     }
     el.innerHTML = players.map((p) => `
-      <div class="score">
+      <div class="score${p.id && p.id === turnId ? ' turn' : ''}">
         <div class="score-name">${escapeHtml(p.name)}</div>
         <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
       </div>`).join('');
+  }
+
+  // Banner „Anna wählt“
+  function renderTurn(el, players, turnId) {
+    const p = players.find((x) => x.id === turnId);
+    el.hidden = !p;
+    if (p) el.innerHTML = `<span class="turn-label">Am Zug</span> ${escapeHtml(p.name)} wählt`;
+  }
+
+  // ---------- Siegerehrung ----------
+  // Platzierung mit Gleichstand (1, 1, 3 …)
+  function ranking(players) {
+    const sorted = [...players].sort((a, b) => b.score - a.score);
+    let place = 0;
+    return sorted.map((p, i) => {
+      if (i === 0 || p.score !== sorted[i - 1].score) place = i + 1;
+      return { ...p, place };
+    });
+  }
+
+  function renderPodium(el, players, title) {
+    const ranked = ranking(players);
+    const top = ranked.filter((p) => p.place <= 3);
+    const rest = ranked.filter((p) => p.place > 3);
+    // Reihenfolge auf dem Treppchen: 2 – 1 – 3
+    const slot = (place) => top.filter((p) => p.place === place);
+    const col = (place) => {
+      const ps = slot(place);
+      if (!ps.length) return '<div class="pod-col empty"></div>';
+      return `<div class="pod-col p${place}">
+        <div class="pod-names">${ps.map((p) => `<div class="pod-name">${escapeHtml(p.name)}</div>`).join('')}</div>
+        <div class="pod-score">${ps[0].score}</div>
+        <div class="pod-block"><span>${place}</span></div>
+      </div>`;
+    };
+    const winners = slot(1).map((p) => escapeHtml(p.name)).join(' & ');
+    el.innerHTML = `
+      <div class="pod-title">${escapeHtml(title || 'Endstand')}</div>
+      <div class="pod-winner">${winners ? '🏆 ' + winners : 'Keine Spieler'}</div>
+      <div class="podium">${col(2)}${col(1)}${col(3)}</div>
+      ${rest.length ? `<div class="pod-rest">${rest.map((p) =>
+        `<div><span>${p.place}.</span> ${escapeHtml(p.name)} <b>${p.score}</b></div>`).join('')}</div>` : ''}`;
+  }
+
+  // Konfetti als DOM-Elemente (keine Bibliothek nötig)
+  function confetti(el, count = 140) {
+    el.querySelectorAll('.confetti').forEach((c) => c.remove());
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const colors = ['var(--accent)', 'var(--accent-2)', '#f87171', '#60a5fa', '#fbbf24', '#a78bfa', '#ffffff'];
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      const c = document.createElement('i');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + '%';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDelay = (Math.random() * 2.5).toFixed(2) + 's';
+      c.style.animationDuration = (3 + Math.random() * 3).toFixed(2) + 's';
+      c.style.setProperty('--drift', (Math.random() * 200 - 100).toFixed(0) + 'px');
+      c.style.setProperty('--spin', (Math.random() * 1080 - 540).toFixed(0) + 'deg');
+      if (i % 3 === 0) c.style.borderRadius = '50%';
+      frag.appendChild(c);
+    }
+    el.appendChild(frag);
   }
 
   window.J = {
@@ -309,5 +421,6 @@
     THEMES, getTheme, applyTheme, setTheme,
     penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,
+    safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
   };
 })();

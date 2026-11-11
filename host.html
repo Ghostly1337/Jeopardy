@@ -29,6 +29,7 @@
       <section class="host-clue" id="clue">
         <div class="meta" id="clueMeta"></div>
         <div class="q" id="clueQ"></div>
+        <img class="clue-img host-img" id="clueImg" alt="" hidden>
         <div class="a" id="clueA"></div>
         <div class="timer" id="timerBox" hidden>
           <div class="timer-track"><div class="timer-fill"></div></div>
@@ -48,6 +49,7 @@
         </div>
       </section>
 
+      <div class="turn-banner" id="turnBanner" hidden></div>
       <div class="board" id="board"></div>
       <p class="hint">Feld anklicken öffnet die Frage. Ein gespieltes Feld anklicken gibt es wieder frei.</p>
     </main>
@@ -73,6 +75,7 @@
         <div class="themes" id="themes"></div>
         <h3>Spiel</h3>
         <div class="btn-row">
+          <button class="small primary" id="finishBtn">🏆 Siegerehrung</button>
           <button class="small" id="soundToggle">🔊 Sounds an</button>
           <a class="btn small" href="editor.html" target="_blank">Fragen bearbeiten</a>
           <button class="small ghost" id="resetGame">Spielstand zurücksetzen</button>
@@ -81,6 +84,13 @@
         <p class="hint">Änderungen im Editor-Tab werden sofort übernommen.</p>
       </div>
     </aside>
+  </div>
+
+  <div class="finish" id="finish">
+    <div class="finish-inner">
+      <div id="podium"></div>
+      <button class="primary" id="finishBack">Zurück zum Spiel</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>

@@ -175,11 +175,15 @@
           : null,
       };
     }
+    // Runden-Intro: noch nicht aufgedeckte Kategorien bleiben leer
+    const intro = state.intro && state.intro.round === r ? state.intro : null;
+    const names = set.rounds[r].categories.map((c) => c.name);
     return {
       title: set.title,
       theme: getTheme(),
       round: r,
-      categories: set.rounds[r].categories.map((c) => c.name),
+      categories: names.map((n, i) => (intro && i >= intro.step ? '' : n)),
+      intro: intro ? { step: intro.step, name: intro.step > 0 ? names[intro.step - 1] : null } : null,
       values: Array.from({ length: ROWS }, (_, row) => pointsFor(r, row)),
       used: state.used[r],
       players: state.players.map((p) => ({ id: p.id, name: p.name, score: p.score })),
@@ -300,6 +304,19 @@
     tick(ctx) {
       tone(ctx, { freq: 1200, dur: 0.05, type: 'sine', vol: 0.12 });
     },
+    // Rundenstart: aufsteigender Akkord
+    intro(ctx) {
+      [261.63, 329.63, 392, 523.25, 659.25].forEach((f, i) =>
+        tone(ctx, { freq: f, start: i * 0.11, dur: 1.2 - i * 0.1, type: 'triangle', vol: 0.12 })
+      );
+      tone(ctx, { freq: 130.81, dur: 1.4, type: 'sine', vol: 0.15 });
+    },
+    // Kategorie wird aufgedeckt: Wusch + heller Ton
+    catreveal(ctx) {
+      tone(ctx, { freq: 200, to: 1200, dur: 0.25, type: 'sine', vol: 0.08 });
+      tone(ctx, { freq: 987.77, start: 0.2, dur: 0.5, type: 'triangle', vol: 0.12 });
+      tone(ctx, { freq: 1479.98, start: 0.24, dur: 0.45, type: 'sine', vol: 0.06 });
+    },
     // Fanfare zur Siegerehrung
     fanfare(ctx) {
       const notes = [[523.25, 0, 0.14], [523.25, 0.16, 0.14], [523.25, 0.32, 0.14], [659.25, 0.48, 0.5],
@@ -348,6 +365,39 @@
         <div class="score-name">${escapeHtml(p.name)}</div>
         <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
       </div>`).join('');
+  }
+
+  // ---------- Runden-Intro ----------
+  // Großes Overlay: erst „Runde X“, dann jede Kategorie einzeln
+  function renderIntro(el, intro, round, values) {
+    el.classList.toggle('show', !!intro);
+    if (!intro) { el.dataset.step = ''; return; }
+    const key = round + ':' + intro.step;
+    if (el.dataset.step === key) return; // Animation nicht bei jedem Update neu starten
+    el.dataset.step = key;
+    const kicker = el.querySelector('.intro-kicker');
+    const title = el.querySelector('.intro-title');
+    const sub = el.querySelector('.intro-sub');
+    if (intro.step === 0) {
+      kicker.textContent = 'Jeopardy';
+      title.textContent = 'Runde ' + (round + 1);
+      sub.textContent = values[0] + ' – ' + values[values.length - 1] + ' Punkte';
+    } else {
+      kicker.textContent = `Kategorie ${intro.step} von ${CATS}`;
+      title.textContent = intro.name || '';
+      sub.textContent = '';
+    }
+    const inner = el.querySelector('.intro-inner');
+    inner.classList.remove('anim');
+    void inner.offsetWidth; // Reflow, damit die Animation neu startet
+    inner.classList.add('anim');
+  }
+
+  // Klassen für Board-Zellen während/nach dem Intro
+  function introCellClass(intro, catIndex) {
+    if (!intro) return '';
+    if (catIndex >= intro.step) return ' hidden-cat';
+    return catIndex === intro.step - 1 ? ' flip' : '';
   }
 
   // Banner „Anna wählt“
@@ -422,5 +472,6 @@
     penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
+    renderIntro, introCellClass,
   };
 })();

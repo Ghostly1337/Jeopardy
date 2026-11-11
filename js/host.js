@@ -44,8 +44,8 @@
     renderClue();
     renderPlayers();
     renderLog();
-    $('r0').className = state.round === 0 ? 'gold' : '';
-    $('r1').className = state.round === 1 ? 'gold' : '';
+    $('r0').className = state.round === 0 ? 'primary' : '';
+    $('r1').className = state.round === 1 ? 'primary' : '';
     $('undo').disabled = state.history.length === 0;
   }
 
@@ -251,6 +251,26 @@
       broadcast();
     }
   });
+
+  // ---------- Farbschema ----------
+  function renderThemes() {
+    const box = $('themes');
+    const current = J.getTheme();
+    box.innerHTML = '';
+    J.THEMES.forEach((t) => {
+      const b = document.createElement('button');
+      b.className = 'theme-btn' + (t.id === current ? ' on' : '');
+      b.dataset.id = t.id;
+      b.innerHTML = `<span class="sw" style="background:linear-gradient(135deg, ${t.sw[0]} 55%, ${t.sw[1]} 55%)"></span>${t.name}`;
+      b.addEventListener('click', () => {
+        J.setTheme(t.id);
+        renderThemes();
+        broadcast();
+      });
+      box.appendChild(b);
+    });
+  }
+  renderThemes();
 
   // ---------- Netzwerk (PeerJS) ----------
   const code = J.roomCode();

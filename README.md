@@ -16,6 +16,7 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - **Rückgängig** (oder Strg+Z) macht jede Aktion schrittweise rückgängig, inkl. Punkte und Felder.
 - Bereits gespieltes Feld anklicken → wieder freigeben.
 - Fragen im Editor-Tab ändern → wird sofort übernommen.
+- **Farbschema** wählen (Graphit, Hell, Nacht, Wald, Klassisch) – gilt auch sofort bei allen Spielern.
 
 Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verliert nichts, Spieler verbinden sich automatisch neu.
 

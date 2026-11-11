@@ -18,6 +18,11 @@
     return pointsFor(round, row) / 2;
   }
 
+  // Geklaute Frage (nach einer falschen Antwort) bringt nur die Hälfte
+  function stealFor(round, row) {
+    return pointsFor(round, row) / 2;
+  }
+
   function defaultSet() {
     return {
       title: 'Jeopardy',
@@ -529,7 +534,7 @@
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
-    penaltyFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
+    penaltyFor, stealFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,

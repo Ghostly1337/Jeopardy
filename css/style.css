@@ -520,6 +520,117 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .clue-overlay .score-value { color: var(--stage-text); font-size: clamp(22px, 2.2vw, 34px); }
 .clue-overlay .score-value.neg { color: var(--red); }
 
+/* ---------- Am Zug ---------- */
+.turn-banner {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 12px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  font-weight: 700;
+  font-size: clamp(14px, 1.6vw, 20px);
+  width: fit-content;
+}
+.player-page .turn-banner { margin-bottom: 0; }
+.turn-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.host-page main { display: flex; flex-direction: column; }
+.score.turn { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--ring); }
+.score.turn .score-name { color: var(--accent); }
+.score.turn .score-name::before { content: "🎯 "; }
+.turn-btn { filter: grayscale(1); opacity: .45; }
+.turn-btn.on { filter: none; opacity: 1; border-color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
+
+/* ---------- Bilder in Fragen ---------- */
+.clue-img {
+  display: block;
+  max-width: min(100%, 900px);
+  max-height: 38vh;
+  object-fit: contain;
+  border-radius: 14px;
+  margin: 0 auto 4vh;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  background: var(--stage-chip);
+}
+.clue-img.host-img { max-height: 220px; margin: 14px 0 0; }
+.clue-overlay { overflow-y: auto; }
+
+/* ---------- Siegerehrung ---------- */
+.finish {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow: hidden auto;
+  color: var(--stage-text);
+  background: radial-gradient(1000px 600px at 50% 20%, var(--stage-1), var(--stage-2) 75%);
+}
+.finish.show { display: flex; animation: clueIn .4s cubic-bezier(.2, .8, .2, 1); }
+.finish-inner { position: relative; z-index: 1; width: 100%; max-width: 900px; text-align: center; }
+.finish-inner > .primary { margin-top: 28px; }
+.pod-title { color: var(--accent); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-size: clamp(12px, 1.4vw, 18px); }
+.pod-winner { font-family: var(--display); font-size: clamp(44px, 9vw, 110px); line-height: 1; margin: 8px 0 5vh; letter-spacing: 1px; }
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(6px, 1.5vw, 16px); align-items: end; }
+.pod-col { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.pod-names { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+.pod-name { font-weight: 800; font-size: clamp(14px, 2vw, 26px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pod-score { font-family: var(--display); font-size: clamp(22px, 3vw, 40px); color: var(--accent); line-height: 1; }
+.pod-block {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, var(--tile-top), var(--tile-bot));
+  border: 1px solid var(--stage-line);
+  font-family: var(--display);
+  font-size: clamp(40px, 6vw, 80px);
+  color: var(--tile-text);
+  animation: rise .8s cubic-bezier(.2, .8, .2, 1) both;
+}
+.p1 .pod-block { height: clamp(150px, 26vh, 260px); border-color: var(--accent); box-shadow: 0 0 40px var(--ring); }
+.p2 .pod-block { height: clamp(110px, 19vh, 190px); animation-delay: .15s; }
+.p3 .pod-block { height: clamp(80px, 13vh, 130px); animation-delay: .3s; }
+@keyframes rise { from { transform: scaleY(0); transform-origin: bottom; } to { transform: scaleY(1); transform-origin: bottom; } }
+.pod-rest {
+  margin: 24px auto 0;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.pod-rest div { display: flex; gap: 10px; padding: 8px 14px; border-radius: 10px; background: var(--stage-chip); }
+.pod-rest span { color: color-mix(in srgb, var(--stage-text) 60%, transparent); min-width: 2ch; }
+.pod-rest b { margin-left: auto; }
+.confetti {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 14px;
+  opacity: .95;
+  pointer-events: none;
+  animation: fall linear forwards;
+}
+@keyframes fall {
+  to { transform: translate(var(--drift), 110vh) rotate(var(--spin)); opacity: .9; }
+}
+
 /* ---------- Timer ---------- */
 .timer {
   display: flex;
@@ -859,3 +970,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .ed-clue textarea { resize: vertical; min-height: 64px; margin-bottom: 6px; font-size: 13px; }
 .ed-clue input { font-size: 13px; border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 6%, var(--field)); }
 .saved { font-size: 13px; font-weight: 600; color: var(--green); }
+.saved.error { color: var(--red); }
+.ed-img { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.ed-img input { font-size: 12px; padding: 7px 10px; background: var(--field); border-color: var(--line-strong); }
+.ed-img input.invalid { border-color: var(--red); }
+.ed-img img { width: 64px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.ed-img button { flex: none; }

@@ -16,6 +16,7 @@
   </div>
   <div class="player-page">
     <div class="waiting" id="waiting">Verbinde mit dem Spiel…</div>
+    <div class="turn-banner" id="turnBanner" hidden></div>
     <div class="board" id="board" hidden></div>
     <div class="scores" id="scores"></div>
   </div>
@@ -26,6 +27,7 @@
       <div class="timer-track"><div class="timer-fill"></div></div>
       <span class="timer-num"></span>
     </div>
+    <img class="clue-img" id="img" alt="" hidden>
     <div class="clue-text" id="q"></div>
     <div class="clue-answer" id="a"></div>
     <div class="buzz-area">
@@ -33,6 +35,10 @@
       <div class="buzz-info" id="buzzInfo" hidden></div>
     </div>
     <div class="scores" id="overlayScores"></div>
+  </div>
+
+  <div class="finish" id="finish">
+    <div class="finish-inner"><div id="podium"></div></div>
   </div>
 
   <div class="picker" id="picker" hidden>

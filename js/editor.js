@@ -7,10 +7,73 @@
   let savedTimer;
 
   function persist() {
-    J.saveSet(set);
-    savedEl.textContent = 'Gespeichert ✓';
+    const ok = J.saveSet(set);
+    savedEl.textContent = ok ? 'Gespeichert ✓' : 'Speichern fehlgeschlagen – Speicher voll?';
+    savedEl.classList.toggle('error', !ok);
     clearTimeout(savedTimer);
-    savedTimer = setTimeout(() => (savedEl.textContent = ''), 1200);
+    if (ok) savedTimer = setTimeout(() => (savedEl.textContent = ''), 1200);
+    return ok;
+  }
+
+  // Bild-Zeile pro Frage: Vorschau mit ✕, oder Link-Feld + Upload
+  function imageControls(clue) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ed-img';
+    function draw() {
+      wrap.innerHTML = '';
+      if (clue.img) {
+        const thumb = document.createElement('img');
+        thumb.src = clue.img;
+        thumb.alt = '';
+        const del = document.createElement('button');
+        del.className = 'small ghost';
+        del.textContent = '✕ Entfernen';
+        del.addEventListener('click', () => { clue.img = ''; persist(); draw(); });
+        wrap.append(thumb, del);
+        return;
+      }
+      const url = document.createElement('input');
+      url.placeholder = 'Bild-Link (optional)';
+      url.addEventListener('change', () => {
+        const v = J.safeImg(url.value);
+        if (url.value.trim() && !v) {
+          url.classList.add('invalid');
+          url.title = 'Link muss mit http:// oder https:// beginnen';
+          return;
+        }
+        clue.img = v;
+        persist();
+        draw();
+      });
+      const file = document.createElement('input');
+      file.type = 'file';
+      file.accept = 'image/*';
+      file.hidden = true;
+      const up = document.createElement('button');
+      up.className = 'small';
+      up.textContent = '📁';
+      up.title = 'Bild hochladen';
+      up.addEventListener('click', () => file.click());
+      file.addEventListener('change', async () => {
+        const f = file.files[0];
+        if (!f) return;
+        up.textContent = '…';
+        try {
+          clue.img = await J.compressImage(f);
+          if (!persist()) {
+            clue.img = '';
+            persist();
+            alert('Das Bild passt nicht mehr in den Browserspeicher. Nutze lieber einen Bild-Link oder entferne andere hochgeladene Bilder.');
+          }
+        } catch (e) {
+          alert(e.message);
+        }
+        draw();
+      });
+      wrap.append(url, up, file);
+    }
+    draw();
+    return wrap;
   }
 
   function render() {
@@ -39,7 +102,7 @@
         a.value = clue.a;
         a.placeholder = 'Antwort (nur Host)';
         a.addEventListener('input', () => { clue.a = a.value; persist(); });
-        box.append(q, a);
+        box.append(q, a, imageControls(clue));
         col.appendChild(box);
       });
       grid.appendChild(col);

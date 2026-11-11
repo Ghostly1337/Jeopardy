@@ -6,7 +6,7 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 
 ## So funktioniert's
 
-1. **Fragen bearbeiten** (`editor.html`): Kategorien, Fragen und Antworten eintragen. Speichert automatisch im Browser. Mit *Export* als `.json` sichern, mit *Import* wieder laden.
+1. **Fragen bearbeiten** (`editor.html`): Kategorien, Fragen und Antworten eintragen, optional ein Bild pro Frage (Bild-Link oder 📁 hochladen; Uploads werden automatisch verkleinert). Speichert automatisch im Browser. Mit *Export* als `.json` sichern, mit *Import* wieder laden.
 2. **Spiel hosten** (`host.html`): Raumcode und Beitrittslink werden angezeigt. Link an die Spieler schicken.
 3. **Spieler** öffnen den Link (oder geben auf der Startseite den Code ein). Sie sehen Board, Fragen und Punktestand live – aber **nie die Antworten**, solange du sie nicht aufdeckst.
 
@@ -17,6 +17,8 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - **⏱ 15-s-Timer**: per Button starten, läuft bei allen sichtbar runter, Signal bei 0.
 - **Buzzer zum Klauen**: Wird ein Spieler mit ✗ gewertet, öffnet sich bei allen anderen ein BUZZ-Knopf. Wer zuerst drückt, ist dran (⚡ im Host-Pult). Bei erneutem ✗ öffnet er für die Übrigen. Manuell öffnen/schließen geht auch.
 - Spieler wählen beim Beitreten ihren Namen aus deiner Liste (oder „Nur zuschauen“). Jeder Name kann nur von einem Gerät belegt werden (vergebene Namen sind ausgegraut). Ein grüner Punkt im Punkte-Panel zeigt, wer ein Gerät verbunden hat; Klick darauf trennt das Gerät und gibt den Namen frei.
+- **🎯 Am Zug**: Wer richtig antwortet, wählt das nächste Feld – angezeigt als Banner über dem Board und markierte Punktekachel. Mit 🎯 im Punkte-Panel manuell setzen.
+- **🏆 Siegerehrung**: Podium mit Platz 1–3 (Gleichstand teilt sich den Platz), restliche Plätze darunter, Konfetti und Fanfare bei allen. „Zurück zum Spiel“ oder Rückgängig schließt sie wieder.
 - **Sounds** beim Öffnen, Aufdecken, Richtig und Falsch – bei dir und bei allen Spielern. Abschaltbar im Host-Pult; Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
 - *Antwort aufdecken*, *Fertig → zurück zum Board*, *Abbrechen (Feld bleibt frei)*.
 - Punkte direkt ins Zahlenfeld tippen oder ±100. Namen anklicken zum Umbenennen.

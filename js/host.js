@@ -12,6 +12,8 @@
       used: JSON.parse(JSON.stringify(state.used)),
       players: JSON.parse(JSON.stringify(state.players)),
       current: state.current ? JSON.parse(JSON.stringify(state.current)) : null,
+      turn: state.turn,
+      finished: state.finished,
     };
   }
 
@@ -29,6 +31,8 @@
     state.used = snap.used;
     state.players = snap.players;
     state.current = snap.current;
+    state.turn = snap.turn || null;
+    state.finished = !!snap.finished;
     if (state.current) state.current.timer = null; // alte Timer nicht wiederbeleben
     commit();
   }
@@ -45,6 +49,8 @@
     renderClue();
     renderPlayers();
     renderLog();
+    renderFinish();
+    J.renderTurn($('turnBanner'), state.players, state.turn);
     $('r0').className = state.round === 0 ? 'primary' : '';
     $('r1').className = state.round === 1 ? 'primary' : '';
     $('undo').disabled = state.history.length === 0;
@@ -164,6 +170,9 @@
     const solved = Object.values(judged).includes('right');
     $('clueMeta').textContent = `${cat.name} – ${value}` + (cur.revealed ? ' · Antwort ist für Spieler sichtbar' : '');
     $('clueQ').textContent = clue.q;
+    const img = J.safeImg(clue.img);
+    $('clueImg').hidden = !img;
+    if (img && $('clueImg').getAttribute('src') !== img) $('clueImg').src = img;
     $('clueA').textContent = clue.a;
     $('reveal').disabled = cur.revealed;
 
@@ -218,6 +227,7 @@
         mutate(`${p.name} richtig (+${value})`, () => {
           p.score += value;
           state.current.judged[p.id] = 'right';
+          state.turn = p.id; // Wer richtig liegt, wählt das nächste Feld
           state.current.buzz = { open: false, winner: null };
           state.current.timer = null;
           state.current.revealed = true;
@@ -306,10 +316,19 @@
         if (confirm(`${p.name} entfernen?`)) {
           mutate(`${p.name} entfernt`, () => {
             state.players = state.players.filter((x) => x.id !== p.id);
+            if (state.turn === p.id) state.turn = null;
           });
         }
       });
-      btns.append(plus, minus, del);
+      const turnBtn = document.createElement('button');
+      const hasTurn = state.turn === p.id;
+      turnBtn.className = 'small turn-btn' + (hasTurn ? ' on' : '');
+      turnBtn.textContent = '🎯';
+      turnBtn.title = hasTurn ? 'Ist am Zug (klicken zum Aufheben)' : 'Ist am Zug setzen';
+      turnBtn.addEventListener('click', () =>
+        mutate(hasTurn ? 'Niemand am Zug' : `${p.name} ist am Zug`, () => { state.turn = hasTurn ? null : p.id; })
+      );
+      btns.append(turnBtn, plus, minus, del);
       row.append(name, score, btns);
       box.appendChild(row);
     });
@@ -354,6 +373,26 @@
     if (open) sound('buzzopen');
   });
   $('timerBtn').addEventListener('click', startTimer);
+
+  // ---------- Siegerehrung ----------
+  let shownFinished = false;
+  function renderFinish() {
+    const el = $('finish');
+    el.classList.toggle('show', !!state.finished);
+    if (state.finished) {
+      J.renderPodium($('podium'), state.players, set.title);
+      if (!shownFinished) J.confetti(el);
+    }
+    shownFinished = !!state.finished;
+  }
+  $('finishBtn').addEventListener('click', () => {
+    if (!state.players.length) { alert('Es gibt noch keine Spieler.'); return; }
+    mutate('🏆 Siegerehrung', () => { state.finished = true; state.current = null; });
+    sound('fanfare');
+  });
+  $('finishBack').addEventListener('click', () =>
+    mutate('Zurück zum Spiel', () => { state.finished = false; })
+  );
   $('timerStop').addEventListener('click', stopTimer);
   $('r0').addEventListener('click', () => state.round !== 0 && mutate('Runde 1', () => { state.round = 0; state.current = null; }));
   $('r1').addEventListener('click', () => state.round !== 1 && mutate('Runde 2', () => { state.round = 1; state.current = null; }));
@@ -374,6 +413,8 @@
       state.players.forEach((p) => (p.score = 0));
       state.current = null;
       state.round = 0;
+      state.turn = null;
+      state.finished = false;
     });
   });
   $('newCode').addEventListener('click', () => {

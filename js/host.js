@@ -29,6 +29,7 @@
     state.used = snap.used;
     state.players = snap.players;
     state.current = snap.current;
+    if (state.current) state.current.timer = null; // alte Timer nicht wiederbeleben
     commit();
   }
 
@@ -86,10 +87,62 @@
       return;
     }
     mutate(`Frage ${J.pointsFor(r, row)} „${set.rounds[r].categories[cat].name}“ geöffnet`, () => {
-      state.current = { round: r, cat, row, revealed: false, judged: {} };
+      state.current = {
+        round: r, cat, row, revealed: false, judged: {},
+        buzz: { open: false, winner: null }, timer: null,
+      };
     });
     sound('open');
   }
+
+  const nameOf = (pid) => (state.players.find((p) => p.id === pid) || {}).name || '?';
+
+  // ---------- Buzzer ----------
+  // Spieler, die bei dieser Frage noch nicht gewertet wurden
+  function unjudged() {
+    const j = state.current.judged || {};
+    return state.players.filter((p) => !j[p.id]);
+  }
+
+  function handleBuzz(conn) {
+    const cur = state.current;
+    const pid = conn.playerId;
+    if (!cur || !cur.buzz || !cur.buzz.open || !pid) return;
+    if (!state.players.some((p) => p.id === pid) || (cur.judged || {})[pid]) return;
+    mutate(`⚡ ${nameOf(pid)} buzzert`, () => {
+      cur.buzz = { open: false, winner: pid };
+      cur.timer = null;
+    });
+    sound('buzz');
+  }
+
+  // ---------- Timer ----------
+  let lastTickSec = null;
+  function startTimer() {
+    const total = window.JEOP_TIMER_MS || J.TIMER_MS;
+    state.current.timer = { endsAt: Date.now() + total, total };
+    lastTickSec = null;
+    commit(); // bewusst ohne Undo-Eintrag
+  }
+  function stopTimer() {
+    state.current.timer = null;
+    commit();
+  }
+  setInterval(() => {
+    const t = state.current && state.current.timer;
+    if (!t) { J.renderTimer($('timerBox'), null); return; }
+    const remaining = t.endsAt - Date.now();
+    if (remaining <= 0) {
+      state.current.timer = null;
+      commit();
+      sound('timeup');
+      return;
+    }
+    J.renderTimer($('timerBox'), remaining, t.total);
+    const sec = Math.ceil(remaining / 1000);
+    if (sec <= 5 && sec !== lastTickSec && J.soundOn()) J.sfx('tick');
+    lastTickSec = sec;
+  }, 100);
 
   // Sounds lokal abspielen und an alle Spieler schicken
   function sound(name) {
@@ -114,6 +167,26 @@
     $('clueA').textContent = clue.a;
     $('reveal').disabled = cur.revealed;
 
+    // Buzzer- und Timer-Steuerung
+    const buzz = cur.buzz || (cur.buzz = { open: false, winner: null });
+    const status = $('buzzStatus');
+    if (solved) {
+      status.textContent = '';
+    } else if (buzz.open) {
+      status.textContent = '🔔 Buzzer offen – wer zuerst drückt, darf antworten';
+    } else if (buzz.winner && !judged[buzz.winner]) {
+      status.textContent = `⚡ ${nameOf(buzz.winner)} hat gebuzzert und ist dran`;
+    } else {
+      status.textContent = '';
+    }
+    status.hidden = !status.textContent;
+    $('buzzBtn').textContent = buzz.open ? 'Buzzer schließen' : 'Buzzer öffnen';
+    $('buzzBtn').disabled = solved;
+    $('timerBtn').textContent = cur.timer ? '⏱ Neu starten' : '⏱ 15 s Timer';
+    $('timerStop').hidden = !cur.timer;
+    if (cur.timer) J.renderTimer($('timerBox'), Math.max(0, cur.timer.endsAt - Date.now()), cur.timer.total);
+    else J.renderTimer($('timerBox'), null);
+
     const judge = $('judge');
     judge.innerHTML = '';
     if (!state.players.length) {
@@ -122,10 +195,11 @@
     state.players.forEach((p) => {
       const verdict = judged[p.id];
       const rowEl = document.createElement('div');
-      rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '');
+      const isWinner = buzz.winner === p.id && !verdict;
+      rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '') + (isWinner ? ' buzzed' : '');
       const name = document.createElement('span');
       name.className = 'name';
-      name.textContent = p.name;
+      name.textContent = (isWinner ? '⚡ ' : '') + p.name;
       // Pro Frage: nur ein Spieler kann richtig liegen, jeder Spieler wird höchstens einmal gewertet.
       // Korrekturen gehen über „Rückgängig“.
       if (verdict) {
@@ -144,6 +218,8 @@
         mutate(`${p.name} richtig (+${value})`, () => {
           p.score += value;
           state.current.judged[p.id] = 'right';
+          state.current.buzz = { open: false, winner: null };
+          state.current.timer = null;
           state.current.revealed = true;
           state.used[cur.round][cur.cat][cur.row] = true;
         });
@@ -154,11 +230,21 @@
       bad.textContent = `✗ −${penalty}`;
       bad.disabled = solved;
       bad.addEventListener('click', () => {
+        let opened = false;
         mutate(`${p.name} falsch (−${penalty})`, () => {
           p.score -= penalty;
           state.current.judged[p.id] = 'wrong';
+          state.current.timer = null;
+          // Klauen: Buzzer öffnet für alle, die noch nicht gewertet wurden
+          opened = unjudged().length > 0;
+          state.current.buzz = { open: opened, winner: null };
         });
         sound('wrong');
+        if (opened) {
+          setTimeout(() => {
+            if (state.current && state.current.buzz && state.current.buzz.open) sound('buzzopen');
+          }, 650);
+        }
       });
       rowEl.append(name, ok, bad);
       judge.appendChild(rowEl);
@@ -175,7 +261,12 @@
       const name = document.createElement('span');
       name.className = 'pname';
       name.textContent = p.name;
-      name.style.cursor = 'pointer';
+      if (linkedPlayers().has(p.id)) {
+        const dev = document.createElement('span');
+        dev.className = 'device';
+        dev.title = 'Gerät verbunden';
+        name.prepend(dev);
+      }
       name.addEventListener('click', () => {
         const n = prompt('Neuer Name', p.name);
         if (n && n.trim() && n.trim() !== p.name) {
@@ -251,6 +342,15 @@
   $('cancel').addEventListener('click', () =>
     mutate('Frage abgebrochen', () => { state.current = null; })
   );
+  $('buzzBtn').addEventListener('click', () => {
+    const open = !state.current.buzz.open;
+    mutate(open ? 'Buzzer geöffnet' : 'Buzzer geschlossen', () => {
+      state.current.buzz = { open, winner: null };
+    });
+    if (open) sound('buzzopen');
+  });
+  $('timerBtn').addEventListener('click', startTimer);
+  $('timerStop').addEventListener('click', stopTimer);
   $('r0').addEventListener('click', () => state.round !== 0 && mutate('Runde 1', () => { state.round = 0; state.current = null; }));
   $('r1').addEventListener('click', () => state.round !== 1 && mutate('Runde 2', () => { state.round = 1; state.current = null; }));
   $('undo').addEventListener('click', undo);
@@ -338,7 +438,26 @@
   }
 
   function updateViewers() {
-    $('viewers').textContent = `${conns.size} Zuschauer`;
+    $('viewers').textContent = `${conns.size} verbunden`;
+    renderPlayers();
+  }
+
+  // Welche Spieler haben ein Gerät verbunden?
+  function linkedPlayers() {
+    const ids = new Set();
+    conns.forEach((c) => { if (c.open && c.playerId) ids.add(c.playerId); });
+    return ids;
+  }
+
+  function onData(conn, msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.type === 'hello') {
+      const pid = typeof msg.playerId === 'string' ? msg.playerId : null;
+      conn.playerId = state.players.some((p) => p.id === pid) ? pid : null;
+      renderPlayers();
+    } else if (msg.type === 'buzz') {
+      handleBuzz(conn);
+    }
   }
 
   function message() {
@@ -363,6 +482,7 @@
         updateViewers();
         conn.send(message());
       });
+      conn.on('data', (msg) => onData(conn, msg));
       conn.on('close', () => { conns.delete(conn); updateViewers(); });
       conn.on('error', () => { conns.delete(conn); updateViewers(); });
     });

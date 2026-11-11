@@ -14,6 +14,9 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - Feld anklicken → Frage öffnet sich bei allen; nur du siehst die Antwort.
 - Pro Spieler **✓ +Wert** (richtig, deckt Antwort auf, Feld wird verbraucht) oder **✗ −halber Wert** (falsch).
 - Jeder Spieler wird pro Frage nur einmal gewertet, und nur einer kann richtig liegen. Fehler korrigierst du mit *Rückgängig*.
+- **⏱ 15-s-Timer**: per Button starten, läuft bei allen sichtbar runter, Signal bei 0.
+- **Buzzer zum Klauen**: Wird ein Spieler mit ✗ gewertet, öffnet sich bei allen anderen ein BUZZ-Knopf. Wer zuerst drückt, ist dran (⚡ im Host-Pult). Bei erneutem ✗ öffnet er für die Übrigen. Manuell öffnen/schließen geht auch.
+- Spieler wählen beim Beitreten ihren Namen aus deiner Liste (oder „Nur zuschauen“). Ein grüner Punkt im Punkte-Panel zeigt, wer ein Gerät verbunden hat.
 - **Sounds** beim Öffnen, Aufdecken, Richtig und Falsch – bei dir und bei allen Spielern. Abschaltbar im Host-Pult; Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
 - *Antwort aufdecken*, *Fertig → zurück zum Board*, *Abbrechen (Feld bleibt frei)*.
 - Punkte direkt ins Zahlenfeld tippen oder ±100. Namen anklicken zum Umbenennen.

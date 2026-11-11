@@ -620,6 +620,8 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .picker-card h2 { margin: 0 0 16px; font-size: 22px; }
 .picker-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .pick { padding: 16px 10px; font-size: 16px; }
+.picker-empty { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0 0 16px; }
+.picker-list:empty { display: none; }
 .pick:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- Host ---------- */

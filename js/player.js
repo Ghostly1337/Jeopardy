@@ -65,10 +65,12 @@
   function renderMe() {
     if (!last) return;
     const valid = me === 'watch' || myPlayer();
-    // Noch nicht gewählt oder Spieler wurde gelöscht → Auswahl zeigen (nur wenn es Spieler gibt)
-    if (!valid && last.players.length) {
+    // Noch nicht gewählt oder Spieler wurde gelöscht → Auswahl zeigen, Board bleibt verdeckt.
+    // Ohne Spieler gibt es nur „Nur zuschauen“; die Liste füllt sich live, sobald der Host Spieler anlegt.
+    if (!valid) {
       const list = $('pickerList');
       list.innerHTML = '';
+      $('pickerEmpty').hidden = last.players.length > 0;
       last.players.forEach((p) => {
         const b = document.createElement('button');
         b.className = 'pick';

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jeopardy</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="status bad" id="status">verbinde…</div>
+  <div class="player-page">
+    <div class="waiting" id="waiting">Verbinde mit dem Spiel…</div>
+    <div class="board" id="board" hidden></div>
+    <div class="scores" id="scores"></div>
+  </div>
+
+  <div class="clue-overlay" id="overlay">
+    <div class="clue-meta" id="meta"></div>
+    <div class="clue-text" id="q"></div>
+    <div class="clue-answer" id="a"></div>
+    <div class="scores" id="overlayScores"></div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/player.js"></script>
+</body>
+</html>

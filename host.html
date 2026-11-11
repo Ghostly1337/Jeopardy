@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jeopardy Host</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="host">
+  <div class="host-page">
+    <main>
+      <div class="topbar">
+        <div class="room">
+          <span>Raum</span>
+          <span class="code" id="code">------</span>
+          <button class="small" id="copy">Link kopieren</button>
+          <span class="status-inline" id="peerStatus">verbinde…</span>
+          <span class="hint" id="viewers">0 Zuschauer</span>
+          <div class="link" id="link"></div>
+        </div>
+        <div class="spacer"></div>
+        <button id="r0">Runde 1</button>
+        <button id="r1">Runde 2</button>
+      </div>
+
+      <section class="host-clue" id="clue">
+        <div class="meta" id="clueMeta"></div>
+        <div class="q" id="clueQ"></div>
+        <div class="a" id="clueA"></div>
+        <div class="judge" id="judge"></div>
+        <div class="clue-actions">
+          <button class="gold" id="reveal">Antwort für Spieler aufdecken</button>
+          <button id="close">Fertig → zurück zum Board</button>
+          <button class="ghost" id="cancel">Abbrechen (Feld bleibt frei)</button>
+        </div>
+      </section>
+
+      <div class="board" id="board" style="margin-top:12px"></div>
+      <p class="hint">Klick auf ein Feld öffnet die Frage. Klick auf ein bereits gespieltes Feld gibt es wieder frei.</p>
+    </main>
+
+    <aside class="side">
+      <div class="panel">
+        <h3>Punkte</h3>
+        <div id="players"></div>
+        <form class="add-player" id="addForm">
+          <input id="newName" placeholder="Spielername" maxlength="30">
+          <button type="submit">+</button>
+        </form>
+        <p class="hint">Punkte direkt ins Feld tippen oder mit ± anpassen. Namen anklicken zum Umbenennen.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Verlauf</h3>
+        <p><button id="undo">↶ Rückgängig</button></p>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Spiel</h3>
+        <p class="row" style="display:flex;gap:6px;flex-wrap:wrap">
+          <a href="editor.html" target="_blank"><button type="button">Fragen bearbeiten</button></a>
+          <button class="ghost" id="resetGame">Spielstand zurücksetzen</button>
+          <button class="ghost" id="newCode">Neuer Raumcode</button>
+        </p>
+        <p class="hint">Änderungen im Editor (anderer Tab) werden sofort übernommen.</p>
+      </div>
+    </aside>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/host.js"></script>
+</body>
+</html>

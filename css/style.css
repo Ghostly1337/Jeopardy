@@ -1,0 +1,319 @@
+:root {
+  --blue: #060ce9;
+  --blue-dark: #00048f;
+  --bg: #0b0f3a;
+  --gold: #ffcc00;
+  --text: #ffffff;
+  --muted: #a9b0e8;
+  --panel: #151a52;
+  --border: #000;
+  --green: #1e9e4a;
+  --red: #c62828;
+  --font: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+a { color: var(--gold); }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: bold;
+}
+button:hover { filter: brightness(1.15); }
+button:disabled { opacity: .4; cursor: default; filter: none; }
+button.gold { background: var(--gold); color: #000; }
+button.green { background: var(--green); }
+button.red { background: var(--red); }
+button.ghost { background: transparent; border: 1px solid var(--muted); color: var(--muted); }
+button.small { padding: 4px 8px; font-size: 13px; }
+
+input, textarea {
+  font: inherit;
+  background: #fff;
+  color: #000;
+  border: 1px solid #888;
+  border-radius: 4px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+/* ---------- Startseite ---------- */
+.home {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 48px 16px;
+  text-align: center;
+}
+.home h1 {
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: clamp(40px, 10vw, 72px);
+  margin: 0 0 32px;
+  text-shadow: 3px 3px 0 #000;
+}
+.home .card {
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.home .card h2 { margin-top: 0; font-size: 20px; }
+.home .row { display: flex; gap: 8px; }
+.home .row input { text-transform: uppercase; letter-spacing: 3px; font-weight: bold; }
+
+/* ---------- Board ---------- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  background: var(--border);
+  padding: 6px;
+  border-radius: 6px;
+}
+.cell {
+  background: var(--blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 70px;
+  padding: 6px;
+  user-select: none;
+}
+.cell.cat {
+  font-family: var(--font);
+  text-transform: uppercase;
+  font-size: clamp(10px, 1.4vw, 20px);
+  line-height: 1.15;
+  min-height: 80px;
+  word-break: break-word;
+}
+.cell.val {
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: clamp(18px, 3.2vw, 48px);
+  text-shadow: 2px 2px 0 #000;
+}
+.cell.val.used { color: transparent; text-shadow: none; background: var(--blue-dark); }
+.host .cell.val { cursor: pointer; }
+.host .cell.val:hover { outline: 3px solid var(--gold); outline-offset: -3px; }
+.host .cell.val.used { color: rgba(255,255,255,.18); }
+.cell.val.active { outline: 4px solid #fff; outline-offset: -4px; }
+
+/* ---------- Punkte ---------- */
+.scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.score {
+  background: var(--blue);
+  border: 3px solid #000;
+  min-width: 130px;
+  text-align: center;
+  padding: 8px 12px;
+}
+.score-name { font-weight: bold; font-size: clamp(14px, 1.6vw, 22px); }
+.score-value {
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: clamp(20px, 2.6vw, 38px);
+}
+.score-value.neg { color: #ff7b7b; }
+.score-empty { color: var(--muted); padding: 12px; }
+
+/* ---------- Spieleransicht ---------- */
+.player-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+.player-page .board { flex: 1; grid-auto-rows: 1fr; }
+.player-page .cell.val { min-height: 0; }
+.status {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.6);
+  z-index: 20;
+}
+.status.ok::before { content: "● "; color: #3ddc84; }
+.status.bad::before { content: "● "; color: #ff5252; }
+
+.clue-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--blue);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 6vw;
+  text-align: center;
+  z-index: 10;
+}
+.clue-overlay.show { display: flex; }
+.clue-meta {
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: clamp(16px, 2.4vw, 32px);
+  margin-bottom: 4vh;
+  text-transform: uppercase;
+}
+.clue-text {
+  font-family: var(--font);
+  font-size: clamp(22px, 4.5vw, 64px);
+  line-height: 1.25;
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0 #000;
+  white-space: pre-wrap;
+}
+.clue-answer {
+  margin-top: 5vh;
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: clamp(20px, 3.6vw, 52px);
+  text-shadow: 3px 3px 0 #000;
+  white-space: pre-wrap;
+}
+.clue-overlay .scores { position: absolute; bottom: 12px; left: 12px; right: 12px; }
+.clue-overlay .score { min-width: 100px; padding: 4px 8px; }
+
+.waiting {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 22px;
+  color: var(--muted);
+}
+
+/* ---------- Host ---------- */
+.host-page {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 12px;
+  padding: 12px;
+  min-height: 100vh;
+}
+@media (max-width: 900px) {
+  .host-page { grid-template-columns: 1fr; }
+}
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.topbar .spacer { flex: 1; }
+.room {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.room .code {
+  font-family: var(--font);
+  color: var(--gold);
+  font-size: 22px;
+  letter-spacing: 3px;
+}
+.room .link { font-size: 12px; color: var(--muted); word-break: break-all; }
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.panel {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+}
+.panel h3 { margin: 0 0 10px; font-size: 16px; color: var(--gold); }
+.prow {
+  display: grid;
+  grid-template-columns: 1fr 90px auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.prow .pname { font-weight: bold; }
+.prow input.pscore { text-align: right; padding: 4px 6px; }
+.prow .pbtns { display: flex; gap: 3px; }
+.add-player { display: flex; gap: 6px; }
+.hint { font-size: 12px; color: var(--muted); }
+
+.host-clue {
+  display: none;
+  background: var(--blue);
+  border: 3px solid #000;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.host-clue.show { display: block; }
+.host-clue .meta { color: var(--gold); font-weight: bold; margin-bottom: 8px; }
+.host-clue .q { font-size: 22px; font-weight: bold; white-space: pre-wrap; }
+.host-clue .a {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,.35);
+  border-left: 4px solid var(--gold);
+  font-size: 20px;
+  white-space: pre-wrap;
+}
+.host-clue .a::before { content: "Antwort (nur du): "; color: var(--gold); font-size: 13px; display: block; }
+.judge { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.judge .jrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.judge .jrow .name { min-width: 110px; font-weight: bold; }
+.clue-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.clue-actions #close { background: var(--blue-dark); border: 1px solid #fff; }
+.clue-actions #cancel { border-color: #fff; color: #fff; }
+
+.log { font-size: 12px; color: var(--muted); max-height: 160px; overflow: auto; }
+
+/* ---------- Editor ---------- */
+.editor { max-width: 1400px; margin: 0 auto; padding: 12px 16px 48px; }
+.editor .tabs { display: flex; gap: 6px; margin: 12px 0; }
+.editor .tabs button.active { background: var(--gold); color: #000; }
+.ed-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(200px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+}
+.ed-cat { background: var(--panel); border-radius: 8px; padding: 8px; }
+.ed-cat > input { font-weight: bold; margin-bottom: 8px; }
+.ed-clue { background: var(--blue-dark); border-radius: 6px; padding: 6px; margin-bottom: 6px; }
+.ed-clue .pts { color: var(--gold); font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+.ed-clue textarea { resize: vertical; min-height: 54px; margin-bottom: 4px; font-size: 13px; }
+.ed-clue input { font-size: 13px; background: #fff7d6; }
+.saved { font-size: 12px; color: #3ddc84; }

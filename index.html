@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jeopardy</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="home">
+    <h1>JEOPARDY!</h1>
+
+    <div class="card">
+      <h2>Als Spieler beitreten</h2>
+      <form class="row" id="joinForm">
+        <input id="code" maxlength="6" placeholder="RAUMCODE" autocomplete="off" required>
+        <button class="gold" type="submit">Beitreten</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Spielleitung</h2>
+      <p class="row">
+        <a href="host.html"><button class="gold" type="button">Spiel hosten</button></a>
+        <a href="editor.html"><button type="button">Fragen bearbeiten</button></a>
+      </p>
+      <p class="hint">Fragen und Spielstand werden nur in deinem Browser gespeichert.</p>
+    </div>
+  </main>
+  <script>
+    document.getElementById('joinForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = document.getElementById('code').value.trim().toUpperCase();
+      if (code) location.href = 'player.html?room=' + encodeURIComponent(code);
+    });
+  </script>
+</body>
+</html>

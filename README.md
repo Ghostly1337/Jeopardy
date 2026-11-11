@@ -12,7 +12,9 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 
 ### Im Host-Pult
 - Feld anklicken → Frage öffnet sich bei allen; nur du siehst die Antwort.
-- Pro Spieler **✓ +Wert** (richtig, deckt Antwort auf, Feld wird verbraucht) oder **✗ −Wert** (falsch).
+- Pro Spieler **✓ +Wert** (richtig, deckt Antwort auf, Feld wird verbraucht) oder **✗ −halber Wert** (falsch).
+- Jeder Spieler wird pro Frage nur einmal gewertet, und nur einer kann richtig liegen. Fehler korrigierst du mit *Rückgängig*.
+- **Sounds** beim Öffnen, Aufdecken, Richtig und Falsch – bei dir und bei allen Spielern. Abschaltbar im Host-Pult; Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
 - *Antwort aufdecken*, *Fertig → zurück zum Board*, *Abbrechen (Feld bleibt frei)*.
 - Punkte direkt ins Zahlenfeld tippen oder ±100. Namen anklicken zum Umbenennen.
 - **Rückgängig** (oder Strg+Z) macht jede Aktion schrittweise rückgängig, inkl. Punkte und Felder.

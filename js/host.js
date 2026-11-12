@@ -599,7 +599,6 @@
     state.intro = { round: state.round, step: 0 };
     commit();
     sound('intro');
-    if (J.soundOn()) J.startIntroMusic();
     introTimer = setTimeout(nextIntroStep, INTRO_TITLE_MS);
   }
   function nextIntroStep() {
@@ -615,7 +614,6 @@
     clearTimeout(introTimer);
     if (!state.intro) return;
     state.intro = null;
-    J.stopIntroMusic();
     // Punktefelder „austeilen“
     $('board').classList.toggle('deal', !!deal);
     clearTimeout(dealTimer);

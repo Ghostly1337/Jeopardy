@@ -158,7 +158,7 @@
     if (J.isEarly(reaction)) return; // unmenschlich schnell = Frühstart, zählt nicht
     if (!pendingBuzz || pendingBuzz.id !== cur.buzz.id) {
       pendingBuzz = { id: cur.buzz.id, entries: new Map() };
-      setTimeout(decideBuzz, window.JEOP_BUZZ_WINDOW_MS || J.BUZZ_WINDOW_MS);
+      setTimeout(decideBuzz, window.JEOP_BUZZ_WINDOW_MS || (J.net.mode === 'relay' ? J.BUZZ_WINDOW_RELAY_MS : J.BUZZ_WINDOW_MS));
     }
     // Pro Spieler/Team zählt die schnellste Reaktion (im Team-Modus kann jedes Mitglied drücken)
     const prev = pendingBuzz.entries.get(pid);
@@ -642,7 +642,7 @@
   }
   renderThemes();
 
-  // ---------- Netzwerk (PeerJS) ----------
+  // ---------- Netzwerk (PeerJS oder Relay, siehe net.js) ----------
   const code = J.roomCode();
   // Verbindungshilfe: TURN-Zugang wandert im #-Teil des Links mit (wird nicht an Server übertragen)
   const turn = J.loadTurn();
@@ -786,11 +786,11 @@
   }
 
   function startPeer() {
-    if (typeof Peer === 'undefined') {
+    if (!J.net.available()) {
       setStatus('PeerJS nicht geladen (offline?)', false);
       return;
     }
-    peer = new Peer(J.peerId(code), peerOptions());
+    peer = J.net.createPeer(J.peerId(code), peerOptions());
     peer.on('open', () => setStatus('online', true));
     peer.on('connection', (conn) => {
       // Selbsttest-Verbindung: nur bestätigen, nicht als Spieler zählen
@@ -844,7 +844,8 @@
     setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} }, 500);
   }
   function selfCheck() {
-    if (!peer || peer.destroyed || probeBusy || typeof Peer === 'undefined') return;
+    // Das Relay erkennt Abbrüche selbst (jede Abfrage geht zum Server), der Selbsttest gilt nur für WebRTC.
+    if (J.net.mode !== 'peer' || !peer || peer.destroyed || probeBusy || typeof Peer === 'undefined') return;
     if (peer.disconnected) { reRegister(); return; }
     probeBusy = true;
     let done = false;
@@ -906,9 +907,11 @@
     location.reload();
   });
   renderTurnBox();
+  // Übers Relay (Vercel) wird keine Verbindungshilfe gebraucht
+  J.net.ready.then((m) => { $('turnBox').hidden = m === 'relay'; });
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
 
   render();
-  startPeer();
+  J.net.ready.then(startPeer);
 })();

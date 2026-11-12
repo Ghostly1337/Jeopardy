@@ -1,0 +1,8 @@
+.crew
+.github
+.ecc
+tests
+test-results
+node_modules
+README.md
+.env*

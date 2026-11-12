@@ -2,6 +2,8 @@
 // - statischer Webserver für das Repo
 // - eigener PeerJS-Vermittlungsserver (kein Internet nötig)
 // - Chromium über Playwright; das PeerJS-Skript vom CDN wird lokal ausgeliefert
+// - mit E2E_TRANSPORT=relay stattdessen das HTTP-Relay (api/relay) mit Speicher-Backend,
+//   so wie die Seite auf Vercel läuft
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -44,11 +46,37 @@ async function startTurn() {
   };
 }
 
+const TRANSPORT = process.env.E2E_TRANSPORT === 'relay' ? 'relay' : 'peer';
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.setEncoding('utf8');
+    req.on('data', (c) => { data += c; });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
 async function startEnv(init = {}) {
   const webPort = await freePort();
   const peerPort = await freePort();
+  let relay = null;
+  if (TRANSPORT === 'relay') {
+    const { handleRelay } = await import('../../lib/relay-core.mjs');
+    const { memoryStore } = await import('../../lib/relay-stores.mjs');
+    const store = memoryStore();
+    relay = async (req, res) => {
+      const u = new URL(req.url, 'http://x');
+      const rawBody = req.method === 'POST' ? await readBody(req) : '';
+      const { status, json } = await handleRelay({ method: req.method, query: u.searchParams, rawBody }, store);
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(json));
+    };
+  }
 
   const web = http.createServer((req, res) => {
+    if (relay && req.url.startsWith('/api/relay')) return relay(req, res);
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p.endsWith('/')) p += 'index.html';
     const file = path.join(ROOT, p);
@@ -153,4 +181,4 @@ async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true 
 const scoresOf = (page, sel = '#scores') =>
   page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
 
-module.exports = { startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };
+module.exports = { TRANSPORT, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

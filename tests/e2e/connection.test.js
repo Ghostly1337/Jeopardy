@@ -1,7 +1,7 @@
 // Runden-Intro und Verbindung: Host-Selbsttest nach stillem Verbindungsabbruch
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, openHost, joinPlayer } = require('./helpers');
+const { TRANSPORT, startEnv, openHost, joinPlayer } = require('./helpers');
 
 let env;
 test.before(async () => { env = await startEnv({ JEOP_INTRO_MS: 500, JEOP_SELFCHECK_MS: 3000 }); });
@@ -50,7 +50,8 @@ test('Runden-Intro bei Host und Spieler', async (t) => {
   await p.context().close();
 });
 
-test('Host meldet sich nach stillem Verbindungsabbruch neu an', async () => {
+// Betrifft nur WebRTC: das Relay fragt ohnehin ständig beim Server nach
+test('Host meldet sich nach stillem Verbindungsabbruch neu an', { skip: TRANSPORT === 'relay' }, async () => {
   const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
   const a = await joinPlayer(env, code, { pick: 'Anna' });
 

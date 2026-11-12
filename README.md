@@ -1,6 +1,7 @@
 # Jeopardy
 
-**▶ Spielen: https://ghostly1337.github.io/Jeopardy/**
+**▶ Spielen: https://ghostly1337.github.io/Jeopardy/** (WebRTC, am besten im selben WLAN)  
+**▶ Netzunabhängig: https://jeopardy-cyan-two.vercel.app** (Vercel-Fork mit Passwort, siehe unten)
 
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 
@@ -38,7 +39,25 @@ Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verli
 ## Technik
 Reines HTML/CSS/JS ohne Build. Live-Sync per WebRTC über [PeerJS](https://peerjs.com/) und dessen kostenlosen öffentlichen Vermittlungsserver. Dein Browser ist die einzige Datenquelle; die Spieler bekommen nur einen gefilterten Stand ohne Antworten.
 
-### Verbindungshilfe (Uni-/Firmen-WLAN)
+Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: die **Verbindungshilfe** (TURN, für GitHub Pages) oder die **Vercel-Variante** (Relay, empfohlen).
+
+## Hosting auf Vercel (netzunabhängig, mit Passwort)
+Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **HTTP-Relay** (`api/relay.mjs`): Host und Spieler schicken ihre Nachrichten per HTTPS an eine Vercel Function, die sie in einer Postgres-Datenbank (Neon, Region Frankfurt) zwischenlagert und per Long-Polling ausliefert. Das funktioniert in jedem Netz, in dem normale Webseiten gehen. Die Seite erkennt das Relay selbst (`api/relay?op=ping`); auf GitHub Pages oder lokal bleibt es bei WebRTC.
+
+- **Passwort**: `middleware.js` sperrt die ganze Seite hinter einem gemeinsamen Passwort aus der Umgebungsvariable `JEOPARDY_PASSWORD` (Cookie 30 Tage). Passwort ändern = alle müssen es neu eingeben.
+- **Datenbank**: Neon-Integration im Vercel-Marketplace (`vercel integration add neon`); sie setzt `DATABASE_URL`. Die Tabellen `jeop_rooms`/`jeop_msgs` legt das Relay selbst an. Nachrichten werden nach 10 Minuten gelöscht, Räume nach 2 Tagen ohne Host.
+- **Fairer Buzzer**: Übers Relay sammelt der Host nach dem ersten Buzz 0,9 s statt 0,4 s, weil HTTP-Nachrichten ungleichmäßiger ankommen. Es zählt weiterhin die Reaktionszeit auf dem Gerät.
+
+Einrichten (einmalig, mit [Vercel CLI](https://vercel.com/docs/cli)):
+
+```bash
+vercel link
+vercel integration add neon --meta region=fra1
+vercel env add JEOPARDY_PASSWORD production
+vercel deploy --prod
+```
+
+### Verbindungshilfe (nur GitHub Pages / WebRTC)
 Bleiben Spieler bei „Verbinde mit dem Spiel…“ hängen, blockiert das Netz direkte Verbindungen – typisch, wenn alle im selben Uni-WLAN sind. Die Spielerseite zeigt das nach einigen Sekunden an. Lösung: Im Host-Pult unter **🛜 Verbindungshilfe** einen TURN-Zugang eintragen (z. B. kostenlos von [Metered](https://www.metered.ca/stun-turn): Adressen, Benutzername, Passwort; am besten mit `turns:…:443`, das kommt durch fast jede Firewall). Der Zugang wird nur im Browser des Hosts gespeichert und im `#`-Teil des Beitrittslinks an die Spieler weitergegeben – er landet nicht im Code und nicht auf einem Server. Danach den Link neu verschicken.
 
 ## Tests
@@ -48,7 +67,8 @@ npm ci
 npx playwright install chromium   # einmalig
 npm test                          # Unit- und Browser-Tests
 npm run test:unit                 # nur Spiellogik (Sekunden, kein Browser)
-npm run test:e2e                  # nur Browser-Tests
+npm run test:e2e                  # nur Browser-Tests (WebRTC)
+npm run test:e2e:relay            # Browser-Tests über das HTTP-Relay (wie auf Vercel)
 ```
 
 - **Unit-Tests** (`tests/unit/`, `node:test`): Spielregeln aus `js/common.js` – Punkte, halbe Punkte beim Klauen, Reihenfolge, Frühstart-Regeln, Buzzer-Auswertung, Teamgröße, Rangliste, Auszeichnungen, und dass der öffentliche Spielstand **nie Antworten** enthält.

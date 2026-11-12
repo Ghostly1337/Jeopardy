@@ -38,6 +38,9 @@
       clearTimeout(dealTimer);
       dealTimer = setTimeout(() => board.classList.remove('deal'), 2000);
     }
+    // TV-Ansicht spielt die Intro-Musik
+    if (me === 'tv' && intro && !prevIntro && J.soundOn()) J.startIntroMusic();
+    if (!intro && prevIntro) J.stopIntroMusic();
     prevIntro = !!intro;
     J.renderIntro($('intro'), intro, s.round, s.values);
     let html = s.categories.map((c, i) => `<div class="cell cat${J.introCellClass(intro, i)}">${J.escapeHtml(c)}</div>`).join('');
@@ -53,7 +56,16 @@
     J.renderTurn($('turnBanner'), s.players, s.turn);
 
     const cur = s.current;
-    $('overlay').classList.toggle('show', !!cur);
+    const ov = $('overlay');
+    const clueKey = cur ? `${s.round}:${cur.cat}:${cur.row}` : null;
+    const opened = cur && clueKey !== lastClueKey;
+    ov.classList.toggle('show', !!cur);
+    if (opened && !zoomFromCell(ov)) {
+      ov.classList.add('entering');
+      clearTimeout(ov.__enter);
+      ov.__enter = setTimeout(() => ov.classList.remove('entering'), 400);
+    }
+    if (!cur) ov.classList.remove('fx-right', 'fx-wrong');
     if (cur) {
       $('meta').textContent = `${cur.category} – ${cur.value}`;
       $('q').textContent = cur.q;
@@ -64,7 +76,11 @@
       img.classList.toggle('pixel', !!cur.pixel);
       $('a').textContent = cur.a || '';
       J.renderScores($('overlayScores'), s.players, s.turn);
+      judgeEffects(ov, opened ? {} : prevJudged, cur.judged || {});
+      buzzShow(cur, clueKey, s);
     }
+    lastClueKey = clueKey;
+    prevJudged = cur ? { ...(cur.judged || {}) } : {};
 
     // Siegerehrung
     $('finish').classList.toggle('show', !!s.finished);
@@ -92,6 +108,61 @@
   let prevIntro = false;
   let dealTimer = null;
   let wasFinished = false;
+  let lastClueKey = null;
+  let prevJudged = {};
+
+  // ---------- Animationen ----------
+  // Frage wächst aus dem angeklickten Feld heraus
+  function zoomFromCell(ov) {
+    const cell = $('board').querySelector('.cell.val.active');
+    const r = cell && cell.getBoundingClientRect();
+    if (!r || !r.width || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    ov.style.animation = 'none';
+    ov.style.transition = 'none';
+    ov.style.transformOrigin = '0 0';
+    ov.style.transform = `translate(${r.left}px, ${r.top}px) scale(${r.width / window.innerWidth}, ${r.height / window.innerHeight})`;
+    ov.classList.add('zoom-in');
+    void ov.offsetWidth;
+    ov.style.transition = 'transform .45s cubic-bezier(.2, .8, .2, 1)';
+    ov.style.transform = 'none';
+    clearTimeout(ov.__zoom);
+    ov.__zoom = setTimeout(() => {
+      ov.classList.remove('zoom-in');
+      ov.style.animation = ov.style.transition = ov.style.transform = ov.style.transformOrigin = '';
+    }, 700);
+    return true;
+  }
+
+  // Grüner Puls bei richtig, roter Wackler bei falsch (nur für neue Wertungen)
+  function judgeEffects(ov, before, now) {
+    const fresh = Object.keys(now).filter((id) => !before[id]).map((id) => now[id]);
+    if (!fresh.length) return;
+    const cls = fresh.includes('right') ? 'fx-right' : 'fx-wrong';
+    ov.classList.remove('fx-right', 'fx-wrong');
+    void ov.offsetWidth;
+    ov.classList.add(cls);
+    clearTimeout(ov.__fx);
+    ov.__fx = setTimeout(() => ov.classList.remove(cls), 1000); // sonst startet es beim nächsten Öffnen erneut
+  }
+
+  // TV-Ansicht: wer buzzert, erscheint kurz groß
+  let lastBuzzShown = null;
+  function buzzShow(cur, clueKey, s) {
+    const buzz = cur.buzz || {};
+    if (me !== 'tv' || !buzz.winner || (cur.judged || {})[buzz.winner]) return;
+    const key = clueKey + ':' + (buzz.id || '') + ':' + buzz.winner;
+    if (key === lastBuzzShown) return;
+    lastBuzzShown = key;
+    const p = s.players.find((x) => x.id === buzz.winner);
+    const name = s.mode === 'team' && buzz.winnerName ? `${buzz.winnerName} (${p ? p.name : '?'})` : (p ? p.name : '?');
+    const el = $('buzzShow');
+    el.querySelector('.buzz-show-name').textContent = '⚡ ' + name;
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+    clearTimeout(el.__t);
+    el.__t = setTimeout(() => el.classList.remove('go'), 1700);
+  }
 
   const myPlayer = () => (last && last.players.find((p) => p.id === me)) || null;
 
@@ -335,16 +406,25 @@
   let timerTotal = 0;
   let lastTick = null;
   function syncTimer(t) {
-    if (!t) { timerEnd = null; J.renderTimer($('timerBox'), null); return; }
-    timerEnd = Date.now() + t.remaining;
+    if (!t) {
+      timerEnd = null;
+      J.renderTimer($('timerBox'), null);
+      if (J.timerMusicOn()) J.stopTimerMusic();
+      return;
+    }
+    const end = Date.now() + t.remaining;
+    // TV-Ansicht spielt den Timer-Sound; neu starten, wenn der Timer neu gestartet wurde
+    const restarted = timerEnd == null || end > timerEnd + 1000;
+    timerEnd = end;
     timerTotal = t.total;
+    if (me === 'tv' && restarted && J.soundOn()) J.startTimerMusic(t.remaining);
   }
   setInterval(() => {
     if (timerEnd == null) return;
     const remaining = Math.max(0, timerEnd - Date.now());
     J.renderTimer($('timerBox'), remaining, timerTotal);
     const sec = Math.ceil(remaining / 1000);
-    if (sec > 0 && sec <= 5 && sec !== lastTick && J.soundOn()) J.sfx('tick');
+    if (sec > 0 && sec <= 5 && sec !== lastTick && J.soundOn() && !J.timerMusicOn()) J.sfx('tick');
     lastTick = sec;
   }, 100);
 

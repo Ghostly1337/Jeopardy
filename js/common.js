@@ -403,7 +403,7 @@
     return !!audio && audio.state === 'running';
   }
 
-  function tone(ctx, { freq, to, start = 0, dur = 0.15, type = 'sine', vol = 0.2, filter }) {
+  function tone(ctx, { freq, to, start = 0, dur = 0.15, type = 'sine', vol = 0.2, filter, dest }) {
     const t = ctx.currentTime + start;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -421,7 +421,7 @@
       osc.connect(f);
       node = f;
     }
-    node.connect(gain).connect(ctx.destination);
+    node.connect(gain).connect(dest || ctx.destination);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
@@ -433,10 +433,9 @@
         tone(ctx, { freq: f, start: i * 0.08, dur: i === 3 ? 0.45 : 0.18, type: 'triangle', vol: 0.22 })
       );
     },
-    // Tiefer Summer
+    // Dumpfer „Bonk“
     wrong(ctx) {
-      tone(ctx, { freq: 180, to: 110, dur: 0.55, type: 'sawtooth', vol: 0.16, filter: 900 });
-      tone(ctx, { freq: 186, to: 113, dur: 0.55, type: 'square', vol: 0.06, filter: 700 });
+      tone(ctx, { freq: 160, to: 60, dur: 0.3, type: 'sine', vol: 0.45 });
     },
     // Kurzes „Swoosh“ beim Öffnen einer Frage
     open(ctx) {
@@ -491,6 +490,67 @@
     },
   };
 
+  // Timer-Sound (nur TV-Ansicht und Host-Pult): Uhr-Ticken jede Sekunde, tiefer Herzschlag
+  // alle 2,5 s (am Ende etwas kräftiger), leise Piepser bei 3-2-1. Alles wird beim Start
+  // vorausgeplant und hängt an einem eigenen Regler, damit Stopp sofort alles verstummen lässt.
+  // Musik-Spuren: jede hat einen eigenen Lautstärkeregler, damit Stopp sofort alles verstummen lässt
+  const tracks = {};
+  function startTrack(name, schedule) {
+    stopTrack(name);
+    const ctx = audioCtx();
+    if (!ctx) return;
+    const bus = ctx.createGain();
+    bus.connect(ctx.destination);
+    schedule((o) => tone(ctx, { ...o, dest: bus }));
+    tracks[name] = { ctx, bus };
+  }
+  function stopTrack(name) {
+    const tr = tracks[name];
+    if (!tr) return;
+    delete tracks[name];
+    tr.bus.gain.setTargetAtTime(0.0001, tr.ctx.currentTime, 0.08);
+    setTimeout(() => tr.bus.disconnect(), 600);
+  }
+  const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+  // Intro-Musik (TV-Ansicht und Host-Pult): 120 bpm, Am – F – C – G als Arpeggio mit Bass,
+  // 8 Takte = 16 s, so lang wie das Runden-Intro; die letzten zwei Takte doppelt so dicht
+  function startIntroMusic() {
+    startTrack('intro', (T) => {
+      const beat = 0.5;
+      const chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];
+      for (let bar = 0; bar < 8; bar++) {
+        const ch = chords[bar % 4], t0 = bar * 4 * beat;
+        T({ freq: midiHz(ch[0] - 12), start: t0, dur: 0.45, vol: 0.28 });
+        T({ freq: midiHz(ch[0] - 12), start: t0 + 2 * beat, dur: 0.45, vol: 0.22 });
+        const steps = bar >= 6 ? 16 : 8, len = 4 * beat / steps;
+        for (let i = 0; i < steps; i++) {
+          const n = ch[i % 3] + (i % 6 >= 3 ? 12 : 0);
+          T({ freq: midiHz(n + 12), start: t0 + i * len, dur: len * 0.9, type: 'triangle', vol: bar >= 6 ? 0.07 : 0.09 });
+        }
+        for (let k = 0; k < 4; k++) T({ freq: 2400, start: t0 + k * beat, dur: 0.03, type: 'square', vol: 0.025 });
+      }
+    });
+  }
+  const stopIntroMusic = () => stopTrack('intro');
+
+  function startTimerMusic(remainingMs) {
+    startTrack('timer', (T) => {
+      const R = remainingMs / 1000;
+      for (let t = R % 1, k = 0; t < R - 0.05; t += 1, k++) {
+        T({ freq: k % 2 ? 1400 : 1800, start: t, dur: 0.025, type: 'square', vol: 0.02 });
+      }
+      for (let t = 0.5; t < R; t += 2.5) {
+        const v = R - t <= 5 ? 0.32 : 0.22;
+        T({ freq: 55, start: t, dur: 0.22, vol: v });
+        T({ freq: 52, start: t + 0.24, dur: 0.26, vol: v * 0.7 });
+      }
+      [3, 2, 1].forEach((s) => { if (R - s > 0.05) T({ freq: 880, start: R - s, dur: 0.1, vol: 0.08 }); });
+    });
+  }
+  const stopTimerMusic = () => stopTrack('timer');
+  const timerMusicOn = () => !!tracks.timer;
+
   function sfx(name) {
     const ctx = audioCtx();
     if (!ctx || !SOUNDS[name]) return;
@@ -527,6 +587,26 @@
         <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
         ${scoreDelta(prev, p)}
       </div>`).join('');
+    // Geänderte Punkte: Kachel leuchtet grün/rot auf, Zahl rollt vom alten zum neuen Wert
+    if (!prev) return;
+    el.querySelectorAll('.score').forEach((tile, i) => {
+      const p = players[i];
+      if (!(p.id in prev) || prev[p.id] === p.score) return;
+      tile.classList.add(p.score > prev[p.id] ? 'fx-up' : 'fx-down');
+      countUp(tile.querySelector('.score-value'), prev[p.id], p.score);
+    });
+  }
+  function countUp(node, from, to) {
+    const dur = window.JEOP_COUNT_MS != null ? window.JEOP_COUNT_MS : 700;
+    if (!dur || typeof requestAnimationFrame !== 'function') return;
+    const t0 = performance.now();
+    node.textContent = from;
+    (function step(now) {
+      if (!node.isConnected) return; // inzwischen neu gezeichnet
+      const k = Math.min(1, (now - t0) / dur);
+      node.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    })(t0);
   }
   // „+500“ / „−250“ fliegt kurz über die Kachel, wenn sich die Punkte geändert haben
   function scoreDelta(prev, p) {
@@ -704,7 +784,7 @@
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
-    penaltyFor, stealFor, sfx, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
+    penaltyFor, stealFor, sfx, startTimerMusic, stopTimerMusic, timerMusicOn, startIntroMusic, stopIntroMusic, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,

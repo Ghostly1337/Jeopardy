@@ -52,6 +52,7 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
     await p.waitForFunction(() => document.getElementById('img').naturalWidth > 0);
     assert.equal(await imgWidth(p, '#img'), 6);
     assert.ok(await p.$eval('#img', (i) => i.classList.contains('pixel')));
+    await p.waitForSelector('#overlay:not(.zoom-in)'); // Größe erst nach der Zoom-Animation messen
     assert.ok(await p.$eval('#img', (i) => i.getBoundingClientRect().width > 200), 'wird groß angezeigt');
     assert.equal(await host.textContent('#pixelBtn'), '🔍 Schärfer (1/4)');
     assert.equal(await imgWidth(host, '#clueImg'), 6);

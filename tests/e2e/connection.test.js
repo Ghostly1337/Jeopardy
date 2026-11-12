@@ -7,6 +7,13 @@ let env;
 test.before(async () => { env = await startEnv({ JEOP_INTRO_MS: 500, JEOP_SELFCHECK_MS: 3000 }); });
 test.after(async () => { await env.stop(); });
 
+test('Verbindungsart wird erkannt, Verbindungshilfe nur bei WebRTC', async () => {
+  const { host } = await openHost(env);
+  assert.equal(await host.evaluate(() => J.net.mode), TRANSPORT);
+  assert.equal(await host.isVisible('#turnBox'), TRANSPORT === 'peer');
+  await host.context().close();
+});
+
 test('Runden-Intro bei Host und Spieler', async (t) => {
   const { host, code } = await openHost(env, { names: ['Anna'] });
   const p = await joinPlayer(env, code, { pick: 'Anna', viewport: { width: 1280, height: 800 } });

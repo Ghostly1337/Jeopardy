@@ -3,17 +3,21 @@
 // verboten werden (iceTransportPolicy: relay) – dann geht es nur noch über TURN.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, startTurn, openHost } = require('./helpers');
+const { TRANSPORT, startEnv, startTurn, openHost } = require('./helpers');
+
+// Nur für WebRTC: Übers Relay gibt es keine Direktverbindung, die umgeleitet werden müsste
+const skip = TRANSPORT === 'relay';
 
 let env;
 let turn;
 test.before(async () => {
+  if (skip) return;
   turn = await startTurn();
   env = await startEnv({ JEOP_FORCE_RELAY: true, JEOP_CONNECT_HINT_MS: 3000, JEOP_SELFCHECK_MS: 600000 });
 });
-test.after(async () => { await env.stop(); turn.stop(); });
+test.after(async () => { if (skip) return; await env.stop(); turn.stop(); });
 
-test('Ohne Verbindungshilfe: Spieler bekommt einen verständlichen Hinweis', async () => {
+test('Ohne Verbindungshilfe: Spieler bekommt einen verständlichen Hinweis', { skip }, async () => {
   const { host } = await openHost(env, { names: ['Anna'] });
   const link = await host.textContent('#link');
   assert.ok(!link.includes('#t='), 'Link ohne TURN-Zugang');
@@ -26,7 +30,7 @@ test('Ohne Verbindungshilfe: Spieler bekommt einen verständlichen Hinweis', asy
   await p.context().close();
 });
 
-test('Mit Verbindungshilfe kommt der Spieler über den TURN-Server rein', async (t) => {
+test('Mit Verbindungshilfe kommt der Spieler über den TURN-Server rein', { skip }, async (t) => {
   const { host } = await openHost(env, { names: ['Anna'] });
 
   await t.test('Host richtet die Verbindungshilfe ein', async () => {

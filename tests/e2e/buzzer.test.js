@@ -62,6 +62,9 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
   await t.test('Wer vorher hämmert, verliert gegen ruhiges Drücken', async () => {
     // Zurück vor die Öffnung: Ben falsch rückgängig und erneut falsch → neue Buzzer-Runde
     await host.click('#undo');
+    // Erst abwarten, dass der Buzzer nach dem Rückgängig wieder zu ist – sonst sieht man über das
+    // langsamere Relay kurz noch den alten offenen Buzzer und buzzert in eine beendete Runde
+    await anna.waitForSelector('#buzzer.wait');
     await host.locator('.jrow').nth(1).locator('.red').click();
     // Cem hämmert schon während der Pause ununterbrochen auf den Buzzer
     await cem.evaluate(() => {
@@ -79,6 +82,8 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
   await t.test('Fairer Buzzer: schnellere Reaktion schlägt frühere Ankunft', async () => {
     await host.click('#undo'); // Buzz rückgängig → Buzzer wieder offen
     await host.click('#undo'); // Ben falsch rückgängig
+    await anna.waitForSelector('#buzzer.wait'); // Buzzer zu abwarten (siehe oben)
+    await cem.waitForSelector('#buzzer.wait');
     await host.locator('.jrow').nth(1).locator('.red').click();
     // Anna: Uhr manipulieren → ihre gemessene Reaktion ist 0,9 s langsamer
     await anna.evaluate(() => {

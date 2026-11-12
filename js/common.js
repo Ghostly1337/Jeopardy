@@ -670,5 +670,7 @@
     clampTeamSize, teamIsFull, teamColor, cleanName,
     DEFAULT_ICE, parseTurn, iceConfig, encodeTurn, decodeTurn, loadTurn, saveTurn, scoreDelta,
     fmtMs, awards, REACTIONS, showReaction, BUZZ_WINDOW_MS: 400,
+    // Übers Relay kommen Buzzes ungleichmäßiger an (HTTP statt Direktverbindung) → länger sammeln
+    BUZZ_WINDOW_RELAY_MS: 900,
   };
 })();

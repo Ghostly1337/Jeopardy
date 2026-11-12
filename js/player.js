@@ -366,7 +366,7 @@
     // Kommt die Direktverbindung nicht zustande, blockiert meist das Netz (z. B. Uni-WLAN)
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => {
-      if (thisConn !== conn || conn.open) return;
+      if (thisConn !== conn || conn.open || J.net.mode !== 'peer') return; // nur WebRTC hat dieses Problem
       setStatus('Keine Direktverbindung', false);
       $('waiting').textContent = turn
         ? 'Die Verbindung kommt nicht zustande, obwohl die Verbindungshilfe aktiv ist. Prüft den TURN-Zugang im Host-Pult oder wechselt auf mobile Daten.'
@@ -398,12 +398,12 @@
   }
 
   function startPeer() {
-    if (typeof Peer === 'undefined') {
+    if (!J.net.available()) {
       setStatus('PeerJS nicht geladen (offline?)', false);
       $('waiting').textContent = 'Keine Verbindung möglich. Internet prüfen und neu laden.';
       return;
     }
-    peer = new Peer(peerOptions());
+    peer = J.net.createPeer(null, peerOptions());
     peer.on('open', connect);
     peer.on('error', (err) => {
       if (err.type === 'peer-unavailable') {
@@ -445,5 +445,5 @@
   renderSound();
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
-  startPeer();
+  J.net.ready.then(startPeer);
 })();

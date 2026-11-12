@@ -111,13 +111,17 @@
       }
       return;
     }
+    // Verpixelte Bilder: Buzzer-Rennen – der Buzzer öffnet sofort für alle, wer das Bild
+    // zuerst erkennt, darf antworten (sonst könnte der Spieler am Zug einfach abwarten)
+    const race = J.pixelLevel(set.rounds[r].categories[cat].clues[row], { revealed: false }) != null && state.players.length > 0;
     mutate(`Frage ${J.pointsFor(r, row)} „${set.rounds[r].categories[cat].name}“ geöffnet`, () => {
       state.current = {
         round: r, cat, row, revealed: false, judged: {},
-        buzz: closedBuzz(), timer: null,
+        buzz: race ? { open: false, winner: null, arming: true } : closedBuzz(), timer: null,
       };
     });
     sound('open');
+    if (race) armBuzz();
   }
 
   const nameOf = (pid) => (state.players.find((p) => p.id === pid) || {}).name || '?';

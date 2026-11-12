@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { startEnv, joinPlayer, TEST_PNG } = require('./helpers');
 
 let env;
-test.before(async () => { env = await startEnv(); });
+test.before(async () => { env = await startEnv({ JEOP_BUZZ_DELAY_MS: 200 }); });
 test.after(async () => { await env.stop(); });
 
 // Breite des Bildes, das gerade gezeigt wird (bei verpixelten Bildern winzig)
@@ -75,6 +75,28 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
     await p.waitForFunction(() => document.getElementById('img').naturalWidth === 6);
     await host.click('#reveal');
     await p.waitForFunction(() => document.getElementById('img').naturalWidth === 200);
+    await host.click('#cancel');
+  });
+
+  await t.test('Buzzer-Rennen: bei Pixelbildern öffnet der Buzzer sofort, volle Punkte', async () => {
+    await host.locator('.cell.val').nth(0).click();
+    // auf den Stand dieser Frage warten (übers Relay kann kurz noch der alte ankommen)
+    await p.waitForFunction(() => document.getElementById('buzzInfo').textContent === 'Erkannt? Wer zuerst buzzert, darf antworten');
+    await p.waitForSelector('#buzzer.live');
+    await p.waitForTimeout(250);
+    await p.click('#buzzer');
+    await host.waitForSelector('.jrow.buzzed');
+    await host.locator('.jrow.buzzed .green').click();
+    await p.waitForFunction(() => document.querySelector('#overlayScores .score-value').textContent === '100');
+    await host.click('#cancel');
+  });
+
+  await t.test('Normale Frage: Buzzer bleibt zu', async () => {
+    await host.locator('.cell.val').nth(2).click();
+    await p.waitForFunction(() => document.getElementById('q').textContent === 'Frage für 100');
+    await p.waitForTimeout(600);
+    assert.ok(await p.isVisible('#buzzer.wait'));
+    assert.equal(await host.isHidden('#buzzStatus'), true);
     await host.click('#cancel');
   });
 

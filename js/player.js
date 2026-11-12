@@ -267,6 +267,8 @@
       text = 'Zu früh gedrückt – kurz gesperrt';
     } else if (canBuzz && Object.values(judged).includes('wrong')) {
       text = `Klauen bringt +${cur.value / 2}`;
+    } else if (canBuzz && cur.pixel) {
+      text = 'Erkannt? Wer zuerst buzzert, darf antworten';
     } else if (buzz.open && isPlayer && judged[me]) {
       text = 'Du hast schon geantwortet';
     } else if (buzz.open && !isPlayer) {

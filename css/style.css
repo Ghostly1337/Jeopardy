@@ -484,7 +484,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   color: var(--stage-text);
   background: radial-gradient(1000px 600px at 50% 30%, var(--stage-1), var(--stage-2) 75%);
 }
-.clue-overlay.show { display: flex; animation: clueIn .35s cubic-bezier(.2, .8, .2, 1); }
+.clue-overlay.show { display: flex; }
+/* Einblenden ohne Zoom (z. B. beim Beitreten mitten in einer Frage) */
+.clue-overlay.entering { animation: clueIn .35s cubic-bezier(.2, .8, .2, 1); }
 @keyframes clueIn { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
 .clue-meta {
   display: inline-flex;
@@ -1334,3 +1336,32 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .ed-pixel { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .ed-pixel input { width: auto; margin: 0; padding: 0; }
 .ed-img img.pixel-preview { filter: blur(3px); }
+
+/* ---------- Animationen ---------- */
+/* Frage wächst aus dem Feld: Inhalt erst nach dem Zoom einblenden */
+.clue-overlay.zoom-in > * { animation: zoomContent .6s both; }
+@keyframes zoomContent { 0%, 45% { opacity: 0; } 100% { opacity: 1; } }
+/* Richtig / falsch */
+@keyframes rightGlow { 0% { box-shadow: inset 0 0 0 0 rgba(52, 211, 153, 0); } 30% { box-shadow: inset 0 0 0 6px rgba(52, 211, 153, .9), inset 0 0 140px rgba(52, 211, 153, .35); } 100% { box-shadow: inset 0 0 0 0 rgba(52, 211, 153, 0); } }
+@keyframes wrongShake { 0%, 100% { translate: 0 0; } 15% { translate: -14px 0; } 30% { translate: 12px 0; } 45% { translate: -9px 0; } 60% { translate: 6px 0; } 75% { translate: -3px 0; } }
+@keyframes wrongFlash { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(248, 113, 113, 0); } 25% { box-shadow: inset 0 0 0 6px rgba(248, 113, 113, .9), inset 0 0 140px rgba(248, 113, 113, .35); } }
+.clue-overlay.fx-right { animation: rightGlow .9s ease-out; }
+.clue-overlay.fx-wrong { animation: wrongShake .45s ease-out, wrongFlash .7s ease-out; }
+/* Punktekachel bei Änderung */
+@keyframes tileUp { 30% { border-color: var(--green); background: color-mix(in srgb, var(--green) 18%, transparent); transform: scale(1.08); } }
+@keyframes tileDown { 30% { border-color: var(--red); background: color-mix(in srgb, var(--red) 18%, transparent); } 20%, 60% { translate: -5px 0; } 40%, 80% { translate: 5px 0; } }
+.score.fx-up { animation: tileUp .8s ease-out; }
+.score.fx-down { animation: tileDown .6s ease-out; }
+/* Buzz-Einblendung (TV-Ansicht) */
+.buzz-show { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; pointer-events: none; visibility: hidden; }
+.buzz-show::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 210, 80, .45), rgba(10, 10, 12, .88) 55%); opacity: 0; }
+.buzz-show-name { position: relative; font-family: var(--display); font-size: clamp(54px, 11vw, 160px); letter-spacing: 3px; color: #fff; text-align: center; padding: 0 4vw;
+  text-shadow: 0 0 30px rgba(255, 210, 80, .9), 0 6px 0 rgba(0, 0, 0, .4); opacity: 0; }
+.buzz-show.go { visibility: visible; }
+.buzz-show.go::before { animation: buzzFlash 1.6s ease-out; }
+.buzz-show.go .buzz-show-name { animation: buzzName 1.6s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes buzzFlash { 0% { opacity: 0; } 8% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes buzzName { 0% { opacity: 0; transform: scale(2.4) rotate(-6deg); } 18% { opacity: 1; transform: scale(1) rotate(-3deg); } 75% { opacity: 1; transform: scale(1.04) rotate(-3deg); } 100% { opacity: 0; transform: scale(.9) rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .clue-overlay.fx-right, .clue-overlay.fx-wrong, .score.fx-up, .score.fx-down, .clue-overlay.zoom-in > * { animation: none; }
+}

@@ -218,10 +218,19 @@
     state.current.timer = null;
     commit();
   }
+  let musicFor = null; // Timer, für den gerade der Timer-Sound läuft
   setInterval(() => {
     const t = state.current && state.current.timer;
-    if (!t) { J.renderTimer($('timerBox'), null); return; }
+    if (!t) {
+      J.renderTimer($('timerBox'), null);
+      if (musicFor) { musicFor = null; J.stopTimerMusic(); }
+      return;
+    }
     const remaining = t.endsAt - Date.now();
+    if (musicFor !== t.endsAt && remaining > 0) {
+      musicFor = t.endsAt;
+      if (J.soundOn()) J.startTimerMusic(remaining);
+    }
     if (remaining <= 0) {
       state.current.timer = null;
       commit();
@@ -230,7 +239,7 @@
     }
     J.renderTimer($('timerBox'), remaining, t.total);
     const sec = Math.ceil(remaining / 1000);
-    if (sec <= 5 && sec !== lastTickSec && J.soundOn()) J.sfx('tick');
+    if (sec <= 5 && sec !== lastTickSec && J.soundOn() && !J.timerMusicOn()) J.sfx('tick');
     lastTickSec = sec;
   }, 100);
 
@@ -590,6 +599,7 @@
     state.intro = { round: state.round, step: 0 };
     commit();
     sound('intro');
+    if (J.soundOn()) J.startIntroMusic();
     introTimer = setTimeout(nextIntroStep, INTRO_TITLE_MS);
   }
   function nextIntroStep() {
@@ -605,6 +615,7 @@
     clearTimeout(introTimer);
     if (!state.intro) return;
     state.intro = null;
+    J.stopIntroMusic();
     // Punktefelder „austeilen“
     $('board').classList.toggle('deal', !!deal);
     clearTimeout(dealTimer);

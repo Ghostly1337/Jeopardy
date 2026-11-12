@@ -136,7 +136,8 @@ async function startEnv(init = {}) {
           };
         },
       });
-    }, [peerPort, { ...init, ...extraInit }]);
+    // Punkte-Zählanimation standardmäßig aus, damit Tests keine Zwischenwerte lesen
+    }, [peerPort, { JEOP_COUNT_MS: 0, ...init, ...extraInit }]);
     const p = await ctx.newPage();
     p.on('pageerror', (e) => errors.push(e.message));
     // Dialoge bestätigen; Tests können mit p.nextDialog die Eingabe für prompt() vorgeben

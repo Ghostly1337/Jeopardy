@@ -22,6 +22,8 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 - **Populäres ist leicht:** Gangnam Style, Matrix, Biene Maja, „I have a dream“ sind niedrige Stufen, egal wie „wichtig“ sie klingen.
 - **Ratbarkeit:** Zahlen mit wenigen sinnvollen Möglichkeiten (z. B. ein Jahr nahe am Erscheinen) und offensichtliche Bezüge (Judo → Japan) sind leichter, als sie wirken.
 - **Nischenwissen ist schwer:** Begriffe aus dem American Football, Fachbegriffe, Jahreszahlen ohne Bezug.
+- **Fan-Themen eine Stufe härter ansetzen** (Feedback Set 4): Bei Gaming/Popkultur (Pokémon, Minecraft, Star Wars, Marvel) kennt die Gruppe Grundwissen sofort – Glumanda-Typ, Wolf zähmen, Mjölnir, Yoda, Millennium Falke waren zu leicht. Ab 200/400 echtes Fanwissen nehmen; 500/1000 = Trivia, die nur Hardcore-Fans wissen.
+- **Mehrdeutige Lückentexte vermeiden:** „Hopfen und Malz, …“ hat zwei gültige Enden – Hinweis so kappen, dass nur eine Ergänzung passt.
 - **Umstrittene Antworten vermeiden** (z. B. längster Fluss: Nil oder Amazonas).
 
 ### Form

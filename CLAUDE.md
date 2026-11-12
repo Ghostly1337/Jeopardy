@@ -33,3 +33,10 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 - Statische Seite (HTML/CSS/JS) + Vercel-Funktionen in `api/`, Logik für Tests in `lib/`.
 - Tests: `npm test` (Unit + Browser über WebRTC), `npm run test:e2e:relay` (Browser über das Relay). CI führt beides aus.
 - Quizfragen nie ins Repo committen (öffentlich, Spieler könnten Antworten finden).
+
+## Geplant: Fragenpool mit Würfel-Modus (noch nicht gebaut)
+Idee des Nutzers, umsetzen sobald genug Fragen da sind (Ziel: 3–4 Fragen pro Stufe in den Hauptkategorien).
+- Pool-JSON (liegt beim Nutzer, nicht im Repo): `{ "type": "pool", "version": 1, "title", "levels", "categories": [{ "name", "clues": [{ "level": 1–5, "q", "a", "note", "img", "source" }] }] }`.
+  Stufe statt Punktzahl: Stufe 1 = Board 1 100 / Board 2 200 … Stufe 5 = 500 / 1000 (Tabelle oben).
+- Erster Pool (Nov 2026): 145 Fragen, 28 Kategorien aus Set 1–3; „Logo-Quiz“ + „Marken & Logos“ → „Logos & Marken“. Set 1 und 3 sind schon gespielt. Mythologie/Mathe 1000 dort noch alte Version – Nutzer hat eigene im Browser.
+- Umsetzung: Pool als Set-Art in der Bibliothek; „🎲 Board würfeln“ im Editor wählt 6 Kategorien und je eine Frage pro Stufe, Ergebnis ist ein normales Set (Host-Pult unverändert); 🎲 pro Feld zum Neuwürfeln; gespielte Fragen markieren und beim Würfeln überspringen; Listenansicht statt 6×5-Raster; Bilder lieber als Links (4 MB pro Set).

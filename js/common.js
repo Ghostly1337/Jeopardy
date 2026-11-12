@@ -60,6 +60,7 @@
           const img = safeImg(cl.img);
           if (img) cat.clues[row].img = img;
           if (typeof cl.note === 'string') cat.clues[row].note = cl.note;
+          if (cl.pixel === true && img) cat.clues[row].pixel = true;
         }
       }
     }
@@ -93,6 +94,44 @@
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Bild konnte nicht gelesen werden')); };
       img.src = url;
+    });
+  }
+
+  // ---------- Verpixelte Bilder ----------
+  // Bild startet grob verpixelt und wird per Knopf schärfer. Werte = Pixel an der längeren Seite;
+  // nach der letzten Stufe (oder beim Aufdecken) sieht man das echte Bild.
+  const PIXEL_STEPS = [6, 10, 16, 28];
+
+  // Aktuelle Pixelstufe oder null, wenn das echte Bild gezeigt werden darf
+  function pixelLevel(clue, cur) {
+    if (!clue || !clue.pixel || !safeImg(clue.img) || !cur || cur.revealed) return null;
+    const lvl = Math.max(0, Math.floor(cur.pixel || 0));
+    return lvl < PIXEL_STEPS.length ? lvl : null;
+  }
+
+  // Bild auf wenige Pixel verkleinern (nur im Browser des Hosts). Die Spieler bekommen nur
+  // dieses Mini-Bild und vergrößern es per CSS – das echte Bild erreicht sie erst beim Aufdecken.
+  function pixelate(src, blocks) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const scale = blocks / Math.max(img.naturalWidth, img.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL('image/png'));
+        } catch (e) {
+          reject(new Error('Bild lässt sich nicht verpixeln – bitte hochladen statt verlinken'));
+        }
+      };
+      img.onerror = () => reject(new Error('Bild lässt sich nicht verpixeln – bitte hochladen statt verlinken'));
+      img.src = src;
     });
   }
 
@@ -275,7 +314,9 @@
         category: set.rounds[cur.round].categories[cur.cat].name,
         value: pointsFor(cur.round, cur.row),
         q: clue.q,
-        img: safeImg(clue.img) || null,
+        // Verpixelte Bilder: echtes Bild erst nach der letzten Stufe; das Mini-Bild setzt der Host ein
+        img: pixelLevel(clue, cur) == null ? safeImg(clue.img) || null : null,
+        pixel: pixelLevel(clue, cur) == null ? null : { step: pixelLevel(clue, cur), steps: PIXEL_STEPS.length },
         a: cur.revealed ? clue.a : null,
         judged: cur.judged || {},
         buzz: cur.buzz || { open: false, winner: null },
@@ -657,6 +698,7 @@
   }
 
   window.J = {
+    PIXEL_STEPS, pixelLevel, pixelate,
     CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

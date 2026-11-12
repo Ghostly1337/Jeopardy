@@ -253,9 +253,20 @@
     const gain = stolen ? J.stealFor(cur.round, cur.row) : value;
     $('clueMeta').textContent = `${cat.name} – ${value}` + (cur.revealed ? ' · Antwort ist für Spieler sichtbar' : '');
     $('clueQ').textContent = clue.q;
-    const img = J.safeImg(clue.img);
+    // Verpixelt: Host sieht dasselbe wie die Spieler (die Antwort steht ja darunter)
+    const lvl = J.pixelLevel(clue, cur);
+    const px = lvl == null ? null : pixelImg(clue, lvl);
+    const img = lvl == null ? J.safeImg(clue.img) : px && px.src;
     $('clueImg').hidden = !img;
+    $('clueImg').classList.toggle('pixel', lvl != null);
     if (img && $('clueImg').getAttribute('src') !== img) $('clueImg').src = img;
+    $('pixelHint').textContent = px && px.error ? '⚠ ' + px.error : '';
+    $('pixelHint').hidden = !(px && px.error);
+    $('pixelBtn').hidden = lvl == null;
+    if (lvl != null) {
+      $('pixelBtn').textContent = lvl + 1 < J.PIXEL_STEPS.length
+        ? `🔍 Schärfer (${lvl + 1}/${J.PIXEL_STEPS.length})` : '🖼 Ganzes Bild zeigen';
+    }
     $('clueA').textContent = clue.a;
     $('clueNote').textContent = clue.note || '';
     $('clueNote').hidden = !clue.note;
@@ -478,6 +489,27 @@
     if (open) sound('buzzopen');
   });
   $('timerBtn').addEventListener('click', startTimer);
+  $('pixelBtn').addEventListener('click', () => {
+    state.current.pixel = (state.current.pixel || 0) + 1;
+    commit(); // wie der Timer ohne Undo-Eintrag
+  });
+
+  // ---------- Verpixelte Bilder ----------
+  // Mini-Bilder je Stufe einmal berechnen; bis sie fertig sind, bekommen Spieler kein Bild
+  const pixelCache = new Map();
+  function pixelImg(clue, lvl) {
+    const src = J.safeImg(clue.img);
+    const blocks = J.PIXEL_STEPS[lvl];
+    const key = blocks + '|' + src.length + '|' + src.slice(0, 64) + src.slice(-64);
+    if (!pixelCache.has(key)) {
+      pixelCache.set(key, { src: null });
+      J.pixelate(src, blocks)
+        .then((u) => pixelCache.set(key, { src: u }))
+        .catch((e) => pixelCache.set(key, { src: null, error: e.message }))
+        .then(() => { renderClue(); broadcast(); });
+    }
+    return pixelCache.get(key);
+  }
 
   // ---------- Einzel- / Team-Modus ----------
   function renderModeUI() {
@@ -756,6 +788,11 @@
 
   function message() {
     const data = J.publicState(set, state);
+    if (data.current && data.current.pixel) {
+      const cur = state.current;
+      const px = pixelImg(set.rounds[cur.round].categories[cur.cat].clues[cur.row], data.current.pixel.step);
+      data.current.img = px.src;
+    }
     if (isTeam()) {
       const m = teamMembers();
       data.members = Object.fromEntries([...m]);

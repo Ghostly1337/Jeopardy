@@ -188,8 +188,22 @@
         const del = document.createElement('button');
         del.className = 'small ghost';
         del.textContent = '✕ Entfernen';
-        del.addEventListener('click', () => { clue.img = ''; persist(); draw(); });
-        wrap.append(thumb, del);
+        del.addEventListener('click', () => { clue.img = ''; delete clue.pixel; persist(); draw(); });
+        // Verpixeln: Bild startet grob und wird im Spiel per Knopf schärfer
+        const px = document.createElement('label');
+        px.className = 'ed-pixel';
+        px.title = 'Bild startet verpixelt, du machst es im Spiel schrittweise schärfer. Verlinkte Bilder lieber hochladen.';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = !!clue.pixel;
+        box.addEventListener('change', () => {
+          if (box.checked) clue.pixel = true; else delete clue.pixel;
+          thumb.classList.toggle('pixel-preview', box.checked);
+          persist();
+        });
+        thumb.classList.toggle('pixel-preview', !!clue.pixel);
+        px.append(box, ' Verpixeln');
+        wrap.append(thumb, del, px);
         return;
       }
       const url = document.createElement('input');

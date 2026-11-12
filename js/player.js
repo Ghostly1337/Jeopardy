@@ -61,6 +61,7 @@
       img.hidden = !cur.img;
       if (cur.img && img.getAttribute('src') !== cur.img) img.src = cur.img;
       if (!cur.img) img.removeAttribute('src');
+      img.classList.toggle('pixel', !!cur.pixel);
       $('a').textContent = cur.a || '';
       J.renderScores($('overlayScores'), s.players, s.turn);
     }

@@ -702,6 +702,9 @@ body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
   background: var(--stage-chip);
 }
 .clue-img.host-img { max-height: 220px; margin: 14px 0 0; }
+/* Verpixelt: winziges Bild hart hochskaliert */
+.clue-img.pixel { image-rendering: pixelated; width: min(100%, 900px); height: 38vh; }
+.clue-img.host-img.pixel { width: 100%; height: 220px; }
 .clue-overlay { overflow-y: auto; }
 
 /* ---------- Siegerehrung ---------- */
@@ -1235,6 +1238,7 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
   .clue-overlay { padding: 52px 16px 96px; justify-content: flex-start; }
   .clue-meta { margin: 0 0 2vh; font-size: 12px; padding: 6px 12px; }
   .clue-img { max-height: 26vh; margin-bottom: 2vh; }
+  .clue-img.pixel { height: 26vh; }
   .clue-text { font-size: clamp(20px, 6.2vw, 30px); }
   .clue-answer { font-size: clamp(18px, 5.4vw, 26px); padding: 10px 16px; margin-top: 2vh; }
   .timer.big { margin-bottom: 2vh; }
@@ -1318,3 +1322,6 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .setbar #hostPw { max-width: 240px; }
 .set-source { font-size: 13px; color: var(--muted); margin-left: auto; }
 .set-source.error { color: var(--red); }
+.ed-pixel { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.ed-pixel input { width: auto; margin: 0; padding: 0; }
+.ed-img img.pixel-preview { filter: blur(3px); }

@@ -65,6 +65,41 @@ test('publicState verrät keine Antworten, solange nicht aufgedeckt', () => {
   assert.equal(J.publicState(set, st).current.a, 'GEHEIM');
 });
 
+test('Verpixelte Bilder: echtes Bild erst nach der letzten Stufe oder beim Aufdecken', () => {
+  const set = J.defaultSet();
+  const clue = set.rounds[0].categories[0].clues[0];
+  clue.img = 'https://example.com/ECHT.png';
+  clue.pixel = true;
+  const st = gameState({ current: { round: 0, cat: 0, row: 0, revealed: false, judged: {} } });
+  let pub = J.publicState(set, st);
+  assert.equal(pub.current.img, null);
+  assert.deepEqual(plain(pub.current.pixel), { step: 0, steps: J.PIXEL_STEPS.length });
+  assert.ok(!JSON.stringify(pub).includes('ECHT'), 'echtes Bild darf nicht mitgeschickt werden');
+  st.current.pixel = J.PIXEL_STEPS.length - 1;
+  assert.equal(J.publicState(set, st).current.img, null);
+  st.current.pixel = J.PIXEL_STEPS.length;
+  pub = J.publicState(set, st);
+  assert.equal(pub.current.img, clue.img);
+  assert.equal(pub.current.pixel, null);
+  st.current.pixel = 0;
+  st.current.revealed = true;
+  assert.equal(J.publicState(set, st).current.img, clue.img, 'Aufdecken zeigt das echte Bild');
+  clue.pixel = false;
+  st.current.revealed = false;
+  assert.equal(J.publicState(set, st).current.img, clue.img, 'ohne Verpixeln wie bisher');
+});
+
+test('normalizeSet behält „verpixeln“ nur mit Bild', () => {
+  const raw = J.defaultSet();
+  raw.rounds[0].categories[0].clues[0] = { q: 'q', a: 'a', img: 'https://example.com/x.png', pixel: true };
+  raw.rounds[0].categories[0].clues[1] = { q: 'q', a: 'a', img: '', pixel: true };
+  raw.rounds[0].categories[0].clues[2] = { q: 'q', a: 'a', img: 'https://example.com/x.png', pixel: 'ja' };
+  const s = J.normalizeSet(raw).rounds[0].categories[0].clues;
+  assert.equal(s[0].pixel, true);
+  assert.equal(s[1].pixel, undefined);
+  assert.equal(s[2].pixel, undefined);
+});
+
 test('publicState schickt keine anderen Antworten mit', () => {
   const set = J.defaultSet();
   set.rounds.forEach((r) => r.categories.forEach((c) => c.clues.forEach((cl, i) => { cl.a = 'ANTWORT' + i; })));

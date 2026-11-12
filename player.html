@@ -6,11 +6,12 @@
   <title>Jeopardy</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="player-body">
   <div class="topleft">
     <button class="small me-btn" id="me" hidden></button>
   </div>
   <div class="topright">
+    <button class="small sound-btn" id="fullBtn" hidden title="Vollbild">⛶</button>
     <button class="small sound-btn" id="sound">🔇 Ton aktivieren</button>
     <div class="status bad" id="status">verbinde…</div>
   </div>
@@ -53,11 +54,17 @@
 
   <div class="picker" id="picker" hidden>
     <div class="picker-card">
-      <h2>Wer bist du?</h2>
+      <h2 id="pickerTitle">Wer bist du?</h2>
       <p class="picker-error" id="pickerError" hidden></p>
       <p class="picker-empty" id="pickerEmpty" hidden>Der Host hat noch keine Spieler angelegt. Warte kurz – dein Name erscheint hier automatisch.</p>
+      <label class="picker-name" id="pickerNameRow" hidden>Dein Name
+        <input id="pickerName" maxlength="24" autocomplete="nickname" placeholder="z. B. Anna">
+      </label>
       <div class="picker-list" id="pickerList"></div>
-      <button class="ghost" id="watchOnly">Nur zuschauen</button>
+      <div class="picker-alt">
+        <button class="ghost" id="tvView">📺 TV-Ansicht</button>
+        <button class="ghost" id="watchOnly">👀 Nur zuschauen</button>
+      </div>
     </div>
   </div>
 

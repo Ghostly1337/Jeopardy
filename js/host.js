@@ -15,6 +15,9 @@
       turn: state.turn,
       finished: state.finished,
       stats: JSON.parse(JSON.stringify(state.stats || {})),
+      personStats: JSON.parse(JSON.stringify(state.personStats || {})),
+      mode: state.mode,
+      teamSize: state.teamSize,
     };
   }
 
@@ -36,6 +39,9 @@
     state.turn = snap.turn || null;
     state.finished = !!snap.finished;
     state.stats = snap.stats || {};
+    state.personStats = snap.personStats || {};
+    if (snap.mode) state.mode = snap.mode;
+    if (snap.teamSize) state.teamSize = snap.teamSize;
     pendingBuzz = null;
     if (state.current) state.current.timer = null; // alte Timer nicht wiederbeleben
     commit();
@@ -54,6 +60,7 @@
     renderPlayers();
     renderLog();
     renderFinish();
+    renderModeUI();
     // Gleiche Daten wie bei den Spielern (inkl. Kategoriename) – sonst bleibt der Titel leer
     J.renderIntro($('intro'), J.publicState(set, state).intro,
       state.round, Array.from({ length: J.ROWS }, (_, row) => J.pointsFor(state.round, row)));
@@ -114,6 +121,10 @@
   }
 
   const nameOf = (pid) => (state.players.find((p) => p.id === pid) || {}).name || '?';
+  const isTeam = () => state.mode === 'team';
+  const ids = () => state.players.map((p) => p.id);
+  // „Anna (Team Rot)“ im Team-Modus, sonst nur der Spielername
+  const whoBuzzed = (buzz) => (isTeam() && buzz.winnerName ? `${buzz.winnerName} (${nameOf(buzz.winner)})` : nameOf(buzz.winner));
 
   // ---------- Buzzer ----------
   // Spieler, die bei dieser Frage noch nicht gewertet wurden
@@ -142,13 +153,16 @@
     if (msg.id !== cur.buzz.id) return;
     if (!state.players.some((p) => p.id === pid) || (cur.judged || {})[pid]) return;
     let reaction = Number(msg.reaction);
-    if (!Number.isFinite(reaction)) reaction = 60000;
-    reaction = Math.min(60000, Math.max(0, Math.round(reaction)));
+    if (!Number.isFinite(reaction)) return;
+    reaction = Math.min(60000, Math.round(reaction));
+    if (J.isEarly(reaction)) return; // unmenschlich schnell = Frühstart, zählt nicht
     if (!pendingBuzz || pendingBuzz.id !== cur.buzz.id) {
       pendingBuzz = { id: cur.buzz.id, entries: new Map() };
       setTimeout(decideBuzz, window.JEOP_BUZZ_WINDOW_MS || J.BUZZ_WINDOW_MS);
     }
-    if (!pendingBuzz.entries.has(pid)) pendingBuzz.entries.set(pid, reaction);
+    // Pro Spieler/Team zählt die schnellste Reaktion (im Team-Modus kann jedes Mitglied drücken)
+    const prev = pendingBuzz.entries.get(pid);
+    if (!prev || reaction < prev.ms) pendingBuzz.entries.set(pid, { ms: reaction, name: conn.memberName || null });
   }
 
   function decideBuzz() {
@@ -156,17 +170,36 @@
     pendingBuzz = null;
     const cur = state.current;
     if (!pb || !cur || !cur.buzz || !cur.buzz.open || cur.buzz.id !== pb.id) return; // inzwischen geschlossen
-    let winner = null;
-    let best = Infinity;
-    pb.entries.forEach((ms, pid) => { if (ms < best) { best = ms; winner = pid; } });
-    if (!winner) return;
-    const reactions = Object.fromEntries(pb.entries);
-    mutate(`⚡ ${nameOf(winner)} buzzert (${J.fmtMs(best)})`, () => {
-      cur.buzz = { open: false, winner, id: pb.id, reactions };
+    const best = J.pickBuzzWinner([...pb.entries].map(([id, e]) => [id, e.ms, e.name]));
+    if (!best) return;
+    const reactions = Object.fromEntries([...pb.entries].map(([id, e]) => [id, e.ms]));
+    const buzz = { open: false, winner: best.id, winnerName: best.name, id: pb.id, reactions };
+    mutate(`⚡ ${whoBuzzed(buzz)} buzzert (${J.fmtMs(best.ms)})`, () => {
+      cur.buzz = buzz;
       cur.timer = null;
-      stat(winner).buzzWins++;
+      stat(best.id).buzzWins++;
+      if (isTeam() && best.name) {
+        const key = best.id + ':' + best.name;
+        const ps = state.personStats || (state.personStats = {});
+        const entry = ps[key] || (ps[key] = { name: best.name, team: nameOf(best.id), buzzWins: 0 });
+        entry.buzzWins++;
+      }
     });
     sound('buzz');
+  }
+
+  // Nach einer falschen Antwort öffnet der Buzzer erst nach einer zufälligen Pause (0,5–1,5 s),
+  // damit niemand den Zeitpunkt im Rhythmus erraten kann. Die Pause erzeugt keinen Undo-Eintrag.
+  function armBuzz() {
+    const cur = state.current;
+    const fixed = window.JEOP_BUZZ_DELAY_MS;
+    const delay = fixed != null ? fixed : 500 + Math.random() * 1000;
+    setTimeout(() => {
+      if (state.current !== cur || !cur.buzz || !cur.buzz.arming) return;
+      cur.buzz = openBuzz();
+      commit();
+      sound('buzzopen');
+    }, delay);
   }
 
   // ---------- Timer ----------
@@ -231,6 +264,8 @@
     const status = $('buzzStatus');
     if (solved) {
       status.textContent = '';
+    } else if (buzz.arming) {
+      status.textContent = '🔔 Buzzer öffnet gleich …';
     } else if (buzz.open) {
       status.textContent = stolen
         ? `🔔 Buzzer offen – wer zuerst drückt, darf klauen (+${gain} bei richtig)`
@@ -239,7 +274,7 @@
       const rx = buzz.reactions || {};
       const others = Object.keys(rx).filter((id) => id !== buzz.winner)
         .sort((a, b) => rx[a] - rx[b]).map((id) => `${nameOf(id)} ${J.fmtMs(rx[id])}`);
-      status.textContent = `⚡ ${nameOf(buzz.winner)} hat gebuzzert und ist dran` +
+      status.textContent = `⚡ ${whoBuzzed(buzz)} hat gebuzzert und ist dran` +
         (rx[buzz.winner] != null ? ` (${J.fmtMs(rx[buzz.winner])})` : '') +
         (others.length ? ` · danach: ${others.join(', ')}` : '');
     } else {
@@ -256,7 +291,7 @@
     const judge = $('judge');
     judge.innerHTML = '';
     if (!state.players.length) {
-      judge.innerHTML = '<span class="hint">Lege rechts Spieler an, um Punkte zu vergeben.</span>';
+      judge.innerHTML = `<span class="hint">Lege rechts ${isTeam() ? 'Teams' : 'Spieler'} an, um Punkte zu vergeben.</span>`;
     }
     state.players.forEach((p) => {
       const verdict = judged[p.id];
@@ -265,7 +300,7 @@
       rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '') + (isWinner ? ' buzzed' : '');
       const name = document.createElement('span');
       name.className = 'name';
-      name.textContent = (isWinner ? '⚡ ' : '') + p.name;
+      name.textContent = (isWinner ? '⚡ ' : '') + p.name + (isWinner && isTeam() && buzz.winnerName ? ` (${buzz.winnerName})` : '');
       // Pro Frage: nur ein Spieler kann richtig liegen, jeder Spieler wird höchstens einmal gewertet.
       // Korrekturen gehen über „Rückgängig“.
       if (verdict) {
@@ -287,7 +322,6 @@
           state.current.judged[p.id] = 'right';
           stat(p.id).right++;
           if (stolen) stat(p.id).steals = (stat(p.id).steals || 0) + 1;
-          state.turn = p.id; // Wer richtig liegt, wählt das nächste Feld
           state.current.buzz = closedBuzz();
           state.current.timer = null;
           state.current.revealed = true;
@@ -308,14 +342,10 @@
           state.current.timer = null;
           // Klauen: Buzzer öffnet für alle, die noch nicht gewertet wurden
           opened = unjudged().length > 0;
-          state.current.buzz = opened ? openBuzz() : closedBuzz();
+          state.current.buzz = opened ? { open: false, winner: null, arming: true } : closedBuzz();
         });
         sound('wrong');
-        if (opened) {
-          setTimeout(() => {
-            if (state.current && state.current.buzz && state.current.buzz.open) sound('buzzopen');
-          }, 650);
-        }
+        if (opened) armBuzz();
       });
       rowEl.append(name, ok, bad);
       judge.appendChild(rowEl);
@@ -335,10 +365,13 @@
       if (linkedPlayers().has(p.id)) {
         const dev = document.createElement('span');
         dev.className = 'device';
-        dev.title = 'Gerät verbunden – klicken zum Trennen';
+        dev.title = isTeam() ? 'Geräte verbunden – klicken zum Trennen' : 'Gerät verbunden – klicken zum Trennen';
         dev.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (confirm(`Gerät von ${p.name} trennen? Der Name wird wieder frei.`)) releasePlayer(p.id);
+          const q = isTeam()
+            ? `Alle Geräte von ${p.name} trennen? Sie müssen ihr Team neu wählen.`
+            : `Gerät von ${p.name} trennen? Der Name wird wieder frei.`;
+          if (confirm(q)) releasePlayer(p.id);
         });
         name.prepend(dev);
       }
@@ -372,12 +405,12 @@
       const del = document.createElement('button');
       del.className = 'small ghost';
       del.textContent = '✕';
-      del.title = 'Spieler entfernen';
+      del.title = isTeam() ? 'Team entfernen' : 'Spieler entfernen';
       del.addEventListener('click', () => {
         if (confirm(`${p.name} entfernen?`)) {
           mutate(`${p.name} entfernt`, () => {
+            state.turn = J.turnAfterRemoval(ids(), state.turn, p.id);
             state.players = state.players.filter((x) => x.id !== p.id);
-            if (state.turn === p.id) state.turn = null;
           });
         }
       });
@@ -391,6 +424,14 @@
       );
       btns.append(turnBtn, plus, minus, del);
       row.append(name, score, btns);
+      if (isTeam()) {
+        const names = teamMembers().get(p.id) || [];
+        const mem = document.createElement('div');
+        mem.className = 'pmembers';
+        mem.style.setProperty('--team', J.teamColor(state.players.indexOf(p)));
+        mem.textContent = (names.length ? '📱 ' + names.join(', ') : 'Noch niemand beigetreten') + ` · ${names.length}/${state.teamSize}`;
+        row.appendChild(mem);
+      }
       box.appendChild(row);
     });
   }
@@ -421,6 +462,7 @@
     mutate('Frage geschlossen', () => {
       state.used[cur.round][cur.cat][cur.row] = true;
       state.current = null;
+      state.turn = J.nextTurn(ids(), state.turn);
     });
   });
   $('cancel').addEventListener('click', () =>
@@ -435,19 +477,53 @@
   });
   $('timerBtn').addEventListener('click', startTimer);
 
+  // ---------- Einzel- / Team-Modus ----------
+  function renderModeUI() {
+    $('modeSingle').className = isTeam() ? '' : 'primary';
+    $('modeTeam').className = isTeam() ? 'primary' : '';
+    $('teamSizeRow').hidden = !isTeam();
+    if (document.activeElement !== $('teamSize')) $('teamSize').value = state.teamSize;
+    $('newName').placeholder = isTeam() ? 'Team hinzufügen' : 'Spieler hinzufügen';
+    $('playersHint').textContent = isTeam()
+      ? 'Spieler wählen am Handy ihr Team und geben ihren Namen ein. Punkte zählen nur fürs Team.'
+      : 'Punkte direkt eintippen oder mit ± anpassen. Namen anklicken zum Umbenennen.';
+  }
+  function setMode(mode) {
+    if (state.mode === mode) return;
+    if (state.players.length && !confirm('Moduswechsel entfernt alle Spieler/Teams und setzt die Punkte zurück. (Rückgängig möglich)')) return;
+    conns.forEach((c) => {
+      if (c.playerId) { c.playerId = null; c.memberName = null; if (c.open) c.send({ type: 'released' }); }
+    });
+    mutate(mode === 'team' ? 'Team-Modus' : 'Einzelspieler-Modus', () => {
+      state.mode = mode;
+      state.players = [];
+      state.turn = null;
+      state.current = null;
+      state.stats = {};
+      state.personStats = {};
+    });
+  }
+  $('modeSingle').addEventListener('click', () => setMode('single'));
+  $('modeTeam').addEventListener('click', () => setMode('team'));
+  $('teamSize').addEventListener('change', () => {
+    state.teamSize = J.clampTeamSize($('teamSize').value);
+    $('teamSize').value = state.teamSize;
+    commit(); // betrifft nur neue Beitritte, niemand fliegt raus
+  });
+
   // ---------- Siegerehrung ----------
   let shownFinished = false;
   function renderFinish() {
     const el = $('finish');
     el.classList.toggle('show', !!state.finished);
     if (state.finished) {
-      J.renderPodium($('podium'), state.players, set.title, state.stats);
+      J.renderPodium($('podium'), state.players, set.title, state.stats, isTeam() ? state.personStats : null);
       if (!shownFinished) J.confetti(el);
     }
     shownFinished = !!state.finished;
   }
   $('finishBtn').addEventListener('click', () => {
-    if (!state.players.length) { alert('Es gibt noch keine Spieler.'); return; }
+    if (!state.players.length) { alert(isTeam() ? 'Es gibt noch keine Teams.' : 'Es gibt noch keine Spieler.'); return; }
     mutate('🏆 Siegerehrung', () => { state.finished = true; state.current = null; });
     sound('fanfare');
   });
@@ -506,6 +582,7 @@
     if (!name) return;
     mutate(`${name} hinzugefügt`, () => {
       state.players.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, score: 0 });
+      if (!state.turn) state.turn = state.players[0].id; // Der Erste in der Liste beginnt
     });
     $('newName').value = '';
   });
@@ -516,9 +593,10 @@
       state.players.forEach((p) => (p.score = 0));
       state.current = null;
       state.round = 0;
-      state.turn = null;
+      state.turn = state.players.length ? state.players[0].id : null;
       state.finished = false;
       state.stats = {};
+      state.personStats = {};
     });
   });
   $('newCode').addEventListener('click', () => {
@@ -591,6 +669,18 @@
     renderPlayers();
   }
 
+  // Team-Modus: Namen der verbundenen Mitglieder je Team
+  function teamMembers() {
+    const m = new Map();
+    conns.forEach((c) => {
+      if (c.open && c.playerId) {
+        if (!m.has(c.playerId)) m.set(c.playerId, []);
+        m.get(c.playerId).push(c.memberName || 'Spieler');
+      }
+    });
+    return m;
+  }
+
   // Welche Spieler haben ein Gerät verbunden?
   function linkedPlayers() {
     const ids = new Set();
@@ -604,7 +694,23 @@
       const pid = typeof msg.playerId === 'string' ? msg.playerId : null;
       conn.deviceId = typeof msg.deviceId === 'string' ? msg.deviceId : null;
       let ok = state.players.some((p) => p.id === pid) ? pid : null;
-      if (ok) {
+      conn.memberName = null;
+      if (ok && isTeam()) {
+        // Team-Modus: mehrere Geräte pro Team bis zur Teamgröße
+        for (const c of conns) {
+          if (c !== conn && c.open && conn.deviceId && c.deviceId === conn.deviceId && c.playerId) {
+            c.playerId = null; // dasselbe Gerät hat sich neu verbunden
+            c.close();
+          }
+        }
+        const members = [...conns].filter((c) => c !== conn && c.open && c.playerId === ok).length;
+        if (J.teamIsFull(members, state.teamSize)) {
+          ok = null;
+          conn.send({ type: 'taken', playerId: pid, reason: 'full' });
+        } else {
+          conn.memberName = J.cleanName(msg.name) || 'Spieler';
+        }
+      } else if (ok) {
         // Jeder Name darf nur von einem Gerät belegt sein. Dasselbe Gerät (z. B. nach
         // Verbindungsabbruch) darf übernehmen, ein fremdes nicht.
         for (const c of conns) {
@@ -635,7 +741,9 @@
     conn.reactTimes = (conn.reactTimes || []).filter((t) => now - t < 1000);
     if (conn.reactTimes.length >= 3) return;
     conn.reactTimes.push(now);
-    const name = conn.playerId ? nameOf(conn.playerId) : '👀';
+    const name = conn.playerId
+      ? (isTeam() && conn.memberName ? `${conn.memberName} (${nameOf(conn.playerId)})` : nameOf(conn.playerId))
+      : '👀';
     const out = { type: 'react', emoji: msg.emoji, name };
     conns.forEach((c) => { if (c.open) c.send(out); });
     J.showReaction(msg.emoji, name);
@@ -643,7 +751,14 @@
 
   function message() {
     const data = J.publicState(set, state);
-    data.taken = [...linkedPlayers()];
+    if (isTeam()) {
+      const m = teamMembers();
+      data.members = Object.fromEntries([...m]);
+      data.full = state.players.filter((p) => J.teamIsFull((m.get(p.id) || []).length, state.teamSize)).map((p) => p.id);
+      data.taken = [];
+    } else {
+      data.taken = [...linkedPlayers()];
+    }
     return { type: 'state', data };
   }
 
@@ -652,6 +767,7 @@
     conns.forEach((c) => {
       if (c.playerId === pid) {
         c.playerId = null;
+        c.memberName = null;
         if (c.open) c.send({ type: 'released' });
       }
     });

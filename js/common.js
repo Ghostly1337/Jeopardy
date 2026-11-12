@@ -94,6 +94,49 @@
     });
   }
 
+  // ---------- Spielregeln (reine Funktionen, unit-getestet) ----------
+  // „Am Zug“ geht reihum in Listenreihenfolge.
+  function nextTurn(ids, current) {
+    if (!ids.length) return null;
+    const i = ids.indexOf(current);
+    return ids[(i + 1) % ids.length]; // unbekannt/null → erster (i = -1)
+  }
+  // Wer bekommt den Zug, wenn ein Spieler entfernt wird?
+  function turnAfterRemoval(ids, current, removedId) {
+    if (current !== removedId) return current;
+    const rest = ids.filter((id) => id !== removedId);
+    if (!rest.length) return null;
+    const i = ids.indexOf(removedId);
+    return ids.slice(i + 1).find((id) => id !== removedId) || rest[0];
+  }
+
+  // Anti-Spam: Wer zu früh drückt, wird gesperrt; Reaktionen unter MIN_REACTION_MS gelten als Frühstart.
+  const LOCK_MS = 1000;
+  const MIN_REACTION_MS = 100;
+  const isEarly = (reactionMs) => !(reactionMs >= MIN_REACTION_MS);
+
+  // Schnellste gültige Reaktion gewinnt. entries: [[id, ms, name?], ...]
+  function pickBuzzWinner(entries) {
+    let best = null;
+    for (const [id, ms, name] of entries) {
+      if (!Number.isFinite(ms) || isEarly(ms)) continue;
+      if (!best || ms < best.ms) best = { id, ms, name: name || null };
+    }
+    return best;
+  }
+
+  // Team-Modus
+  function clampTeamSize(n) {
+    n = parseInt(n, 10);
+    return Number.isFinite(n) ? Math.min(20, Math.max(1, n)) : 3;
+  }
+  const teamIsFull = (members, teamSize) => members >= clampTeamSize(teamSize);
+  const TEAM_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#14b8a6', '#ec4899'];
+  const teamColor = (index) => TEAM_COLORS[index % TEAM_COLORS.length];
+  function cleanName(n) {
+    return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  }
+
   function emptyUsed() {
     return Array.from({ length: ROUNDS }, () =>
       Array.from({ length: CATS }, () => Array(ROWS).fill(false))
@@ -101,7 +144,10 @@
   }
 
   function defaultState() {
-    return { round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false, stats: {}, history: [] };
+    return {
+      round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false,
+      stats: {}, personStats: {}, mode: 'single', teamSize: 3, history: [],
+    };
   }
 
   function load(key, fallback) {
@@ -136,6 +182,9 @@
       current: s.current || null,
       turn: typeof s.turn === 'string' ? s.turn : null,
       stats: s.stats && typeof s.stats === 'object' ? s.stats : {},
+      personStats: s.personStats && typeof s.personStats === 'object' ? s.personStats : {},
+      mode: s.mode === 'team' ? 'team' : 'single',
+      teamSize: clampTeamSize(s.teamSize),
       finished: !!s.finished,
       history: Array.isArray(s.history) ? s.history : [],
     };
@@ -192,10 +241,16 @@
       intro: intro ? { step: intro.step, name: intro.step > 0 ? names[intro.step - 1] : null } : null,
       values: Array.from({ length: ROWS }, (_, row) => pointsFor(r, row)),
       used: state.used[r],
-      players: state.players.map((p) => ({ id: p.id, name: p.name, score: p.score })),
+      players: state.players.map((p, i) => ({
+        id: p.id, name: p.name, score: p.score,
+        color: state.mode === 'team' ? teamColor(i) : null,
+      })),
+      mode: state.mode === 'team' ? 'team' : 'single',
+      teamSize: clampTeamSize(state.teamSize),
       turn: state.turn || null,
       finished: !!state.finished,
       stats: state.stats || {},
+      personStats: state.mode === 'team' ? state.personStats || {} : {},
       current,
     };
   }
@@ -368,8 +423,8 @@
       return;
     }
     el.innerHTML = players.map((p) => `
-      <div class="score${p.id && p.id === turnId ? ' turn' : ''}">
-        <div class="score-name">${escapeHtml(p.name)}</div>
+      <div class="score${p.id && p.id === turnId ? ' turn' : ''}"${p.color ? ` style="--team:${p.color}"` : ''}>
+        <div class="score-name">${p.color ? '<i class="team-dot"></i>' : ''}${escapeHtml(p.name)}</div>
         <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
       </div>`).join('');
   }
@@ -437,12 +492,19 @@
     { icon: '🎯', title: 'Treffsicher', key: 'right', best: 'max', fmt: (v) => v + ' richtig' },
     { icon: '🙈', title: 'Meiste Fehlversuche', key: 'wrong', best: 'max', fmt: (v) => v + ' falsch' },
   ];
-  function awards(players, stats) {
+  // persons (nur Team-Modus): { key: { name, team, buzzWins } } – Buzzer-König geht dann an eine Person
+  function awards(players, stats, persons) {
     stats = stats || {};
+    const personList = persons && Object.keys(persons).length
+      ? Object.values(persons).map((x) => ({ p: { name: `${x.name} (${x.team})` }, s: x }))
+      : null;
     const out = [];
     AWARDS.forEach((a) => {
-      const vals = players
-        .map((p) => ({ p, v: (stats[p.id] || {})[a.key] }))
+      const source = a.key === 'buzzWins' && personList
+        ? personList
+        : players.map((p) => ({ p, s: stats[p.id] || {} }));
+      const vals = source
+        .map(({ p, s }) => ({ p, v: s[a.key] }))
         .filter((x) => typeof x.v === 'number' && (a.best === 'min' || x.v > 0));
       if (!vals.length) return;
       const best = a.best === 'min' ? Math.min(...vals.map((x) => x.v)) : Math.max(...vals.map((x) => x.v));
@@ -452,7 +514,7 @@
     return out;
   }
 
-  function renderPodium(el, players, title, stats) {
+  function renderPodium(el, players, title, stats, persons) {
     const ranked = ranking(players);
     const top = ranked.filter((p) => p.place <= 3);
     const rest = ranked.filter((p) => p.place > 3);
@@ -475,7 +537,7 @@
       ${rest.length ? `<div class="pod-rest">${rest.map((p) =>
         `<div><span>${p.place}.</span> ${escapeHtml(p.name)} <b>${p.score}</b></div>`).join('')}</div>` : ''}
       ${(() => {
-        const list = awards(players, stats);
+        const list = awards(players, stats, persons);
         return list.length ? `<div class="awards">${list.map((a, i) => `
           <div class="award" style="--d:${1.2 + i * 0.25}s">
             <div class="award-icon">${a.icon}</div>
@@ -538,6 +600,8 @@
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,
+    nextTurn, turnAfterRemoval, LOCK_MS, MIN_REACTION_MS, isEarly, pickBuzzWinner,
+    clampTeamSize, teamIsFull, teamColor, cleanName,
     fmtMs, awards, REACTIONS, showReaction, BUZZ_WINDOW_MS: 400,
   };
 })();

@@ -1365,3 +1365,11 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .clue-overlay.fx-right, .clue-overlay.fx-wrong, .score.fx-up, .score.fx-down, .clue-overlay.zoom-in > * { animation: none; }
 }
+
+/* Anzeige-Texte (Board, Fragen, Intro, Punkte) nicht markierbar – Eingabefelder schon */
+.player-body, .board, .intro, .clue-overlay, .finish, .scores, .host-clue .meta, .host-clue .q {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.player-body input, .player-body textarea { -webkit-user-select: text; user-select: text; }

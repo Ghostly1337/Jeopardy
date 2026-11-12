@@ -38,9 +38,6 @@
       clearTimeout(dealTimer);
       dealTimer = setTimeout(() => board.classList.remove('deal'), 2000);
     }
-    // TV-Ansicht spielt die Intro-Musik
-    if (me === 'tv' && intro && !prevIntro && J.soundOn()) J.startIntroMusic();
-    if (!intro && prevIntro) J.stopIntroMusic();
     prevIntro = !!intro;
     J.renderIntro($('intro'), intro, s.round, s.values);
     let html = s.categories.map((c, i) => `<div class="cell cat${J.introCellClass(intro, i)}">${J.escapeHtml(c)}</div>`).join('');

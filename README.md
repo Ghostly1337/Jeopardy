@@ -30,7 +30,7 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - **🏆 Siegerehrung**: Podium (Gleichstand teilt sich den Platz), Auszeichnungen (Buzzer-König, Meisterdieb, Treffsicher, Meiste Fehlversuche – im Team-Modus ist der Buzzer-König eine Person), Konfetti und Fanfare.
 - **Live-Reaktionen**: Spieler tippen 😂 👏 😱 🔥 🤔, das Emoji fliegt mit Namen bei allen über den Bildschirm (am Handy hinter dem 😀-Knopf).
 - **Animationen**: Die Frage wächst aus dem angeklickten Feld heraus, richtig leuchtet grün, falsch wackelt rot, Punktestände zählen hoch. Auf der TV-Ansicht erscheint, wer gebuzzert hat, kurz groß mit Blitz.
-- **Musik** (nur TV-Ansicht und Host-Pult, damit die Handys nicht durcheinander spielen): eigene kurze Melodie beim Runden-Intro; beim 15-s-Timer Uhr-Ticken mit Herzschlag und Piepsern bei 3-2-1.
+- **Musik** (nur TV-Ansicht und Host-Pult, damit die Handys nicht durcheinander spielen): beim 15-s-Timer Uhr-Ticken mit Herzschlag und Piepsern bei 3-2-1.
 - **Sounds** bei allen, abschaltbar. Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
 - **Punkte-Animation**: „+500“ / „−250“ erscheint bei allen kurz über der Punktekachel.
 - Punkte direkt eintippen oder ±100. **Rückgängig** (Strg+Z) macht jede Aktion schrittweise rückgängig.

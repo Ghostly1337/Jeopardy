@@ -511,28 +511,6 @@
     tr.bus.gain.setTargetAtTime(0.0001, tr.ctx.currentTime, 0.08);
     setTimeout(() => tr.bus.disconnect(), 600);
   }
-  const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
-
-  // Intro-Musik (TV-Ansicht und Host-Pult): 120 bpm, Am – F – C – G als Arpeggio mit Bass,
-  // 8 Takte = 16 s, so lang wie das Runden-Intro; die letzten zwei Takte doppelt so dicht
-  function startIntroMusic() {
-    startTrack('intro', (T) => {
-      const beat = 0.5;
-      const chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];
-      for (let bar = 0; bar < 8; bar++) {
-        const ch = chords[bar % 4], t0 = bar * 4 * beat;
-        T({ freq: midiHz(ch[0] - 12), start: t0, dur: 0.45, vol: 0.28 });
-        T({ freq: midiHz(ch[0] - 12), start: t0 + 2 * beat, dur: 0.45, vol: 0.22 });
-        const steps = bar >= 6 ? 16 : 8, len = 4 * beat / steps;
-        for (let i = 0; i < steps; i++) {
-          const n = ch[i % 3] + (i % 6 >= 3 ? 12 : 0);
-          T({ freq: midiHz(n + 12), start: t0 + i * len, dur: len * 0.9, type: 'triangle', vol: bar >= 6 ? 0.07 : 0.09 });
-        }
-        for (let k = 0; k < 4; k++) T({ freq: 2400, start: t0 + k * beat, dur: 0.03, type: 'square', vol: 0.025 });
-      }
-    });
-  }
-  const stopIntroMusic = () => stopTrack('intro');
 
   function startTimerMusic(remainingMs) {
     startTrack('timer', (T) => {
@@ -784,7 +762,7 @@
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
-    penaltyFor, stealFor, sfx, startTimerMusic, stopTimerMusic, timerMusicOn, startIntroMusic, stopIntroMusic, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
+    penaltyFor, stealFor, sfx, startTimerMusic, stopTimerMusic, timerMusicOn, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,

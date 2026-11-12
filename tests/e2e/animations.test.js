@@ -28,6 +28,13 @@ test('Animationen auf Handy und TV', async (t) => {
   });
   await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 2);
 
+  await t.test('Anzeige-Texte sind nicht markierbar, Eingabefelder schon', async () => {
+    const sel = (page, q) => page.$eval(q, (e) => getComputedStyle(e).userSelect || getComputedStyle(e).webkitUserSelect);
+    for (const q of ['.intro-title', '#board', '#q', '#scores']) assert.equal(await sel(tv, q), 'none', q);
+    assert.equal(await sel(host, '#board'), 'none');
+    assert.notEqual(await sel(anna, '#pickerName'), 'none');
+  });
+
   await t.test('Frage zoomt aus dem Feld', async () => {
     await host.locator('.cell.val').nth(3).click();
     await anna.waitForSelector('#overlay.show.zoom-in');
@@ -84,23 +91,3 @@ test('Animationen auf Handy und TV', async (t) => {
   assert.deepEqual(env.errors, []);
 });
 
-test('Intro-Musik auf TV und Host, stoppt beim Überspringen', async () => {
-  const { host, code } = await openHost(env, { names: ['Anna'] });
-  const tv = await joinPlayer(env, code, { viewport: { width: 1280, height: 720 } });
-  await tv.click('#tvView');
-  for (const p of [host, tv]) {
-    await p.evaluate(() => {
-      window.__intro = [];
-      J.startIntroMusic = () => window.__intro.push('start');
-      J.stopIntroMusic = () => window.__intro.push('stop');
-    });
-  }
-  await host.click('#introBtn');
-  await tv.waitForSelector('#intro.show');
-  await tv.waitForFunction(() => window.__intro.includes('start'));
-  assert.deepEqual(await host.evaluate(() => window.__intro), ['start']);
-  await host.click('#introSkip');
-  await tv.waitForFunction(() => window.__intro.at(-1) === 'stop');
-  assert.deepEqual(await host.evaluate(() => window.__intro), ['start', 'stop']);
-  assert.deepEqual(env.errors, []);
-});

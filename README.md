@@ -1,7 +1,7 @@
 # Jeopardy
 
-**▶ Spielen: https://ghostly1337.github.io/Jeopardy/** (WebRTC, am besten im selben WLAN)  
-**▶ Netzunabhängig: https://jeopardy-cyan-two.vercel.app** (Vercel-Fork mit Passwort, siehe unten)
+**▶ Spielen: https://jeopardy-two-pi.vercel.app** (Vercel mit Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)  
+Ausweichadresse: https://ghostly1337.github.io/Jeopardy/ (GitHub Pages, WebRTC – ohne Passwort, im selben WLAN evtl. nur mit Verbindungshilfe)
 
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 

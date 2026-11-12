@@ -304,7 +304,7 @@
     peer.on('error', (err) => {
       if (err.type === 'peer-unavailable') {
         setStatus('Host nicht erreichbar – neuer Versuch…', false);
-        $('waiting').textContent = `Warte auf den Host von Raum ${room}…`;
+        $('waiting').textContent = `Warte auf den Host von Raum ${room}… Stimmt der Code? Der Host sollte sein Host-Pult geöffnet und im Vordergrund haben.`;
       } else {
         setStatus('Fehler: ' + err.type + ' – neuer Versuch…', false);
       }

@@ -7,7 +7,8 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 
 ## So funktioniert's
 
-1. **Fragen bearbeiten** (`editor.html`): Kategorien, Fragen und Antworten eintragen, optional eine **Host-Notiz** (z. B. „auch richtig: …“ – sieht nur der Host, auch nach dem Aufdecken nicht die Spieler) und ein Bild pro Frage (Bild-Link oder 📁 hochladen; Uploads werden automatisch verkleinert). Speichert automatisch im Browser. Mit *Export* als `.json` sichern, mit *Import* wieder laden.
+1. **Fragen bearbeiten** (`editor.html`): Kategorien, Fragen und Antworten eintragen, optional eine **Host-Notiz** (z. B. „auch richtig: …“ – sieht nur der Host, auch nach dem Aufdecken nicht die Spieler) und ein Bild pro Frage (Bild-Link oder 📁 hochladen; Uploads werden automatisch verkleinert). Speichert automatisch. Mit *Export* als `.json` sichern, mit *Import* als neues Fragenset laden.
+   - **Mehrere Fragensets**: Oben im Editor zwischen Sets wechseln, neue anlegen, duplizieren, umbenennen, löschen. Das gewählte Set spielt das Host-Pult (auch live, wenn es im anderen Tab offen ist). Auf Vercel liegen die Sets auf dem Server, geschützt durch ein eigenes **Host-Passwort** (Spieler kennen nur das Seitenpasswort und kommen so nicht an die Antworten); auf GitHub Pages nur im eigenen Browser.
 2. **Spiel hosten** (`host.html`): Raumcode und Beitrittslink werden angezeigt. Link an die Spieler schicken.
 3. **Spieler** öffnen den Link (oder geben auf der Startseite den Code ein). Sie sehen Board, Fragen und Punktestand live – aber **nie die Antworten**, solange du sie nicht aufdeckst.
 
@@ -46,6 +47,7 @@ Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **H
 
 - **Passwort**: `middleware.js` sperrt die ganze Seite hinter einem gemeinsamen Passwort aus der Umgebungsvariable `JEOPARDY_PASSWORD` (Cookie 30 Tage). Passwort ändern = alle müssen es neu eingeben.
 - **Datenbank**: Neon-Integration im Vercel-Marketplace (`vercel integration add neon`); sie setzt `DATABASE_URL`. Die Tabellen `jeop_rooms`/`jeop_msgs` legt das Relay selbst an. Nachrichten werden nach 10 Minuten gelöscht, Räume nach 2 Tagen ohne Host.
+- **Fragensets** (`api/sets.mjs`): Liegen in der Tabelle `jeop_sets` derselben Datenbank. Jede Anfrage braucht das Host-Passwort aus `JEOPARDY_HOST_PASSWORD` (Header `x-host-password`). Ist es nicht gesetzt, speichert der Editor wie auf GitHub Pages nur im Browser.
 - **Fairer Buzzer**: Übers Relay sammelt der Host nach dem ersten Buzz 0,9 s statt 0,4 s, weil HTTP-Nachrichten ungleichmäßiger ankommen. Es zählt weiterhin die Reaktionszeit auf dem Gerät.
 
 Einrichten (einmalig, mit [Vercel CLI](https://vercel.com/docs/cli)):
@@ -54,6 +56,7 @@ Einrichten (einmalig, mit [Vercel CLI](https://vercel.com/docs/cli)):
 vercel link
 vercel integration add neon --meta region=fra1
 vercel env add JEOPARDY_PASSWORD production
+vercel env add JEOPARDY_HOST_PASSWORD production
 vercel deploy --prod
 ```
 
@@ -71,8 +74,8 @@ npm run test:e2e                  # nur Browser-Tests (WebRTC)
 npm run test:e2e:relay            # Browser-Tests über das HTTP-Relay (wie auf Vercel)
 ```
 
-- **Unit-Tests** (`tests/unit/`, `node:test`): Spielregeln aus `js/common.js` – Punkte, halbe Punkte beim Klauen, Reihenfolge, Frühstart-Regeln, Buzzer-Auswertung, Teamgröße, Rangliste, Auszeichnungen, und dass der öffentliche Spielstand **nie Antworten** enthält.
-- **Browser-Tests** (`tests/e2e/`, Playwright): Host und mehrere Spieler in echten Browsern, verbunden über einen lokal gestarteten Vermittlungsserver (kein Internet nötig). Abgedeckt: Spielablauf, Host-Notizen, Punkte-Animation, Buzzer inkl. Anti-Spam und fairer Reaktionszeit, Team-Modus, Namensvergabe, TV-Ansicht, Bilder, Siegerehrung, Runden-Intro, Handy-Layout (360/390 px) Wiederverbinden nach stillem Verbindungsabbruch und die Verbindungshilfe: Direkte Verbindungen werden verboten, ein lokaler TURN-Server (`node-turn`) muss übernehmen.
+- **Unit-Tests** (`tests/unit/`, `node:test`): Spielregeln aus `js/common.js` – Punkte, halbe Punkte beim Klauen, Reihenfolge, Frühstart-Regeln, Buzzer-Auswertung, Teamgröße, Rangliste, Auszeichnungen, und dass der öffentliche Spielstand **nie Antworten** enthält. Außerdem Relay, Passwortsperre und Fragenset-Speicher (Host-Passwort, Speichern/Laden/Löschen, Eingabeprüfung).
+- **Browser-Tests** (`tests/e2e/`, Playwright): Host und mehrere Spieler in echten Browsern, verbunden über einen lokal gestarteten Vermittlungsserver (kein Internet nötig). Abgedeckt: Spielablauf, Host-Notizen, Punkte-Animation, Buzzer inkl. Anti-Spam und fairer Reaktionszeit, Team-Modus, Namensvergabe, TV-Ansicht, Bilder, Siegerehrung, Runden-Intro, Handy-Layout (360/390 px) Fragenset-Bibliothek (anlegen, wechseln, Import, Löschen; übers Relay mit Host-Passwort und zweitem Gerät), Wiederverbinden nach stillem Verbindungsabbruch und die Verbindungshilfe: Direkte Verbindungen werden verboten, ein lokaler TURN-Server (`node-turn`) muss übernehmen.
 - Screenshots der Handy-Ansicht: `SHOTS=./shots npm run test:e2e`.
 
 ## CI und Veröffentlichung

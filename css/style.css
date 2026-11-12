@@ -1308,3 +1308,13 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .turn-box .btn-row { margin-top: 10px; }
 .turn-state { font-size: 12px; font-weight: 600; color: var(--muted); }
 .turn-state.on { color: var(--green); }
+
+/* Fragenset-Leiste im Editor */
+.setbar { margin-bottom: 16px; padding: 12px 16px; }
+.setbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.setbar-row + .setbar-row { margin-top: 10px; }
+.setbar label { font-weight: 700; }
+.setbar select { min-width: 200px; flex: 1 1 200px; max-width: 360px; }
+.setbar #hostPw { max-width: 240px; }
+.set-source { font-size: 13px; color: var(--muted); margin-left: auto; }
+.set-source.error { color: var(--red); }

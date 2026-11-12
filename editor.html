@@ -20,6 +20,24 @@
       <a class="btn primary" href="host.html">Zum Host-Pult →</a>
     </div>
 
+    <section class="card setbar" id="setBar">
+      <div class="row setbar-row">
+        <label for="setSelect">Fragenset</label>
+        <select id="setSelect" disabled><option>Lädt…</option></select>
+        <button class="small" id="setNew" type="button">＋ Neu</button>
+        <button class="small" id="setDup" type="button">Duplizieren</button>
+        <button class="small" id="setRename" type="button">Umbenennen</button>
+        <button class="small ghost" id="setDel" type="button">Löschen</button>
+        <span class="set-source" id="setSource"></span>
+      </div>
+      <form class="row setbar-row" id="pwForm" hidden>
+        <label for="hostPw">Host-Passwort</label>
+        <input id="hostPw" type="password" autocomplete="current-password" placeholder="für gespeicherte Sets">
+        <button class="primary small" type="submit">Entsperren</button>
+        <span class="hint" id="pwError"></span>
+      </form>
+    </section>
+
     <input id="title" class="title-field" placeholder="Titel des Spiels">
 
     <div class="tabs seg">
@@ -31,6 +49,7 @@
     <div class="ed-grid" id="grid" style="margin-top:16px"></div>
   </main>
   <script src="js/common.js"></script>
+  <script src="js/sets.js"></script>
   <script src="js/editor.js"></script>
 </body>
 </html>

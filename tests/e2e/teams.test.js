@@ -55,7 +55,8 @@ test('Team-Modus von Beitritt bis Siegerehrung', async (t) => {
   await t.test('Punkte zählen nur fürs Team', async () => {
     await host.locator('.jrow.buzzed .green').click();
     await host.click('#close');
-    await anna.waitForFunction(() => document.querySelectorAll('#scores .score').length === 2);
+    // Auf den Endstand warten (übers Relay kommen Updates etwas verzögert)
+    await anna.waitForFunction(() => [...document.querySelectorAll('#scores .score-value')].map((e) => e.textContent).join(',') === '50,-50');
     assert.equal(await scoresOf(anna), '50,-50');
     await anna.waitForFunction(() => document.getElementById('turnBanner').textContent.includes('Blau wählt'));
   });
@@ -88,7 +89,7 @@ test('Team-Modus von Beitritt bis Siegerehrung', async (t) => {
   await t.test('Wechsel zurück in den Einzelmodus leert die Liste', async () => {
     await host.click('#modeSingle');
     await anna.waitForSelector('#picker:not([hidden])');
-    assert.equal(await anna.textContent('#pickerTitle'), 'Wer bist du?');
+    await anna.waitForFunction(() => document.getElementById('pickerTitle').textContent === 'Wer bist du?');
     assert.ok(await host.isHidden('#teamSizeRow'));
   });
 

@@ -30,7 +30,7 @@ test('Kompletter Spielablauf zwischen Host und Spieler', async (t) => {
   await host.evaluate(() => {
     const s = J.loadSet();
     s.rounds[0].categories[0].name = 'Geschichte';
-    s.rounds[0].categories[0].clues[0] = { q: 'Dieses Jahr fiel die Mauer', a: 'GEHEIM-1989', img: '' };
+    s.rounds[0].categories[0].clues[0] = { q: 'Dieses Jahr fiel die Mauer', a: 'GEHEIM-1989', img: '', note: 'NOTIZ: auch 89 gilt' };
     J.saveSet(s);
   });
   await host.reload();
@@ -49,14 +49,18 @@ test('Kompletter Spielablauf zwischen Host und Spieler', async (t) => {
     assert.equal(await anna.textContent('#q'), 'Dieses Jahr fiel die Mauer');
     assert.ok(!(await anna.content()).includes('GEHEIM-1989'));
     assert.equal(await host.textContent('#clueA'), 'GEHEIM-1989');
+    assert.equal(await host.textContent('#clueNote'), 'NOTIZ: auch 89 gilt');
   });
 
   await t.test('Falsch kostet die Hälfte, geklaut bringt die Hälfte', async () => {
     await host.locator('.jrow').nth(1).locator('.red').click(); // Ben falsch
+    await anna.waitForSelector('#overlayScores .delta.neg:text-is("−50")');
     await host.locator('.jrow').nth(0).locator('.green').click(); // Anna richtig (geklaut)
+    await anna.waitForSelector('#overlayScores .delta.pos:text-is("+50")');
     const verdicts = await host.locator('#judge .verdict').allTextContents();
     assert.deepEqual(verdicts, ['✓ +50 (geklaut)', '✗ −50']);
     await anna.waitForFunction(() => document.getElementById('a').textContent === 'GEHEIM-1989');
+    assert.ok(!(await anna.content()).includes('NOTIZ'), 'Host-Notiz bleibt auch nach dem Aufdecken verborgen');
     assert.equal(await host.locator('#judge button').count(), 0, 'Keine Doppelwertung möglich');
   });
 

@@ -8,6 +8,16 @@
   }
   document.title = `Jeopardy – Raum ${room}`;
 
+  // Verbindungshilfe (TURN) aus dem Beitrittslink übernehmen und für diesen Raum merken
+  const TURN_ROOM_KEY = 'jeopardy.turn.' + room;
+  const fromLink = /(?:^|[#&])t=([\w-]+)/.exec(location.hash);
+  if (fromLink) {
+    J.saveTurn(J.decodeTurn(fromLink[1]), TURN_ROOM_KEY);
+    history.replaceState(null, '', location.pathname + location.search); // Zugang nicht in der Adresszeile lassen
+  }
+  const turn = J.loadTurn(TURN_ROOM_KEY);
+  const peerOptions = () => ({ config: J.iceConfig(turn, window.JEOP_FORCE_RELAY) });
+
   function setStatus(text, ok) {
     $('status').textContent = text;
     $('status').className = 'status ' + (ok ? 'ok' : 'bad');
@@ -335,6 +345,7 @@
   let peer;
   let conn;
   let retryTimer;
+  let hintTimer;
 
   function scheduleRetry() {
     clearTimeout(retryTimer);
@@ -352,7 +363,17 @@
     setStatus('verbinde…', false);
     conn = peer.connect(J.peerId(room), { reliable: true });
     const thisConn = conn;
+    // Kommt die Direktverbindung nicht zustande, blockiert meist das Netz (z. B. Uni-WLAN)
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => {
+      if (thisConn !== conn || conn.open) return;
+      setStatus('Keine Direktverbindung', false);
+      $('waiting').textContent = turn
+        ? 'Die Verbindung kommt nicht zustande, obwohl die Verbindungshilfe aktiv ist. Prüft den TURN-Zugang im Host-Pult oder wechselt auf mobile Daten.'
+        : 'Die Verbindung kommt nicht zustande – vermutlich blockiert euer Netz direkte Verbindungen (z. B. im selben Uni-WLAN). Wechsle auf mobile Daten, oder der Host richtet im Host-Pult die „Verbindungshilfe“ ein und schickt den Link neu.';
+    }, window.JEOP_CONNECT_HINT_MS || 12000);
     conn.on('open', () => {
+      clearTimeout(hintTimer);
       setStatus(`Raum ${room}`, true);
       sendHello();
     });
@@ -382,7 +403,7 @@
       $('waiting').textContent = 'Keine Verbindung möglich. Internet prüfen und neu laden.';
       return;
     }
-    peer = new Peer();
+    peer = new Peer(peerOptions());
     peer.on('open', connect);
     peer.on('error', (err) => {
       if (err.type === 'peer-unavailable') {

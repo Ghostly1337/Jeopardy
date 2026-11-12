@@ -102,7 +102,12 @@
         a.value = clue.a;
         a.placeholder = 'Antwort (nur Host)';
         a.addEventListener('input', () => { clue.a = a.value; persist(); });
-        box.append(q, a, imageControls(clue));
+        const note = document.createElement('input');
+        note.className = 'note-field';
+        note.value = clue.note || '';
+        note.placeholder = 'Host-Notiz (optional, nur für dich)';
+        note.addEventListener('input', () => { clue.note = note.value; persist(); });
+        box.append(q, a, note, imageControls(clue));
         col.appendChild(box);
       });
       grid.appendChild(col);

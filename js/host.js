@@ -672,6 +672,11 @@
     peer = new Peer(J.peerId(code));
     peer.on('open', () => setStatus('online', true));
     peer.on('connection', (conn) => {
+      // Selbsttest-Verbindung: nur bestätigen, nicht als Spieler zählen
+      if (conn.metadata && conn.metadata.probe) {
+        conn.on('open', () => setTimeout(() => conn.close(), 500));
+        return;
+      }
       conn.on('open', () => {
         conns.add(conn);
         updateViewers();
@@ -688,7 +693,7 @@
     });
     peer.on('disconnected', () => {
       setStatus('Verbindung zum Server verloren – neuer Versuch…', false);
-      setTimeout(() => { if (!peer.destroyed) peer.reconnect(); }, 2000);
+      setTimeout(() => { if (!peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 2000);
     });
     peer.on('error', (err) => {
       if (err.type === 'unavailable-id') {
@@ -696,13 +701,65 @@
         setStatus('Raumcode noch belegt – neuer Versuch…', false);
         peer.destroy();
         setTimeout(startPeer, 4000);
-      } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
+      } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') {
         setStatus('Netzwerkfehler – neuer Versuch…', false);
+        setTimeout(selfCheck, 3000);
       } else {
         console.warn('Peer-Fehler', err);
       }
     });
   }
+
+  // ---------- Selbsttest ----------
+  // Handy-Browser frieren Hintergrund-Tabs ein. Dabei kann die Verbindung zum Vermittlungsserver
+  // still abreißen, während die Seite weiter „online“ zeigt – neue Spieler finden den Raum dann
+  // nicht mehr. Deshalb prüft der Host regelmäßig, ob er unter seinem Raumcode erreichbar ist,
+  // und meldet sich sonst neu an (bestehende Spielerverbindungen bleiben dabei bestehen).
+  let probeBusy = false;
+  function reRegister() {
+    if (!peer || peer.destroyed) return startPeer();
+    setStatus('Verbindung wird erneuert…', false);
+    try { if (!peer.disconnected) peer.disconnect(); } catch (e) {}
+    setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} }, 500);
+  }
+  function selfCheck() {
+    if (!peer || peer.destroyed || probeBusy || typeof Peer === 'undefined') return;
+    if (peer.disconnected) { reRegister(); return; }
+    probeBusy = true;
+    let done = false;
+    const probe = new Peer();
+    const finish = (reachable) => {
+      if (done) return;
+      done = true;
+      probeBusy = false;
+      try { probe.destroy(); } catch (e) {}
+      if (!reachable) reRegister();
+    };
+    probe.on('open', () => {
+      const c = probe.connect(J.peerId(code), { metadata: { probe: true } });
+      c.on('open', () => finish(true));
+    });
+    probe.on('error', (err) => finish(err.type !== 'peer-unavailable'));
+    setTimeout(() => finish(true), 15000); // keine Antwort: lieber nichts tun
+  }
+  setInterval(selfCheck, window.JEOP_SELFCHECK_MS || 20000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { setTimeout(selfCheck, 500); keepAwake(); }
+  });
+  window.addEventListener('online', () => setTimeout(selfCheck, 1000));
+
+  // Bildschirm am Handy wach halten, solange das Host-Pult offen ist
+  let wakeLock = null;
+  async function keepAwake() {
+    try {
+      if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    } catch (e) {}
+  }
+  keepAwake();
+  document.addEventListener('click', keepAwake, { once: true });
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
 

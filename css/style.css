@@ -403,11 +403,16 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .player-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* genau eine Bildschirmhöhe: Board passt sich an, Punkte bleiben ohne Scrollen sichtbar.
+     dvh = sichtbare Höhe ohne Browser-Adressleiste (Handy) */
+  height: 100vh;
+  height: 100dvh;
   padding: clamp(8px, 1.5vw, 24px);
   gap: clamp(10px, 1.5vw, 20px);
 }
-.player-page .board { flex: 1; grid-auto-rows: 1fr; }
+/* Kategorie-Zeile so hoch wie nötig, die 5 Punktereihen teilen sich den Rest */
+.player-page .board { flex: 1 1 auto; min-height: 0; grid-template-rows: auto repeat(5, minmax(0, 1fr)); }
+.player-page > .scores, .player-page > .turn-banner { flex: none; }
 .player-page .cell.val { min-height: 0; }
 .topright {
   position: fixed;
@@ -1194,7 +1199,7 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
     line-height: 1.15;
   }
   .cell.val { font-size: clamp(17px, 5.6vw, 28px); letter-spacing: 0; }
-  .player-page .board { grid-auto-rows: minmax(52px, 1fr); }
+  .player-page .board { grid-template-rows: auto repeat(5, minmax(0, 1fr)); }
   .turn-banner { font-size: 13px; padding: 5px 12px; gap: 6px; }
   .turn-label { font-size: 9px; padding: 2px 6px; }
 

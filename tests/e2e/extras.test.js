@@ -116,6 +116,10 @@ test('Handy-Layout', async (t) => {
           minCatFont: Math.min(...cats.map((c) => parseFloat(getComputedStyle(c).fontSize))),
           catsFit: cats.every((c) => c.scrollWidth <= c.clientWidth + 1),
           reactVisible: [...document.querySelectorAll('.react-btn')].filter((b) => b.offsetParent).length,
+          overflowY: document.documentElement.scrollHeight - window.innerHeight,
+          scoresBottom: document.getElementById('scores').getBoundingClientRect().bottom,
+          catHeight: cats[0].getBoundingClientRect().height,
+          valHeight: vals[0].getBoundingClientRect().height,
         };
       });
       assert.ok(m.overflowX <= 0, 'kein seitliches Scrollen: ' + m.overflowX);
@@ -123,6 +127,9 @@ test('Handy-Layout', async (t) => {
       assert.ok(m.catsFit, 'Kategorienamen passen in die Kacheln');
       assert.ok(m.minCatFont >= 8, 'Kategorie-Schrift lesbar: ' + m.minCatFont);
       assert.equal(m.reactVisible, 1, 'Emoji-Leiste ist eingeklappt');
+      assert.ok(m.overflowY <= 0, 'kein Scrollen nach unten nötig: ' + m.overflowY);
+      assert.ok(m.scoresBottom <= vp.height, 'Punkte ohne Scrollen sichtbar: ' + m.scoresBottom);
+      assert.ok(m.catHeight < m.valHeight, `Kategorie-Zeile niedriger als Punktefelder (${m.catHeight} / ${m.valHeight})`);
       await shot(p, `handy-board-${vp.width}`);
       await p.click('.react-toggle');
       assert.equal(await p.evaluate(() => [...document.querySelectorAll('.react-btn')].filter((b) => b.offsetParent).length), 6);

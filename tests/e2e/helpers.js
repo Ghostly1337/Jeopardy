@@ -46,6 +46,7 @@ async function startTurn() {
   };
 }
 
+const HOST_PASSWORD = 'host-test-pw';
 const TRANSPORT = process.env.E2E_TRANSPORT === 'relay' ? 'relay' : 'peer';
 
 function readBody(req) {
@@ -62,6 +63,7 @@ async function startEnv(init = {}) {
   const webPort = await freePort();
   const peerPort = await freePort();
   let relay = null;
+  let sets = null;
   if (TRANSPORT === 'relay') {
     const { handleRelay } = await import('../../lib/relay-core.mjs');
     const { memoryStore } = await import('../../lib/relay-stores.mjs');
@@ -73,10 +75,22 @@ async function startEnv(init = {}) {
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(json));
     };
+    // Fragenset-Speicher wie auf Vercel (mit Host-Passwort)
+    const { handleSets, memorySetStore } = await import('../../lib/sets-core.mjs');
+    const setStore = memorySetStore();
+    sets = async (req, res) => {
+      const u = new URL(req.url, 'http://x');
+      const rawBody = req.method === 'POST' ? await readBody(req) : '';
+      const headers = { get: (k) => req.headers[k.toLowerCase()] ?? null };
+      const { status, json } = await handleSets({ method: req.method, query: u.searchParams, headers, rawBody }, setStore, HOST_PASSWORD);
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(json));
+    };
   }
 
   const web = http.createServer((req, res) => {
     if (relay && req.url.startsWith('/api/relay')) return relay(req, res);
+    if (sets && req.url.startsWith('/api/sets')) return sets(req, res);
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p.endsWith('/')) p += 'index.html';
     const file = path.join(ROOT, p);
@@ -125,7 +139,8 @@ async function startEnv(init = {}) {
     }, [peerPort, { ...init, ...extraInit }]);
     const p = await ctx.newPage();
     p.on('pageerror', (e) => errors.push(e.message));
-    p.on('dialog', (d) => d.accept());
+    // Dialoge bestätigen; Tests können mit p.nextDialog die Eingabe für prompt() vorgeben
+    p.on('dialog', (d) => { const a = p.nextDialog; p.nextDialog = undefined; d.accept(a); });
     return p;
   }
 
@@ -181,4 +196,4 @@ async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true 
 const scoresOf = (page, sel = '#scores') =>
   page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
 
-module.exports = { TRANSPORT, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };
+module.exports = { TRANSPORT, HOST_PASSWORD, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

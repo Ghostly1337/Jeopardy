@@ -6,14 +6,174 @@
   const savedEl = document.getElementById('saved');
   let savedTimer;
 
+  // ---------- Fragenset-Bibliothek ----------
+  const $ = (id) => document.getElementById(id);
+  const selectEl = $('setSelect');
+  const sourceEl = $('setSource');
+  let lib = null;        // Server- oder lokale Bibliothek, null bis entsperrt
+  let sets = [];         // [{id, name}]
+  let active = null;     // id des aktiven Sets
+  let syncTimer = null;
+  let dirty = false;     // ungespeicherte Änderungen am aktiven Set
+  let syncing = Promise.resolve();
+
+  function showSaved(text, error) {
+    savedEl.textContent = text;
+    savedEl.classList.toggle('error', !!error);
+    clearTimeout(savedTimer);
+    if (!error) savedTimer = setTimeout(() => (savedEl.textContent = ''), 1500);
+  }
+
+  const activeName = () => (sets.find((s) => s.id === active) || {}).name || set.title || 'Fragenset';
+
+  // Aktives Set in die Bibliothek schreiben (verzögert, damit nicht jeder Tastendruck eine Anfrage ist)
+  function scheduleSync() {
+    dirty = true;
+    if (!lib || !active) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncNow, 700);
+  }
+  function syncNow() {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    if (!lib || !active || !dirty) return syncing;
+    dirty = false;
+    const id = active;
+    const data = JSON.parse(JSON.stringify(set));
+    syncing = syncing.then(() => lib.save(id, activeName(), data)).then(() => {
+      if (lib.kind === 'server') showSaved('Auf dem Server gespeichert ✓');
+    }).catch((e) => {
+      dirty = true;
+      showSaved(e.status === 401 ? 'Nicht gespeichert – Host-Passwort ungültig' : 'Server-Speichern fehlgeschlagen: ' + e.message, true);
+      if (e.status === 401) lock(true);
+    });
+    return syncing;
+  }
+
   function persist() {
     const ok = J.saveSet(set);
-    savedEl.textContent = ok ? 'Gespeichert ✓' : 'Speichern fehlgeschlagen – Speicher voll?';
-    savedEl.classList.toggle('error', !ok);
-    clearTimeout(savedTimer);
-    if (ok) savedTimer = setTimeout(() => (savedEl.textContent = ''), 1200);
+    if (!ok) showSaved('Speichern fehlgeschlagen – Speicher voll?', true);
+    else if (!lib || lib.kind === 'local') showSaved('Gespeichert ✓');
+    scheduleSync();
     return ok;
   }
+
+  function renderSetBar() {
+    const ready = !!lib;
+    selectEl.innerHTML = '';
+    if (!ready) {
+      selectEl.add(new Option('— gesperrt —', ''));
+    } else {
+      sets.forEach((s) => selectEl.add(new Option(s.name, s.id, false, s.id === active)));
+    }
+    selectEl.disabled = !ready;
+    ['setNew', 'setDup', 'setRename', 'setDel'].forEach((id) => ($(id).disabled = !ready));
+    sourceEl.classList.remove('error');
+    sourceEl.textContent = !ready ? '🔒 Gespeicherte Sets gesperrt'
+      : lib.kind === 'server' ? '☁ Auf dem Server gespeichert' : '💾 Nur in diesem Browser gespeichert';
+  }
+
+  function lock(wrong) {
+    lib = null;
+    $('pwForm').hidden = false;
+    $('pwError').textContent = wrong ? 'Falsches Passwort.' : '';
+    renderSetBar();
+  }
+
+  async function refreshList() {
+    sets = (await lib.list()).map(({ id, name }) => ({ id, name }));
+  }
+
+  // Set in den Editor (und als Arbeitskopie fürs Host-Pult) laden
+  async function openSet(id) {
+    await syncNow();
+    const s = await lib.get(id);
+    set = J.normalizeSet(s.data);
+    active = id;
+    dirty = false;
+    J.sets.setActiveId(id);
+    J.saveSet(set);
+    round = 0;
+    render();
+    renderSetBar();
+  }
+
+  async function createSet(name, data) {
+    await syncNow();
+    const id = await lib.save(null, name, data);
+    await refreshList();
+    await openSet(id);
+  }
+
+  function askName(text, value) {
+    const n = prompt(text, value);
+    return n && n.trim() ? n.trim().slice(0, 60) : null;
+  }
+
+  async function connect(password) {
+    sourceEl.textContent = 'Verbinde…';
+    const res = await J.sets.connect(password);
+    if (res.needsPassword) return lock(res.wrong);
+    lib = res.lib;
+    $('pwForm').hidden = true;
+    await refreshList();
+    active = J.sets.activeId();
+    if (sets.some((s) => s.id === active)) {
+      // Bibliothek ist maßgeblich (z. B. wenn das Set auf einem anderen Gerät bearbeitet wurde)
+      await openSet(active);
+    } else if (!sets.length || !J.sets.isBlank(set)) {
+      // Erster Start bzw. eigene Fragen in diesem Browser → als Set übernehmen
+      const name = J.sets.isBlank(set) ? 'Mein Fragenset' : (set.title || 'Mein Fragenset');
+      await createSet(name, set);
+    } else {
+      await openSet(sets[0].id);
+    }
+  }
+
+  async function guard(fn) {
+    try {
+      await fn();
+    } catch (e) {
+      if (e.status === 401) return lock(true);
+      sourceEl.textContent = 'Fehler: ' + e.message;
+      sourceEl.classList.add('error');
+    }
+  }
+
+  selectEl.addEventListener('change', () => guard(() => openSet(selectEl.value)));
+  $('setNew').addEventListener('click', () => guard(async () => {
+    const name = askName('Name des neuen Fragensets:', 'Neues Fragenset');
+    if (name) await createSet(name, J.defaultSet());
+  }));
+  $('setDup').addEventListener('click', () => guard(async () => {
+    const name = askName('Name der Kopie:', activeName() + ' (Kopie)');
+    if (name) await createSet(name, JSON.parse(JSON.stringify(set)));
+  }));
+  $('setRename').addEventListener('click', () => guard(async () => {
+    const name = askName('Neuer Name:', activeName());
+    if (!name) return;
+    await syncNow();
+    await lib.rename(active, name);
+    await refreshList();
+    renderSetBar();
+  }));
+  $('setDel').addEventListener('click', () => guard(async () => {
+    if (!confirm(`Fragenset „${activeName()}“ endgültig löschen?`)) return;
+    clearTimeout(syncTimer);
+    await syncing;
+    await lib.remove(active);
+    active = null; // nicht beim Wechsel wieder speichern
+    dirty = false;
+    await refreshList();
+    if (sets.length) await openSet(sets[0].id);
+    else await createSet('Neues Fragenset', J.defaultSet());
+  }));
+  $('pwForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    guard(() => connect($('hostPw').value));
+  });
+  // Vor dem Verlassen ausstehende Änderungen noch senden
+  window.addEventListener('pagehide', () => { if (syncTimer) syncNow(); });
 
   // Bild-Zeile pro Frage: Vorschau mit ✕, oder Link-Feld + Upload
   function imageControls(clue) {
@@ -141,9 +301,16 @@
     try {
       const data = JSON.parse(await file.text());
       if (!data || !Array.isArray(data.rounds)) throw new Error('Kein gültiges Fragenset');
-      set = J.normalizeSet(data);
-      persist();
-      render();
+      const imported = J.normalizeSet(data);
+      if (lib) {
+        // Import legt ein neues Set an, statt das aktive zu überschreiben
+        const base = file.name.replace(/\.json$/i, '');
+        await createSet((imported.title && imported.title !== 'Jeopardy' ? imported.title : base).slice(0, 60), imported);
+      } else {
+        set = imported;
+        persist();
+        render();
+      }
     } catch (e) {
       alert('Import fehlgeschlagen: ' + e.message);
     }
@@ -158,4 +325,6 @@
   });
 
   render();
+  renderSetBar();
+  guard(() => connect());
 })();

@@ -1,0 +1,137 @@
+// Gemeinsames Gerüst für die Browser-Tests:
+// - statischer Webserver für das Repo
+// - eigener PeerJS-Vermittlungsserver (kein Internet nötig)
+// - Chromium über Playwright; das PeerJS-Skript vom CDN wird lokal ausgeliefert
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const net = require('net');
+const { spawn } = require('child_process');
+const { chromium } = require('playwright');
+
+const ROOT = path.resolve(__dirname, '../..');
+const PEERJS = fs.readFileSync(require.resolve('peerjs/dist/peerjs.min.js'), 'utf8');
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css',
+  '.woff2': 'font/woff2', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+};
+
+function freePort() {
+  return new Promise((resolve) => {
+    const s = net.createServer();
+    s.listen(0, '127.0.0.1', () => {
+      const { port } = s.address();
+      s.close(() => resolve(port));
+    });
+  });
+}
+
+async function startEnv(init = {}) {
+  const webPort = await freePort();
+  const peerPort = await freePort();
+
+  const web = http.createServer((req, res) => {
+    let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (p.endsWith('/')) p += 'index.html';
+    const file = path.join(ROOT, p);
+    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+      res.writeHead(404);
+      return res.end();
+    }
+    res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((r) => web.listen(webPort, '127.0.0.1', r));
+
+  // Vermittlungsserver als eigener Prozess: er hält interne Timer offen und würde den
+  // Testprozess sonst am Beenden hindern.
+  const peerProc = spawn(process.execPath, ['-e',
+    `require('peer').PeerServer({ port: ${peerPort}, path: '/p', host: '127.0.0.1' }, () => console.log('ready'))`],
+  { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] });
+  await new Promise((resolve, reject) => {
+    peerProc.stdout.on('data', (d) => { if (String(d).includes('ready')) resolve(); });
+    peerProc.on('exit', (c) => reject(new Error('PeerServer beendet: ' + c)));
+  });
+
+  const browser = await chromium.launch();
+  const base = `http://127.0.0.1:${webPort}`;
+  const errors = [];
+
+  async function page({ viewport = { width: 1280, height: 800 }, extraInit = {} } = {}) {
+    const ctx = await browser.newContext({ viewport });
+    await ctx.route('https://unpkg.com/**', (r) => r.fulfill({ body: PEERJS, contentType: 'application/javascript' }));
+    await ctx.route('https://img.example.com/**', (r) => r.fulfill({ body: TEST_PNG, contentType: 'image/png' }));
+    await ctx.addInitScript(([port, vars]) => {
+      Object.assign(window, vars);
+      let P;
+      Object.defineProperty(window, 'Peer', {
+        configurable: true,
+        get() { return P; },
+        set(v) {
+          // Alle Peers auf den lokalen Vermittlungsserver umbiegen
+          P = function (id) {
+            const o = { host: '127.0.0.1', port, path: '/p', secure: false };
+            return typeof id === 'string' ? (window.__peer = new v(id, o)) : new v(o);
+          };
+        },
+      });
+    }, [peerPort, { ...init, ...extraInit }]);
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push(e.message));
+    p.on('dialog', (d) => d.accept());
+    return p;
+  }
+
+  async function stop() {
+    await browser.close();
+    web.closeAllConnections();
+    await new Promise((r) => web.close(r));
+    peerProc.removeAllListeners('exit');
+    peerProc.kill();
+  }
+
+  return { base, page, stop, errors };
+}
+
+// 1×1-Pixel-PNG als Testbild
+const TEST_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+const PHONE = { width: 390, height: 844 };
+
+// Host öffnen (frischer Zustand), optional Modus und Spieler/Teams anlegen
+async function openHost(env, { names = [], mode = 'single', teamSize, viewport } = {}) {
+  const host = await env.page({ viewport });
+  await host.goto(env.base + '/host.html');
+  await host.evaluate(() => localStorage.clear());
+  await host.reload();
+  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  if (mode === 'team') await host.click('#modeTeam');
+  if (teamSize) {
+    await host.fill('#teamSize', String(teamSize));
+    await host.press('#teamSize', 'Enter');
+    await host.locator('#teamSize').blur();
+  }
+  for (const n of names) {
+    await host.fill('#newName', n);
+    await host.click('#addForm button');
+  }
+  const code = await host.textContent('#code');
+  return { host, code };
+}
+
+// Spieler beitreten lassen: im Einzelmodus Namen wählen, im Team-Modus Team + eigener Name
+async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true } = {}) {
+  const p = await env.page({ viewport });
+  await p.goto(env.base + '/player.html?room=' + code);
+  await p.waitForSelector('#picker:not([hidden])');
+  if (name) await p.fill('#pickerName', name);
+  if (pick) await p.click(`.pick:has-text("${pick}")`);
+  if (sfx) await p.evaluate(() => { window.__sfx = []; J.sfx = (n) => window.__sfx.push(n); });
+  return p;
+}
+
+const scoresOf = (page, sel = '#scores') =>
+  page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
+
+module.exports = { startEnv, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

@@ -2,7 +2,7 @@
 
 **▶ Spielen: https://ghostly1337.github.io/Jeopardy/**
 
-Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung.
+Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 
 ## So funktioniert's
 
@@ -10,33 +10,50 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 2. **Spiel hosten** (`host.html`): Raumcode und Beitrittslink werden angezeigt. Link an die Spieler schicken.
 3. **Spieler** öffnen den Link (oder geben auf der Startseite den Code ein). Sie sehen Board, Fragen und Punktestand live – aber **nie die Antworten**, solange du sie nicht aufdeckst.
 
+### Spielmodi
+- **Einzelspieler**: Du legst Spieler an, jeder wählt am Handy seinen Namen. Ein Name gehört genau einem Gerät (vergebene Namen sind ausgegraut).
+- **Teams**: Umschalter *Einzel / Teams* im Punkte-Panel. Du legst Teams an und stellst die **Teamgröße** ein (gilt für alle Teams). Spieler wählen am Handy ihr Team und geben ihren eigenen Namen ein; volle Teams sind ausgegraut. Punkte zählen nur fürs Team, jedes Mitglied kann fürs Team buzzern. Wer kein Handy hat, spielt einfach im Team mit.
+- **📺 TV-Ansicht**: Für Laptop/Fernseher, auf den alle schauen. Großes Board ohne Bedienelemente, mit Vollbild und Sound. **👀 Nur zuschauen** gibt es auch.
+
 ### Im Host-Pult
 - Feld anklicken → Frage öffnet sich bei allen; nur du siehst die Antwort.
-- Pro Spieler **✓ +Wert** (richtig, deckt Antwort auf, Feld wird verbraucht) oder **✗ −halber Wert** (falsch).
-- Jeder Spieler wird pro Frage nur einmal gewertet, und nur einer kann richtig liegen. Fehler korrigierst du mit *Rückgängig*.
-- **⏱ 15-s-Timer**: per Button starten, läuft bei allen sichtbar runter, Signal bei 0.
-- **Buzzer zum Klauen**: Wird ein Spieler mit ✗ gewertet, öffnet sich bei allen anderen ein BUZZ-Knopf. Es zählt die **Reaktionszeit** auf dem eigenen Gerät (ab dem Erscheinen des Knopfs), nicht wessen Signal zuerst ankommt – eine langsame Internetleitung ist also kein Nachteil. Der Host sammelt dafür nach dem ersten Buzz 0,4 s lang ein. Alle sehen die Zeiten (⚡ im Host-Pult). Bei erneutem ✗ öffnet er für die Übrigen. **Geklaut bringt nur die halben Punkte** (sobald bei einer Frage schon jemand falsch lag). Manuell öffnen/schließen geht auch.
-- Spieler wählen beim Beitreten ihren Namen aus deiner Liste (oder „Nur zuschauen“). Jeder Name kann nur von einem Gerät belegt werden (vergebene Namen sind ausgegraut). Ein grüner Punkt im Punkte-Panel zeigt, wer ein Gerät verbunden hat; Klick darauf trennt das Gerät und gibt den Namen frei.
-- **✨ Runden-Intro**: Beim Rundenwechsel (oder per ✨-Knopf) erscheint bei allen „Runde X“, dann werden die 6 Kategorien nacheinander groß aufgedeckt und die Punktefelder ausgeteilt. Mit „Überspringen“ abkürzbar.
-- **🎯 Am Zug**: Wer richtig antwortet, wählt das nächste Feld – angezeigt als Banner über dem Board und markierte Punktekachel. Mit 🎯 im Punkte-Panel manuell setzen.
-- **🏆 Siegerehrung**: Podium mit Platz 1–3 (Gleichstand teilt sich den Platz), restliche Plätze darunter, Auszeichnungen (Buzzer-König, Meisterdieb, Treffsicher, Meiste Fehlversuche), Konfetti und Fanfare bei allen. „Zurück zum Spiel“ oder Rückgängig schließt sie wieder.
-- **Live-Reaktionen**: Spieler tippen 😂 👏 😱 🔥 🤔 am Rand, das Emoji fliegt mit Namen bei allen über den Bildschirm.
-- **Sounds** beim Öffnen, Aufdecken, Richtig und Falsch – bei dir und bei allen Spielern. Abschaltbar im Host-Pult; Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
-- *Antwort aufdecken*, *Fertig → zurück zum Board*, *Abbrechen (Feld bleibt frei)*.
-- Punkte direkt ins Zahlenfeld tippen oder ±100. Namen anklicken zum Umbenennen.
-- **Rückgängig** (oder Strg+Z) macht jede Aktion schrittweise rückgängig, inkl. Punkte und Felder.
-- Bereits gespieltes Feld anklicken → wieder freigeben.
-- Fragen im Editor-Tab ändern → wird sofort übernommen.
-- **Farbschema** wählen (Graphit, Hell, Nacht, Wald, Klassisch) – gilt auch sofort bei allen Spielern.
+- Pro Spieler/Team **✓ +Wert** (richtig) oder **✗ −halber Wert** (falsch). Jeder wird pro Frage nur einmal gewertet, nur einer kann richtig liegen. Fehler korrigierst du mit *Rückgängig*.
+- **Buzzer zum Klauen**: Nach einem ✗ öffnet sich der Buzzer – nach einer **zufälligen Pause** (0,5–1,5 s) – für alle, die noch nicht gewertet wurden. **Geklaut bringt nur die halben Punkte.**
+  - Der Buzzer ist während der Frage **immer sichtbar**, aber grau („Noch nicht“), solange er zu ist. Wer zu früh drückt, ist **1 Sekunde gesperrt** – Dauer-Hämmern sperrt sich also selbst aus.
+  - Es zählt die **Reaktionszeit** auf dem eigenen Gerät, nicht wessen Signal zuerst ankommt: Eine langsame Internetleitung ist kein Nachteil. Reaktionen unter 0,1 s gelten als Frühstart.
+  - Manuell öffnen/schließen geht auch.
+- **🎯 Am Zug** geht **reihum** in der Reihenfolge der Punkte-Liste, jeweils wenn eine Frage mit *Fertig* abgeschlossen wird (*Abbrechen* lässt den Zug beim selben). Mit 🎯 setzt du ihn manuell.
+- **⏱ 15-s-Timer**: per Button, läuft bei allen sichtbar runter, Signal bei 0.
+- **✨ Runden-Intro**: Beim Rundenwechsel (oder per ✨) erscheint „Runde X“, dann werden die Kategorien einzeln aufgedeckt. Mit „Überspringen“ abkürzbar.
+- **🏆 Siegerehrung**: Podium (Gleichstand teilt sich den Platz), Auszeichnungen (Buzzer-König, Meisterdieb, Treffsicher, Meiste Fehlversuche – im Team-Modus ist der Buzzer-König eine Person), Konfetti und Fanfare.
+- **Live-Reaktionen**: Spieler tippen 😂 👏 😱 🔥 🤔, das Emoji fliegt mit Namen bei allen über den Bildschirm (am Handy hinter dem 😀-Knopf).
+- **Sounds** bei allen, abschaltbar. Spieler tippen einmal auf „Ton aktivieren“ (Browser-Vorgabe).
+- Punkte direkt eintippen oder ±100. **Rückgängig** (Strg+Z) macht jede Aktion schrittweise rückgängig.
+- Grüner Punkt im Punkte-Panel = Gerät verbunden; Klick darauf trennt es.
+- **Farbschema** (Graphit, Hell, Nacht, Wald, Klassisch) gilt sofort bei allen.
 
-Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verliert nichts, Spieler verbinden sich automatisch neu.
+Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verliert nichts, Spieler verbinden sich automatisch neu. Das Host-Pult prüft regelmäßig, ob es für neue Spieler erreichbar ist, und meldet sich sonst neu an (wichtig, wenn du am Handy hostest und kurz die App wechselst).
 
 ## Technik
 Reines HTML/CSS/JS ohne Build. Live-Sync per WebRTC über [PeerJS](https://peerjs.com/) und dessen kostenlosen öffentlichen Vermittlungsserver. Dein Browser ist die einzige Datenquelle; die Spieler bekommen nur einen gefilterten Stand ohne Antworten.
 
 Einschränkung: In stark abgeschotteten Netzen (manche Firmen-/Schul-WLANs) kann WebRTC blockiert sein.
 
-## Veröffentlichen (GitHub Pages)
-Repo → *Settings* → *Pages* → *Source: GitHub Actions*. Der Workflow `.github/workflows/pages.yml` deployt danach bei jedem Push auf den Default-Branch.
+## Tests
 
-Lokal testen: `python3 -m http.server` im Repo-Ordner, dann `http://localhost:8000` öffnen.
+```bash
+npm ci
+npx playwright install chromium   # einmalig
+npm test                          # Unit- und Browser-Tests
+npm run test:unit                 # nur Spiellogik (Sekunden, kein Browser)
+npm run test:e2e                  # nur Browser-Tests
+```
+
+- **Unit-Tests** (`tests/unit/`, `node:test`): Spielregeln aus `js/common.js` – Punkte, halbe Punkte beim Klauen, Reihenfolge, Frühstart-Regeln, Buzzer-Auswertung, Teamgröße, Rangliste, Auszeichnungen, und dass der öffentliche Spielstand **nie Antworten** enthält.
+- **Browser-Tests** (`tests/e2e/`, Playwright): Host und mehrere Spieler in echten Browsern, verbunden über einen lokal gestarteten Vermittlungsserver (kein Internet nötig). Abgedeckt: Spielablauf, Buzzer inkl. Anti-Spam und fairer Reaktionszeit, Team-Modus, Namensvergabe, TV-Ansicht, Bilder, Siegerehrung, Runden-Intro, Handy-Layout (360/390 px) und Wiederverbinden nach stillem Verbindungsabbruch.
+- Screenshots der Handy-Ansicht: `SHOTS=./shots npm run test:e2e`.
+
+## CI und Veröffentlichung
+`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus. **Nur wenn alle grün sind**, wird der Default-Branch auf GitHub Pages veröffentlicht (Repo → *Settings* → *Pages* → *Source: GitHub Actions*).
+
+Lokal ansehen: `python3 -m http.server` im Repo-Ordner, dann `http://localhost:8000` öffnen.

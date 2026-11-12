@@ -1,0 +1,15 @@
+{
+  "name": "jeopardy",
+  "private": true,
+  "description": "Jeopardy-Board mit Host-Pult und Live-Spieleransicht",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test \"tests/unit/**/*.test.js\"",
+    "test:e2e": "node --test --test-concurrency=1 \"tests/e2e/**/*.test.js\""
+  },
+  "devDependencies": {
+    "peer": "1.0.2",
+    "peerjs": "1.5.4",
+    "playwright": "1.63.0"
+  }
+}

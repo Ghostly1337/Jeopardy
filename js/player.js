@@ -58,7 +58,7 @@
     // Siegerehrung
     $('finish').classList.toggle('show', !!s.finished);
     if (s.finished) {
-      J.renderPodium($('podium'), s.players, s.title, s.stats);
+      J.renderPodium($('podium'), s.players, s.title, s.stats, s.mode === 'team' ? s.personStats : null);
       if (!wasFinished) J.confetti($('finish'));
     }
     wasFinished = !!s.finished;
@@ -71,8 +71,12 @@
 
   // ---------- Wer bin ich? ----------
   const ME_KEY = 'jeopardy.me.' + room;
-  let me = null; // Spieler-ID, 'watch' oder null (noch nicht gewählt)
+  let me = null; // Spieler-/Team-ID, 'watch', 'tv' oder null (noch nicht gewählt)
   try { me = localStorage.getItem(ME_KEY); } catch (e) {}
+  const NAME_KEY = 'jeopardy.myname';
+  let myName = '';
+  try { myName = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+  const isTeamMode = () => !!last && last.mode === 'team';
   let last = null;
   let prevIntro = false;
   let dealTimer = null;
@@ -98,6 +102,23 @@
   }
 
   function choose(id) {
+    if (isTeamMode() && id !== 'watch' && id !== 'tv') {
+      const n = J.cleanName($('pickerName').value);
+      if (!n) {
+        pickerError = 'Bitte gib zuerst deinen Namen ein.';
+        renderMe();
+        $('pickerName').focus();
+        return;
+      }
+      myName = n;
+      try { localStorage.setItem(NAME_KEY, n); } catch (e) {}
+    }
+    if (id === 'tv') {
+      // Klick = Nutzeraktion: Ton freischalten und Vollbild versuchen
+      J.setSoundOn(true);
+      J.unlockAudio();
+      goFullscreen();
+    }
     pickerError = '';
     me = id;
     try { localStorage.setItem(ME_KEY, id); } catch (e) {}
@@ -108,22 +129,40 @@
 
   function renderMe() {
     if (!last) return;
-    const valid = me === 'watch' || myPlayer();
-    // Noch nicht gewählt oder Spieler wurde gelöscht → Auswahl zeigen, Board bleibt verdeckt.
-    // Ohne Spieler gibt es nur „Nur zuschauen“; die Liste füllt sich live, sobald der Host Spieler anlegt.
+    const special = me === 'watch' || me === 'tv';
+    const valid = special || myPlayer();
+    const team = isTeamMode();
+    document.body.classList.toggle('tv', me === 'tv');
+    $('fullBtn').hidden = me !== 'tv';
+    // Noch nicht gewählt oder Spieler/Team wurde gelöscht → Auswahl zeigen, Board bleibt verdeckt.
+    // Ohne Spieler/Teams gibt es nur TV/Zuschauen; die Liste füllt sich live, sobald der Host welche anlegt.
     if (!valid) {
       const list = $('pickerList');
       list.innerHTML = '';
+      $('pickerTitle').textContent = team ? 'Wähle dein Team' : 'Wer bist du?';
+      $('pickerNameRow').hidden = !team || !last.players.length;
+      if (team && !$('pickerName').value) $('pickerName').value = myName;
       $('pickerEmpty').hidden = last.players.length > 0;
-      const taken = new Set(last.taken || []);
+      $('pickerEmpty').textContent = team
+        ? 'Der Host hat noch keine Teams angelegt. Warte kurz – die Teams erscheinen hier automatisch.'
+        : 'Der Host hat noch keine Spieler angelegt. Warte kurz – dein Name erscheint hier automatisch.';
+      const taken = new Set(team ? last.full || [] : last.taken || []);
+      const members = last.members || {};
       last.players.forEach((p) => {
         const b = document.createElement('button');
         b.className = 'pick';
-        b.textContent = p.name;
+        if (team) {
+          const n = (members[p.id] || []).length;
+          b.innerHTML = `<span class="pick-name"><i class="team-dot" style="--team:${p.color}"></i>${J.escapeHtml(p.name)}</span>` +
+            `<span class="pick-count">${n}/${last.teamSize}</span>`;
+        } else {
+          b.textContent = p.name;
+        }
         if (taken.has(p.id)) {
           b.disabled = true;
           b.classList.add('taken');
-          b.title = 'Schon vergeben';
+          b.dataset.reason = team ? 'voll' : 'vergeben';
+          b.title = team ? 'Team ist voll' : 'Schon vergeben';
         }
         b.addEventListener('click', () => choose(p.id));
         list.appendChild(b);
@@ -136,9 +175,20 @@
     }
     const btn = $('me');
     btn.hidden = !valid;
-    $('reactBar').hidden = !valid;
-    btn.textContent = me === 'watch' ? '👀 Zuschauer' : myPlayer() ? 'Du: ' + myPlayer().name : '';
+    $('reactBar').hidden = !valid || me === 'tv';
+    btn.textContent = me === 'watch' ? '👀 Zuschauer'
+      : me === 'tv' ? '📺 TV'
+      : !myPlayer() ? ''
+      : team ? `Du: ${myName || 'Spieler'} · ${myPlayer().name}`
+      : 'Du: ' + myPlayer().name;
   }
+
+  function goFullscreen() {
+    const el = document.documentElement;
+    try { if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); } catch (e) {}
+  }
+  $('fullBtn').addEventListener('click', goFullscreen);
+  $('tvView').addEventListener('click', () => choose('tv'));
 
   $('me').addEventListener('click', () => {
     me = null;
@@ -149,13 +199,16 @@
   $('watchOnly').addEventListener('click', () => choose('watch'));
 
   function sendHello() {
-    if (conn && conn.open) conn.send({ type: 'hello', playerId: me && me !== 'watch' ? me : null, deviceId });
+    const pid = me && me !== 'watch' && me !== 'tv' ? me : null;
+    if (conn && conn.open) conn.send({ type: 'hello', playerId: pid, deviceId, name: myName });
   }
 
   // ---------- Buzzer ----------
   let pressed = false; // lokal gesperrt nach dem Drücken, bis der Host antwortet
   let shownId = null;  // Buzzer-Runde, für die der Knopf gerade angezeigt wird
   let shownAt = 0;     // Zeitpunkt, an dem der Knopf auf DIESEM Gerät erschien
+  let lockedUntil = 0; // Frühstart-Sperre (performance.now())
+  let lockTimer = null;
 
   function renderBuzz() {
     const cur = last && last.current;
@@ -167,30 +220,40 @@
     const isPlayer = !!myPlayer();
     if (!buzz.open) pressed = false;
 
-    const canBuzz = buzz.open && isPlayer && !judged[me];
-    // Reaktionszeit startet, sobald der Knopf hier sichtbar wird (Netzlaufzeit zählt nicht)
+    const solved = Object.values(judged).includes('right');
+    // Wer bei dieser Frage noch antworten darf, sieht den Buzzer die ganze Zeit –
+    // grau, solange er zu ist. Drücken auf den grauen Knopf sperrt kurz (gegen Dauer-Hämmern).
+    const eligible = isPlayer && !judged[me] && !solved;
+    const canBuzz = eligible && buzz.open;
+    // Reaktionszeit startet, sobald der Knopf hier scharf wird (Netzlaufzeit zählt nicht)
     if (canBuzz && shownId !== buzz.id) {
       shownId = buzz.id;
       shownAt = performance.now();
       pressed = false;
     }
-    buzzer.hidden = !canBuzz;
+    const locked = performance.now() < lockedUntil;
+    buzzer.hidden = !eligible;
     buzzer.disabled = pressed;
-    buzzer.textContent = pressed ? '…' : 'BUZZ';
+    buzzer.className = 'buzzer ' + (locked ? 'locked' : canBuzz ? 'live' : 'wait');
+    buzzer.textContent = pressed ? '…' : locked ? 'Zu früh!' : canBuzz ? 'BUZZ' : 'Noch nicht';
 
     let text = '';
-    const solved = Object.values(judged).includes('right');
     if (buzz.winner && !judged[buzz.winner] && !solved) {
       const w = last.players.find((p) => p.id === buzz.winner);
+      const wName = isTeamMode() && buzz.winnerName ? `${buzz.winnerName} (${w ? w.name : '?'})` : (w ? w.name : '?');
       const rx = buzz.reactions || {};
       const t = (id) => (rx[id] != null ? J.fmtMs(rx[id]) : '');
-      if (buzz.winner === me) {
+      if (buzz.winner === me && (!isTeamMode() || buzz.winnerName === myName)) {
         text = 'Du bist dran!' + (t(me) ? ` (${t(me)})` : '');
+      } else if (buzz.winner === me) {
+        text = `⚡ ${buzz.winnerName} aus deinem Team ist dran`;
       } else if (rx[me] != null) {
-        text = `⚡ ${w ? w.name : '?'} war schneller: ${t(buzz.winner)} vs. deine ${t(me)}`;
+        text = `⚡ ${wName} war schneller: ${t(buzz.winner)} vs. ${isTeamMode() ? 'euer Team' : 'deine'} ${t(me)}`;
       } else {
-        text = `⚡ ${w ? w.name : '?'} ist dran` + (t(buzz.winner) ? ` (${t(buzz.winner)})` : '');
+        text = `⚡ ${wName} ist dran` + (t(buzz.winner) ? ` (${t(buzz.winner)})` : '');
       }
+    } else if (locked) {
+      text = 'Zu früh gedrückt – kurz gesperrt';
     } else if (canBuzz && Object.values(judged).includes('wrong')) {
       text = `Klauen bringt +${cur.value / 2}`;
     } else if (buzz.open && isPlayer && judged[me]) {
@@ -203,21 +266,40 @@
     info.classList.toggle('mine', buzz.winner === me);
   }
 
-  function pressBuzz() {
-    const b = $('buzzer');
-    if (b.hidden || b.disabled || !conn || !conn.open) return;
-    pressed = true;
-    const buzz = (last && last.current && last.current.buzz) || {};
-    conn.send({ type: 'buzz', id: buzz.id, reaction: performance.now() - shownAt });
+  function lockBuzzer() {
+    lockedUntil = performance.now() + J.LOCK_MS; // jedes weitere Hämmern verlängert die Sperre
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+    clearTimeout(lockTimer);
+    lockTimer = setTimeout(renderBuzz, J.LOCK_MS + 20);
     renderBuzz();
   }
-  $('buzzer').addEventListener('click', pressBuzz);
+
+  function pressBuzz() {
+    const b = $('buzzer');
+    if (b.hidden || pressed || !conn || !conn.open) return;
+    const now = performance.now();
+    if (!b.classList.contains('live') || now < lockedUntil) return lockBuzzer();
+    const reaction = now - shownAt;
+    if (J.isEarly(reaction)) return lockBuzzer(); // schneller als menschlich möglich = vorher gehämmert
+    pressed = true;
+    const buzz = (last && last.current && last.current.buzz) || {};
+    conn.send({ type: 'buzz', id: buzz.id, reaction });
+    renderBuzz();
+  }
+  // pointerdown statt click: reagiert sofort beim Antippen
+  $('buzzer').addEventListener('pointerdown', (e) => { e.preventDefault(); pressBuzz(); });
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); pressBuzz(); }
+    if (e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); if (!e.repeat) pressBuzz(); }
   });
 
   // ---------- Live-Reaktionen ----------
   let lastReact = 0;
+  const toggle = document.createElement('button');
+  toggle.className = 'react-btn react-toggle';
+  toggle.textContent = '😀';
+  toggle.title = 'Reaktionen';
+  toggle.addEventListener('click', () => $('reactBar').classList.toggle('open'));
+  $('reactBar').appendChild(toggle);
   J.REACTIONS.forEach((emoji) => {
     const b = document.createElement('button');
     b.className = 'react-btn';
@@ -279,8 +361,9 @@
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
       else if (msg.type === 'react') J.showReaction(msg.emoji, msg.name);
-      else if (msg.type === 'taken' && msg.playerId === me) forget('Dieser Name ist schon auf einem anderen Gerät vergeben.');
-      else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle deinen Namen neu.');
+      else if (msg.type === 'taken' && msg.playerId === me) {
+        forget(msg.reason === 'full' ? 'Dieses Team ist schon voll. Wähle ein anderes.' : 'Dieser Name ist schon auf einem anderen Gerät vergeben.');
+      } else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle neu.');
     });
     conn.on('close', () => {
       if (thisConn !== conn) return;

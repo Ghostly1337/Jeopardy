@@ -86,6 +86,12 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
     await p.waitForTimeout(250);
     await p.click('#buzzer');
     await host.waitForSelector('.jrow.buzzed');
+    // Wer dran ist, sieht einen grünen Knopf; weiteres Drücken sperrt nicht als Frühstart
+    await p.waitForSelector('#buzzer.mine');
+    assert.equal(await p.textContent('#buzzer'), 'Dran!');
+    await p.locator('#buzzer').dispatchEvent('pointerdown');
+    await p.waitForTimeout(150);
+    assert.ok(await p.isVisible('#buzzer.mine'), 'kein „Zu früh!“');
     await host.locator('.jrow.buzzed .green').click();
     await p.waitForFunction(() => document.querySelector('#overlayScores .score-value').textContent === '100');
     await host.click('#cancel');

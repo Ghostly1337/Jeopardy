@@ -242,11 +242,15 @@
       shownAt = performance.now();
       pressed = false;
     }
+    // Wer gebuzzert hat (bzw. dessen Team), ist dran: Knopf grün und ohne Funktion –
+    // sonst würde Weiterdrücken als Frühstart zählen
+    const myTurn = eligible && !!buzz.winner && buzz.winner === me && !judged[buzz.winner];
+    if (myTurn) lockedUntil = 0;
     const locked = performance.now() < lockedUntil;
     buzzer.hidden = !eligible;
-    buzzer.disabled = pressed;
-    buzzer.className = 'buzzer ' + (locked ? 'locked' : canBuzz ? 'live' : 'wait');
-    buzzer.textContent = pressed ? '…' : locked ? 'Zu früh!' : canBuzz ? 'BUZZ' : 'Noch nicht';
+    buzzer.disabled = pressed || myTurn;
+    buzzer.className = 'buzzer ' + (myTurn ? 'mine' : locked ? 'locked' : canBuzz ? 'live' : 'wait');
+    buzzer.textContent = myTurn ? 'Dran!' : pressed ? '…' : locked ? 'Zu früh!' : canBuzz ? 'BUZZ' : 'Noch nicht';
 
     let text = '';
     if (buzz.winner && !judged[buzz.winner] && !solved) {
@@ -289,7 +293,7 @@
 
   function pressBuzz() {
     const b = $('buzzer');
-    if (b.hidden || pressed || !conn || !conn.open) return;
+    if (b.hidden || b.disabled || pressed || !conn || !conn.open) return;
     const now = performance.now();
     if (!b.classList.contains('live') || now < lockedUntil) return lockBuzzer();
     const reaction = now - shownAt;

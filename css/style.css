@@ -856,6 +856,15 @@ body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
 .buzzer:hover { border-color: transparent; filter: brightness(1.08); }
 .buzzer.live:active, .buzzer:disabled { transform: translateY(8px); box-shadow: 0 2px 0 #7f1028, 0 8px 20px rgba(225, 29, 72, 0.4); animation: none; }
 .buzzer:disabled { opacity: .7; }
+/* selbst gebuzzert und dran: grün, nicht mehr drückbar */
+.buzzer.mine, .buzzer.mine:disabled {
+  background: radial-gradient(circle at 35% 30%, #86efac, #16a34a 55%, #166534);
+  box-shadow: 0 4px 0 #14532d, 0 12px 30px rgba(22, 163, 74, 0.4);
+  transform: translateY(6px);
+  opacity: 1;
+  font-size: clamp(26px, 5vw, 48px);
+  animation: none;
+}
 @keyframes buzzPulse { 50% { box-shadow: 0 10px 0 #7f1028, 0 18px 60px rgba(225, 29, 72, 0.75); } }
 .buzz-info {
   padding: 10px 22px;

@@ -199,3 +199,45 @@ test('Gespeicherter Team-Modus bleibt nach dem Laden erhalten', () => {
 test('HTML wird escaped', () => {
   assert.equal(J.escapeHtml('<b>"x"&\''), '&lt;b&gt;&quot;x&quot;&amp;&#39;');
 });
+
+test('Host-Notiz bleibt beim Host, auch nach dem Aufdecken', () => {
+  const set = J.defaultSet();
+  set.rounds[0].categories[0].clues[0] = { q: 'F', a: 'A', img: '', note: 'NOTIZ-NUR-HOST' };
+  const st = gameState({ current: { round: 0, cat: 0, row: 0, revealed: true, judged: {} } });
+  assert.ok(!JSON.stringify(J.publicState(set, st)).includes('NOTIZ-NUR-HOST'));
+  assert.equal(J.normalizeSet(set).rounds[0].categories[0].clues[0].note, 'NOTIZ-NUR-HOST');
+});
+
+test('Verbindungshilfe: Standard-Server bleiben, eigener TURN kommt zuerst', () => {
+  const plainCfg = plain(J.iceConfig(null));
+  assert.equal(plainCfg.iceServers.length, 2);
+  assert.equal(plainCfg.iceTransportPolicy, undefined);
+  const cfg = plain(J.iceConfig({ urls: 'turns:t.example:443?transport=tcp', username: 'u', credential: 'p' }, true));
+  assert.equal(cfg.iceServers.length, 3);
+  assert.deepEqual(cfg.iceServers[0], { urls: ['turns:t.example:443?transport=tcp'], username: 'u', credential: 'p' });
+  assert.equal(cfg.iceTransportPolicy, 'relay');
+});
+
+test('Verbindungshilfe: nur turn:/turns:-Adressen werden angenommen', () => {
+  assert.equal(J.parseTurn({ urls: 'https://evil.example' }), null);
+  assert.equal(J.parseTurn(null), null);
+  const t = J.parseTurn({ urls: 'quatsch\nturn:a:80, turns:b:443', username: 'x' });
+  assert.deepEqual(plain(t.urls), ['turn:a:80', 'turns:b:443']);
+});
+
+test('Verbindungshilfe passt sicher in den Link und kommt unverändert an', () => {
+  const t = { urls: ['turns:global.relay.example:443?transport=tcp', 'turn:x:80'], username: 'Bär_ü', credential: 'p+/=&#ä' };
+  const enc = J.encodeTurn(t);
+  assert.match(enc, /^[\w-]+$/, 'nur URL-sichere Zeichen');
+  assert.deepEqual(plain(J.decodeTurn(enc)), t);
+  assert.equal(J.decodeTurn('!!kaputt!!'), null);
+  assert.equal(J.encodeTurn(null), '');
+});
+
+test('Punkte-Animation zeigt die Änderung mit Vorzeichen', () => {
+  assert.equal(J.scoreDelta(null, { id: 'a', score: 100 }), '');
+  assert.equal(J.scoreDelta({ a: 100 }, { id: 'a', score: 100 }), '');
+  assert.match(J.scoreDelta({ a: 0 }, { id: 'a', score: 500 }), /class="delta pos">\+500</);
+  assert.match(J.scoreDelta({ a: 0 }, { id: 'a', score: -250 }), /class="delta neg">−250</);
+  assert.equal(J.scoreDelta({}, { id: 'neu', score: 100 }), '');
+});

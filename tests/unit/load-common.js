@@ -15,7 +15,7 @@ function loadCommon() {
   };
   const document = { documentElement: { dataset: {} } };
   const window = { localStorage, document };
-  const context = { window, localStorage, document, console, URL, Date, Math, JSON };
+  const context = { window, localStorage, document, console, URL, Date, Math, JSON, btoa, atob, escape, unescape };
   vm.createContext(context);
   vm.runInContext(SRC, context, { filename: 'common.js' });
   return { J: window.J, localStorage, document };

@@ -32,6 +32,7 @@
         <div class="q" id="clueQ"></div>
         <img class="clue-img host-img" id="clueImg" alt="" hidden>
         <div class="a" id="clueA"></div>
+        <div class="note" id="clueNote" hidden></div>
         <div class="timer" id="timerBox" hidden>
           <div class="timer-track"><div class="timer-fill"></div></div>
           <span class="timer-num"></span>
@@ -88,6 +89,21 @@
           <button class="small ghost" id="newCode">Neuer Raumcode</button>
         </div>
         <p class="hint">Änderungen im Editor-Tab werden sofort übernommen.</p>
+        <details class="turn-box" id="turnBox">
+          <summary>🛜 Verbindungshilfe <span class="turn-state" id="turnState"></span></summary>
+          <p class="hint">Nötig, wenn Spieler bei „Verbinde mit dem Spiel…“ hängen bleiben, z. B. weil alle im selben Uni- oder Firmen-WLAN sind.
+            Trag hier einen TURN-Zugang ein (z. B. kostenlos von Metered: Adressen, Benutzername, Passwort).
+            Er wird nur in diesem Browser gespeichert und automatisch im Beitrittslink mitgeschickt – danach den Link neu verschicken.</p>
+          <label>TURN-Adressen (eine pro Zeile)
+            <textarea id="turnUrls" rows="3" placeholder="turns:global.relay.metered.ca:443?transport=tcp&#10;turn:global.relay.metered.ca:80"></textarea>
+          </label>
+          <label>Benutzername <input id="turnUser" autocomplete="off"></label>
+          <label>Passwort <input id="turnPass" autocomplete="off"></label>
+          <div class="btn-row">
+            <button class="small primary" id="turnSave">Speichern</button>
+            <button class="small ghost" id="turnClear">Entfernen</button>
+          </div>
+        </details>
       </div>
     </aside>
   </div>

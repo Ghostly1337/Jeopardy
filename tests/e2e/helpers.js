@@ -26,6 +26,24 @@ function freePort() {
   });
 }
 
+// Lokaler TURN-Server (für Tests der Verbindungshilfe)
+async function startTurn() {
+  const port = await freePort();
+  const proc = spawn(process.execPath, ['-e', `
+    const Turn = require('node-turn');
+    const s = new Turn({ listeningPort: ${port}, listeningIps: ['127.0.0.1'], relayIps: ['127.0.0.1'],
+      authMech: 'long-term', credentials: { quiz: 'geheim' }, debugLevel: 'OFF' });
+    s.start(); console.log('ready');`], { cwd: ROOT, stdio: ['ignore', 'pipe', 'inherit'] });
+  await new Promise((resolve, reject) => {
+    proc.stdout.on('data', (d) => { if (String(d).includes('ready')) resolve(); });
+    proc.on('exit', (c) => reject(new Error('TURN-Server beendet: ' + c)));
+  });
+  return {
+    urls: `turn:127.0.0.1:${port}?transport=udp`, username: 'quiz', credential: 'geheim',
+    stop: () => { proc.removeAllListeners('exit'); proc.kill(); },
+  };
+}
+
 async function startEnv(init = {}) {
   const webPort = await freePort();
   const peerPort = await freePort();
@@ -68,10 +86,11 @@ async function startEnv(init = {}) {
         configurable: true,
         get() { return P; },
         set(v) {
-          // Alle Peers auf den lokalen Vermittlungsserver umbiegen
-          P = function (id) {
-            const o = { host: '127.0.0.1', port, path: '/p', secure: false };
-            return typeof id === 'string' ? (window.__peer = new v(id, o)) : new v(o);
+          // Alle Peers auf den lokalen Vermittlungsserver umbiegen, Optionen der App (z. B. ICE/TURN) behalten
+          P = function (id, opts) {
+            const local = { host: '127.0.0.1', port, path: '/p', secure: false };
+            if (typeof id === 'string') return (window.__peer = new v(id, { ...(opts || {}), ...local }));
+            return new v({ ...(id || {}), ...local });
           };
         },
       });
@@ -134,4 +153,4 @@ async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true 
 const scoresOf = (page, sel = '#scores') =>
   page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
 
-module.exports = { startEnv, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };
+module.exports = { startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

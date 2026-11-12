@@ -257,6 +257,8 @@
     $('clueImg').hidden = !img;
     if (img && $('clueImg').getAttribute('src') !== img) $('clueImg').src = img;
     $('clueA').textContent = clue.a;
+    $('clueNote').textContent = clue.note || '';
+    $('clueNote').hidden = !clue.note;
     $('reveal').disabled = cur.revealed;
 
     // Buzzer- und Timer-Steuerung
@@ -642,7 +644,10 @@
 
   // ---------- Netzwerk (PeerJS) ----------
   const code = J.roomCode();
-  const joinUrl = new URL('player.html?room=' + code, location.href).href;
+  // Verbindungshilfe: TURN-Zugang wandert im #-Teil des Links mit (wird nicht an Server übertragen)
+  const turn = J.loadTurn();
+  const joinUrl = new URL('player.html?room=' + code, location.href).href + (turn ? '#t=' + J.encodeTurn(turn) : '');
+  const peerOptions = () => ({ config: J.iceConfig(turn, window.JEOP_FORCE_RELAY) });
   $('code').textContent = code;
   $('link').textContent = joinUrl;
   $('copy').addEventListener('click', async () => {
@@ -785,7 +790,7 @@
       setStatus('PeerJS nicht geladen (offline?)', false);
       return;
     }
-    peer = new Peer(J.peerId(code));
+    peer = new Peer(J.peerId(code), peerOptions());
     peer.on('open', () => setStatus('online', true));
     peer.on('connection', (conn) => {
       // Selbsttest-Verbindung: nur bestätigen, nicht als Spieler zählen
@@ -843,7 +848,7 @@
     if (peer.disconnected) { reRegister(); return; }
     probeBusy = true;
     let done = false;
-    const probe = new Peer();
+    const probe = new Peer(peerOptions());
     const finish = (reachable) => {
       if (done) return;
       done = true;
@@ -876,6 +881,31 @@
   }
   keepAwake();
   document.addEventListener('click', keepAwake, { once: true });
+
+  // ---------- Verbindungshilfe (TURN) ----------
+  function renderTurnBox() {
+    $('turnState').textContent = turn
+      ? `✓ aktiv (${turn.urls.length} Adresse${turn.urls.length > 1 ? 'n' : ''}) – im Beitrittslink enthalten`
+      : 'nicht eingerichtet';
+    $('turnState').className = 'turn-state ' + (turn ? 'on' : '');
+    if (turn) {
+      $('turnUrls').value = turn.urls.join('\n');
+      $('turnUser').value = turn.username;
+      $('turnPass').value = turn.credential;
+    }
+  }
+  $('turnSave').addEventListener('click', () => {
+    const t = J.parseTurn({ urls: $('turnUrls').value, username: $('turnUser').value, credential: $('turnPass').value });
+    if (!t) { alert('Bitte mindestens eine Adresse eintragen, die mit turn: oder turns: beginnt.'); return; }
+    J.saveTurn(t);
+    location.reload(); // Verbindung mit neuem Zugang neu aufbauen
+  });
+  $('turnClear').addEventListener('click', () => {
+    if (!confirm('Verbindungshilfe entfernen?')) return;
+    J.saveTurn(null);
+    location.reload();
+  });
+  renderTurnBox();
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
 

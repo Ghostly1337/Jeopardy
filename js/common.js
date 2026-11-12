@@ -33,6 +33,7 @@
             q: `Frage für ${pointsFor(r, row)}`,
             a: 'Antwort',
             img: '',
+            note: '',
           })),
         })),
       })),
@@ -58,6 +59,7 @@
           if (typeof cl.a === 'string') cat.clues[row].a = cl.a;
           const img = safeImg(cl.img);
           if (img) cat.clues[row].img = img;
+          if (typeof cl.note === 'string') cat.clues[row].note = cl.note;
         }
       }
     }
@@ -92,6 +94,59 @@
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Bild konnte nicht gelesen werden')); };
       img.src = url;
     });
+  }
+
+  // ---------- Verbindungshilfe (TURN) ----------
+  // Standard-Server von PeerJS. Ihr TURN-Server läuft auf Port 3478, den Uni-/Firmennetze oft
+  // sperren. Ein eigener TURN-Zugang über Port 443 kommt durch fast jede Firewall.
+  const DEFAULT_ICE = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  ];
+  const TURN_KEY = 'jeopardy.turn';
+
+  // Prüft und vereinheitlicht einen TURN-Zugang { urls: [...], username, credential }
+  function parseTurn(t) {
+    if (!t || typeof t !== 'object') return null;
+    const list = (Array.isArray(t.urls) ? t.urls : String(t.urls || '').split(/[\s,]+/))
+      .map((u) => String(u).trim())
+      .filter((u) => /^turns?:[^\s]+$/i.test(u));
+    if (!list.length) return null;
+    return { urls: list, username: String(t.username || ''), credential: String(t.credential || '') };
+  }
+  function iceConfig(turn, forceRelay) {
+    const servers = DEFAULT_ICE.slice();
+    const t = parseTurn(turn);
+    if (t) servers.unshift(t); // eigener Server zuerst
+    const config = { iceServers: servers };
+    if (forceRelay) config.iceTransportPolicy = 'relay';
+    return config;
+  }
+  // Für den Beitrittslink: kompakt, URL-sicher, Unicode-fest
+  function encodeTurn(t) {
+    t = parseTurn(t);
+    if (!t) return '';
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify([t.urls, t.username, t.credential]))));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function decodeTurn(s) {
+    try {
+      const b64 = String(s).replace(/-/g, '+').replace(/_/g, '/');
+      const [urls, username, credential] = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      return parseTurn({ urls, username, credential });
+    } catch (e) {
+      return null;
+    }
+  }
+  function loadTurn(key = TURN_KEY) {
+    try { return parseTurn(JSON.parse(localStorage.getItem(key))); } catch (e) { return null; }
+  }
+  function saveTurn(t, key = TURN_KEY) {
+    try {
+      const p = parseTurn(t);
+      if (p) localStorage.setItem(key, JSON.stringify(p)); else localStorage.removeItem(key);
+      return p;
+    } catch (e) { return null; }
   }
 
   // ---------- Spielregeln (reine Funktionen, unit-getestet) ----------
@@ -420,13 +475,24 @@
   function renderScores(el, players, turnId) {
     if (!players.length) {
       el.innerHTML = '<div class="score-empty">Noch keine Spieler</div>';
+      el.__prev = null;
       return;
     }
+    const prev = el.__prev || null;
+    el.__prev = Object.fromEntries(players.map((p) => [p.id, p.score]));
     el.innerHTML = players.map((p) => `
       <div class="score${p.id && p.id === turnId ? ' turn' : ''}"${p.color ? ` style="--team:${p.color}"` : ''}>
         <div class="score-name">${p.color ? '<i class="team-dot"></i>' : ''}${escapeHtml(p.name)}</div>
         <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
+        ${scoreDelta(prev, p)}
       </div>`).join('');
+  }
+  // „+500“ / „−250“ fliegt kurz über die Kachel, wenn sich die Punkte geändert haben
+  function scoreDelta(prev, p) {
+    if (!prev || !(p.id in prev)) return '';
+    const d = p.score - prev[p.id];
+    if (!d) return '';
+    return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</span>`;
   }
 
   // ---------- Runden-Intro ----------
@@ -602,6 +668,7 @@
     renderIntro, introCellClass,
     nextTurn, turnAfterRemoval, LOCK_MS, MIN_REACTION_MS, isEarly, pickBuzzWinner,
     clampTeamSize, teamIsFull, teamColor, cleanName,
+    DEFAULT_ICE, parseTurn, iceConfig, encodeTurn, decodeTurn, loadTurn, saveTurn, scoreDelta,
     fmtMs, awards, REACTIONS, showReaction, BUZZ_WINDOW_MS: 400,
   };
 })();

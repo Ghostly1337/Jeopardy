@@ -200,7 +200,8 @@
     st.hidden = false;
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
-    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt` : `↕️ ${n}/${total} haben abgegeben`) +
+    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}`;
+    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
       (mine ? (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓') : '');
   }
 

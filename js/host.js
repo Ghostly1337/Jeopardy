@@ -214,12 +214,24 @@
       winners = Object.keys(cur.ord.answers).filter((id) => J.orderCorrect(cur.ord.answers[id]));
     }
     winners = winners.filter((id) => state.players.some((p) => p.id === id));
-    mutate(winners.length ? `Aufgelöst: ${winners.map(nameOf).join(', ')} +${value}` : 'Aufgelöst: niemand richtig', () => {
+    // Multiple Choice und Reihenfolge: wer falsch abgegeben hat, verliert den halben Wert (wie sonst bei ✗).
+    // Schätzfrage: kein Abzug – da liegt fast jeder daneben, es zählt nur, wer am nächsten ist.
+    const penalty = J.penaltyFor(cur.round, cur.row);
+    const answers = cur.kind === 'choice' ? cur.mc.answers : cur.kind === 'order' ? cur.ord.answers : {};
+    const losers = Object.keys(answers).filter((id) => !winners.includes(id) && state.players.some((p) => p.id === id));
+    const label = [winners.length ? `${winners.map(nameOf).join(', ')} +${value}` : 'niemand richtig',
+      losers.length ? `${losers.map(nameOf).join(', ')} −${penalty}` : ''].filter(Boolean).join(' · ');
+    mutate(`Aufgelöst: ${label}`, () => {
       if (cur.kind === 'estimate') cur.est.winners = winners;
       winners.forEach((id) => {
         state.players.find((p) => p.id === id).score += value;
         cur.judged[id] = 'right';
         stat(id).right++;
+      });
+      losers.forEach((id) => {
+        state.players.find((p) => p.id === id).score -= penalty;
+        cur.judged[id] = 'wrong';
+        stat(id).wrong++;
       });
       cur.revealed = true;
       cur.timer = null;
@@ -250,15 +262,19 @@
       if (has && cur.kind === 'choice') detail = (answers[p.id] === 0 ? '✓ ' : '✗ ') + items[answers[p.id]];
       if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
       const won = cur.judged[p.id] === 'right';
-      return `<div class="srow${won ? ' won' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}</span></div>`;
+      const lost = cur.judged[p.id] === 'wrong';
+      const pen = J.penaltyFor(cur.round, cur.row);
+      return `<div class="srow${won ? ' won' : ''}${lost ? ' lost' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}${lost ? ` · −${pen}` : ''}</span></div>`;
     }).join('');
     const total = state.players.length;
     const head = cur.kind === 'estimate' ? `🔢 Schätzfrage – ${n}/${total} getippt`
       : cur.kind === 'choice' ? `🅰️ Multiple Choice – ${n}/${total} gewählt` : `↕️ Reihenfolge – ${n}/${total} abgegeben`;
-    const rule = cur.kind === 'estimate' ? 'Wer am nächsten dran ist, bekommt'
-      : cur.kind === 'choice' ? 'Alle mit der richtigen Antwort bekommen' : 'Alle mit komplett richtiger Reihenfolge bekommen';
+    const pen = J.penaltyFor(cur.round, cur.row);
+    const rule = cur.kind === 'estimate' ? `Wer am nächsten dran ist, bekommt +${value} (kein Abzug)`
+      : cur.kind === 'choice' ? `Richtig: +${value}, falsch: −${pen}, keine Abgabe: 0`
+        : `Komplett richtige Reihenfolge: +${value}, sonst −${pen}, keine Abgabe: 0`;
     box.innerHTML = `<div class="special-head">${head}</div>${rows}` +
-      (cur.revealed ? '' : `<div class="hint">${rule} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
+      (cur.revealed ? '' : `<div class="hint">${rule}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
   }
 
   // ---------- Joker ----------

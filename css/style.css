@@ -1463,3 +1463,11 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .mc.revealed .mc-opt.wrong { opacity: 1; border-color: var(--red); }
 .mc-who { width: 100%; font-size: 12px; font-weight: 600; opacity: .8; padding-left: 40px; }
 @media (max-width: 600px) { .mc { grid-template-columns: 1fr; } .mc-opt { padding: 10px 12px; } }
+
+/* Laptop/TV: Punkteleiste im Fluss statt fest unten, damit Joker, Tipp & Co. sie nie überdecken.
+   Zwei automatische Ränder halten den Inhalt mittig und die Punkte unten. */
+@media (min-width: 601px) {
+  .clue-overlay { padding-bottom: 20px; }
+  .clue-overlay > .clue-meta { margin-top: auto; }
+  .clue-overlay .scores { position: static; margin-top: auto; padding-top: 3vh; }
+}

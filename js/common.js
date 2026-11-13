@@ -106,8 +106,8 @@
   }
 
   // ---------- Joker ----------
-  // Jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel. Eingesetzt wird vor dem
-  // Antworten bzw. vor dem Buzzern.
+  // Jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel (über beide Runden). Einsetzen
+  // darf nur, wer gerade dran ist, und pro Frage höchstens einen Joker.
   const JOKERS = [
     { id: 'double', icon: '🎲', name: 'Doppelt oder nichts', desc: 'Richtig: doppelte Punkte · Falsch: voller Abzug' },
     { id: 'hint', icon: '💡', name: 'Tipp', desc: 'Anfangsbuchstaben und Länge der Antwort – nur für dich' },
@@ -129,17 +129,32 @@
     const jk = cur.jokers || {};
     if (cur.revealed || Object.values(judged).includes('right')) return 'Frage ist schon gelöst';
     if (judged[pid]) return 'Du hast schon geantwortet';
-    if (buzz.winner === pid) return 'Nur vor dem Buzzern';
+    // Höchstens ein Joker pro Person/Team und Frage
+    if ((jk.double || []).includes(pid) || (jk.hint || []).includes(pid) || (jk.pass && jk.pass.from === pid)) {
+      return 'Nur ein Joker pro Frage';
+    }
+    if (whoIsUp(cur, turn) !== pid) return 'Nur wenn du dran bist';
     if (kind === 'pass') {
-      if (pid !== turn) return 'Nur wer am Zug ist';
-      if (jk.pass) return 'Schon weitergegeben';
-      if (Object.keys(judged).length || buzz.open || buzz.arming || buzz.winner) return 'Nur vor der ersten Antwort';
+      if (pid !== turn || jk.pass || buzz.winner) return 'Nur wer am Zug ist, vor der ersten Antwort';
       if (target === undefined) return null; // Ziel wird gleich gewählt
       if (target === pid || !players.some((x) => x.id === target)) return 'Ungültiges Ziel';
       return null;
     }
-    if ((jk[kind] || []).includes(pid)) return 'Schon aktiv';
-    if (jk.pass && jk.pass.to === pid) return null; // wer übernehmen muss, darf noch setzen
+    return null;
+  }
+
+  // Wer muss gerade antworten? Gebuzzert → der Buzzer-Gewinner; weitergegeben → das Ziel;
+  // sonst vor der ersten Antwort, wer am Zug ist. Bei offenem Buzzer ist niemand dran.
+  function whoIsUp(cur, turn) {
+    if (!cur || cur.revealed) return null;
+    const judged = cur.judged || {};
+    const buzz = cur.buzz || {};
+    const jk = cur.jokers || {};
+    if (Object.values(judged).includes('right')) return null;
+    if (buzz.winner && !judged[buzz.winner]) return buzz.winner;
+    if (buzz.open || buzz.arming) return null;
+    if (jk.pass && !judged[jk.pass.to]) return jk.pass.to;
+    if (!Object.keys(judged).length) return turn || null;
     return null;
   }
 
@@ -961,7 +976,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
     CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

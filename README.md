@@ -30,7 +30,8 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
   - ↕️ **Reihenfolge** (Antwort = `A | B | C | D` in richtiger Reihenfolge): Alle sehen die Begriffe gemischt und sortieren sie am Handy mit ▲▼. Wer komplett richtig liegt, bekommt die Punkte.
   - 🅰️ **Multiple Choice** (Antwort = `Richtig | Falsch | Falsch | Falsch`, die richtige zuerst): Alle wählen am Handy, die Optionen erscheinen gemischt. Nach dem Auflösen sieht man, wer was gewählt hat; alle Richtigen bekommen die Punkte.
   Bei Schätzfrage, Reihenfolge und Multiple Choice gibt es keinen Buzzer und keine Joker; du drückst „Auflösen & Punkte vergeben“ (Rückgängig möglich).
-- **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel – über beide Runden, nicht pro Runde; eingesetzt am Handy per Doppeltipp, nur vor dem Antworten bzw. Buzzern):
+- **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel – über beide Runden; eingesetzt am Handy per Doppeltipp):
+  - Einsetzen darf nur, **wer gerade dran ist**: wer am Zug ist (vor der ersten Antwort), wer gebuzzert hat oder wem die Frage weitergegeben wurde. Pro Frage höchstens **ein Joker pro Person/Team**.
   - 🎲 **Doppelt oder nichts**: richtig = doppelte Punkte, falsch = voller Abzug statt halber.
   - 💡 **Tipp**: Anfangsbuchstaben und Länge der Antwort („M _ _ _   L _ _ _“), nur auf dem eigenen Handy. Ziffern werden nie verraten.
   - 👉 **Weitergeben**: Wer am Zug ist, gibt die Frage vor der ersten Antwort an jemand anderen weiter; der muss antworten.

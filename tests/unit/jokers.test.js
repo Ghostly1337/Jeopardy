@@ -32,14 +32,36 @@ test('Joker nur einmal pro Spiel und nur für Spieler', () => {
   assert.equal(block('hint', { cur: null }), 'Erst wenn eine Frage offen ist');
 });
 
-test('Joker nur vor dem Antworten bzw. Buzzern', () => {
+test('Joker nur, wenn man dran ist', () => {
+  assert.equal(block('double'), null, 'Anna ist am Zug');
+  assert.equal(block('double', { pid: 'b' }), 'Nur wenn du dran bist', 'Ben ist nicht dran');
   assert.equal(block('double', { cur: cur({ judged: { a: 'wrong' } }) }), 'Du hast schon geantwortet');
-  assert.equal(block('hint', { cur: cur({ buzz: { winner: 'a' } }) }), 'Nur vor dem Buzzern');
   assert.equal(block('hint', { cur: cur({ revealed: true }) }), 'Frage ist schon gelöst');
   assert.equal(block('double', { cur: cur({ judged: { b: 'right' } }) }), 'Frage ist schon gelöst');
-  assert.equal(block('double', { cur: cur({ jokers: { double: ['a'] } }) }), 'Schon aktiv');
-  // Ben darf nach Annas Fehler vor dem Klauen noch Doppelt setzen
-  assert.equal(block('double', { pid: 'b', cur: cur({ judged: { a: 'wrong' }, buzz: { open: true } }) }), null);
+  // Klau-Runde: Buzzer offen → niemand dran
+  assert.equal(block('double', { pid: 'b', cur: cur({ judged: { a: 'wrong' }, buzz: { open: true } }) }), 'Nur wenn du dran bist');
+  // Wer gebuzzert hat, ist dran
+  assert.equal(block('hint', { pid: 'b', cur: cur({ judged: { a: 'wrong' }, buzz: { winner: 'b' } }) }), null);
+  // Wer die Frage weitergereicht bekommt, ist dran – wer weitergegeben hat, nicht mehr
+  const passed = cur({ jokers: { pass: { from: 'a', to: 'b' } } });
+  assert.equal(block('hint', { pid: 'b', cur: passed }), null);
+  assert.equal(block('hint', { pid: 'a', cur: passed }), 'Nur ein Joker pro Frage');
+});
+
+test('Höchstens ein Joker pro Person und Frage', () => {
+  assert.equal(block('hint', { cur: cur({ jokers: { double: ['a'] } }) }), 'Nur ein Joker pro Frage');
+  assert.equal(block('double', { cur: cur({ jokers: { hint: ['a'] } }) }), 'Nur ein Joker pro Frage');
+  assert.equal(block('pass', { target: 'b', cur: cur({ jokers: { double: ['a'] } }) }), 'Nur ein Joker pro Frage');
+});
+
+test('whoIsUp: wer gerade antworten muss', () => {
+  assert.equal(J.whoIsUp(cur(), 'a'), 'a');
+  assert.equal(J.whoIsUp(cur({ buzz: { open: true } }), 'a'), null);
+  assert.equal(J.whoIsUp(cur({ buzz: { arming: true } }), 'a'), null, 'Pixel-Rennen: erst nach dem Buzz');
+  assert.equal(J.whoIsUp(cur({ judged: { a: 'wrong' }, buzz: { winner: 'b' } }), 'a'), 'b');
+  assert.equal(J.whoIsUp(cur({ judged: { a: 'wrong' } }), 'a'), null);
+  assert.equal(J.whoIsUp(cur({ jokers: { pass: { from: 'a', to: 'b' } } }), 'a'), 'b');
+  assert.equal(J.whoIsUp(cur({ judged: { a: 'right' } }), 'a'), null);
 });
 
 test('Weitergeben: nur wer am Zug ist, nur vor der ersten Antwort, gültiges Ziel', () => {
@@ -47,10 +69,10 @@ test('Weitergeben: nur wer am Zug ist, nur vor der ersten Antwort, gültiges Zie
   assert.equal(block('pass', { target: 'b' }), null);
   assert.equal(block('pass', { target: 'a' }), 'Ungültiges Ziel');
   assert.equal(block('pass', { target: 'x' }), 'Ungültiges Ziel');
-  assert.equal(block('pass', { pid: 'b', target: 'a' }), 'Nur wer am Zug ist');
-  assert.equal(block('pass', { target: 'b', cur: cur({ buzz: { open: true } }) }), 'Nur vor der ersten Antwort');
-  assert.equal(block('pass', { target: 'b', cur: cur({ buzz: { arming: true } }) }), 'Nur vor der ersten Antwort');
-  assert.equal(block('pass', { target: 'b', cur: cur({ jokers: { pass: { from: 'a', to: 'b' } } }) }), 'Schon weitergegeben');
+  assert.equal(block('pass', { pid: 'b', target: 'a' }), 'Nur wenn du dran bist');
+  assert.equal(block('pass', { target: 'b', cur: cur({ buzz: { open: true } }) }), 'Nur wenn du dran bist');
+  // Wer weitergereicht bekommt, darf nicht selbst weitergeben
+  assert.equal(block('pass', { pid: 'b', target: 'a', cur: cur({ jokers: { pass: { from: 'a', to: 'b' } } }) }), 'Nur wer am Zug ist, vor der ersten Antwort');
 });
 
 test('Öffentlicher Zustand verrät den Tipp nicht, zeigt aber verbrauchte Joker', () => {

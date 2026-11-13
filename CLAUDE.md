@@ -24,6 +24,8 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 - **Nischenwissen ist schwer:** Begriffe aus dem American Football, Fachbegriffe, Jahreszahlen ohne Bezug.
 - **Fan-Themen eine Stufe härter ansetzen** (Feedback Set 4): Bei Gaming/Popkultur (Pokémon, Minecraft, Star Wars, Marvel) kennt die Gruppe Grundwissen sofort – Glumanda-Typ, Wolf zähmen, Mjölnir, Yoda, Millennium Falke waren zu leicht. Ab 200/400 echtes Fanwissen nehmen; 500/1000 = Trivia, die nur Hardcore-Fans wissen.
 - **Mehrdeutige Lückentexte vermeiden:** „Hopfen und Malz, …“ hat zwei gültige Enden – Hinweis so kappen, dass nur eine Ergänzung passt.
+- **Keine Wiederholungen:** Neue Fragen vor dem Abgeben gegen alle bisherigen Sets abgleichen (Antworten und Stichwörter), auch Fragen, die der Nutzer selbst im Editor eingetragen hat. In Set 5 waren zuerst Guacamole, Oktopus, Spinnenbeine, erstes iPhone und Bill Gates doppelt.
+- **Eindeutige Begriffe:** Bei Reihenfolge/Multiple Choice Versionen ausschreiben („PlayStation 2 (PS2)“, „Nintendo Switch (die erste)“).
 - **Umstrittene Antworten vermeiden** (z. B. längster Fluss: Nil oder Amazonas).
 
 ### Form

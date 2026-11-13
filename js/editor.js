@@ -344,6 +344,10 @@
     try {
       const data = JSON.parse(await file.text());
       if (!data || !Array.isArray(data.rounds)) throw new Error('Kein gültiges Fragenset');
+      // Unbekannte Fragearten (Datei ist neuer als diese Seite) nicht still verwerfen
+      const unknown = data.rounds.flatMap((r) => (r && r.categories) || []).flatMap((c) => (c && c.clues) || [])
+        .some((cl) => cl && cl.kind && !J.CLUE_KINDS.includes(cl.kind));
+      if (unknown) throw new Error('Das Set nutzt Fragearten, die diese Seite noch nicht kennt. Bitte die Seite neu laden (Strg+Shift+R) und nochmal importieren.');
       const imported = J.normalizeSet(data);
       if (lib) {
         // Import legt ein neues Set an, statt das aktive zu überschreiben

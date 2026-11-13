@@ -23,7 +23,24 @@
     $('status').className = 'status ' + (ok ? 'ok' : 'bad');
   }
 
+  // Anderer Stand als der Host (z. B. Seite noch von vor einem Update offen) → einmal neu laden.
+  // Ist der Host selbst veraltet, hilft Neuladen hier nicht – dann Hinweis statt Endlosschleife.
+  function checkVersion(v) {
+    if (!v || v === J.APP_VERSION) { $('versionBanner').hidden = true; return true; }
+    const key = 'jeopardy.reloadedFor';
+    let tried = null;
+    try { tried = sessionStorage.getItem(key); } catch (e) {}
+    if (tried !== v) {
+      try { sessionStorage.setItem(key, v); } catch (e) {}
+      location.reload();
+      return false;
+    }
+    $('versionBanner').hidden = false;
+    return true;
+  }
+
   function render(s) {
+    if (!checkVersion(s.v)) return;
     J.applyTheme(s.theme);
     $('waiting').hidden = true;
     const board = $('board');

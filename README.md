@@ -24,6 +24,11 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
   - Der Buzzer ist während der Frage **immer sichtbar**, aber grau („Noch nicht“), solange er zu ist. Wer zu früh drückt, ist **1 Sekunde gesperrt** – Dauer-Hämmern sperrt sich also selbst aus.
   - Es zählt die **Reaktionszeit** auf dem eigenen Gerät, nicht wessen Signal zuerst ankommt: Eine langsame Internetleitung ist kein Nachteil. Reaktionen unter 0,1 s gelten als Frühstart.
   - Manuell öffnen/schließen geht auch.
+- **Besondere Fragearten** (im Editor pro Feld einstellbar):
+  - 🔍 **Zoom-Bild** (Häkchen „Zoom“ beim Bild): startet als kleiner Ausschnitt und zoomt mit 🔍 in vier Stufen heraus; Buzzer-Rennen wie bei verpixelten Bildern. Spieler bekommen nur den Ausschnitt. Der Startpunkt ist die Bildmitte (in der JSON per `"zoomAt": {"x": 0.3, "y": 0.6}` änderbar).
+  - 🔢 **Schätzfrage** (Antwort = Zahl): Alle tippen gleichzeitig am Handy eine Zahl, die Tipps bleiben bis zum Auflösen geheim. Wer am nächsten dran ist (bei Gleichstand alle), bekommt die Punkte. Ergebnisliste auf allen Bildschirmen.
+  - ↕️ **Reihenfolge** (Antwort = `A | B | C | D` in richtiger Reihenfolge): Alle sehen die Begriffe gemischt und sortieren sie am Handy mit ▲▼. Wer komplett richtig liegt, bekommt die Punkte.
+  Bei Schätzfrage und Reihenfolge gibt es keinen Buzzer und keine Joker; du drückst „Auflösen & Punkte vergeben“ (Rückgängig möglich).
 - **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel – über beide Runden, nicht pro Runde; eingesetzt am Handy per Doppeltipp, nur vor dem Antworten bzw. Buzzern):
   - 🎲 **Doppelt oder nichts**: richtig = doppelte Punkte, falsch = voller Abzug statt halber.
   - 💡 **Tipp**: Anfangsbuchstaben und Länge der Antwort („M _ _ _   L _ _ _“), nur auf dem eigenen Handy. Ziffern werden nie verraten.

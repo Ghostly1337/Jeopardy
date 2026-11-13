@@ -188,7 +188,7 @@
         const del = document.createElement('button');
         del.className = 'small ghost';
         del.textContent = '✕ Entfernen';
-        del.addEventListener('click', () => { clue.img = ''; delete clue.pixel; persist(); draw(); });
+        del.addEventListener('click', () => { clue.img = ''; delete clue.pixel; delete clue.zoom; delete clue.zoomAt; persist(); draw(); });
         // Verpixeln: Bild startet grob und wird im Spiel per Knopf schärfer
         const px = document.createElement('label');
         px.className = 'ed-pixel';
@@ -197,13 +197,26 @@
         box.type = 'checkbox';
         box.checked = !!clue.pixel;
         box.addEventListener('change', () => {
-          if (box.checked) clue.pixel = true; else delete clue.pixel;
-          thumb.classList.toggle('pixel-preview', box.checked);
+          if (box.checked) { clue.pixel = true; delete clue.zoom; } else delete clue.pixel;
           persist();
+          draw();
         });
         thumb.classList.toggle('pixel-preview', !!clue.pixel);
         px.append(box, ' Verpixeln');
-        wrap.append(thumb, del, px);
+        // Zoom: Bild startet stark herangezoomt (Bildmitte) und zoomt im Spiel stufenweise heraus
+        const zm = document.createElement('label');
+        zm.className = 'ed-zoom';
+        zm.title = 'Bild startet als kleiner Ausschnitt (Bildmitte) und zoomt im Spiel stufenweise heraus.';
+        const zbox = document.createElement('input');
+        zbox.type = 'checkbox';
+        zbox.checked = !!clue.zoom;
+        zbox.addEventListener('change', () => {
+          if (zbox.checked) { clue.zoom = true; delete clue.pixel; } else { delete clue.zoom; delete clue.zoomAt; }
+          persist();
+          draw();
+        });
+        zm.append(zbox, ' Zoom');
+        wrap.append(thumb, del, px, zm);
         return;
       }
       const url = document.createElement('input');
@@ -281,7 +294,22 @@
         note.value = clue.note || '';
         note.placeholder = 'Host-Notiz (optional, nur für dich)';
         note.addEventListener('input', () => { clue.note = note.value; persist(); });
-        box.append(q, a, note, imageControls(clue));
+        // Fragenart: normal, Schätzfrage (alle tippen eine Zahl) oder Reihenfolge (alle sortieren)
+        const kind = document.createElement('select');
+        kind.className = 'ed-kind';
+        kind.innerHTML = '<option value="">Normale Frage</option><option value="estimate">🔢 Schätzfrage</option><option value="order">↕️ Reihenfolge</option>';
+        kind.value = clue.kind || '';
+        const hintFor = () => {
+          a.placeholder = clue.kind === 'estimate' ? 'Richtige Zahl, z. B. 330'
+            : clue.kind === 'order' ? 'Richtige Reihenfolge: A | B | C | D' : 'Antwort (nur Host)';
+        };
+        kind.addEventListener('change', () => {
+          if (kind.value) clue.kind = kind.value; else delete clue.kind;
+          hintFor();
+          persist();
+        });
+        hintFor();
+        box.append(q, a, note, kind, imageControls(clue));
         col.appendChild(box);
       });
       grid.appendChild(col);

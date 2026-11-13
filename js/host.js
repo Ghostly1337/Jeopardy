@@ -114,11 +114,16 @@
     // Verpixelte Bilder: Buzzer-Rennen – der Buzzer öffnet sofort für alle, wer das Bild
     // zuerst erkennt, darf antworten (sonst könnte der Spieler am Zug einfach abwarten)
     const race = J.pixelLevel(set.rounds[r].categories[cat].clues[row], { revealed: false }) != null && state.players.length > 0;
+    const clue = set.rounds[r].categories[cat].clues[row];
+    const kind = J.CLUE_KINDS.includes(clue.kind) ? clue.kind : 'normal';
     mutate(`Frage ${J.pointsFor(r, row)} „${set.rounds[r].categories[cat].name}“ geöffnet`, () => {
       state.current = {
-        round: r, cat, row, revealed: false, judged: {},
+        round: r, cat, row, revealed: false, judged: {}, kind,
         buzz: race ? { open: false, winner: null, arming: true } : closedBuzz(), timer: null,
       };
+      // Schätzfrage / Reihenfolge: alle geben am Handy ab, du löst auf
+      if (kind === 'estimate') state.current.est = { guesses: {} };
+      if (kind === 'order') state.current.ord = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
     });
     sound('open');
     if (race) armBuzz();
@@ -167,6 +172,81 @@
     // Pro Spieler/Team zählt die schnellste Reaktion (im Team-Modus kann jedes Mitglied drücken)
     const prev = pendingBuzz.entries.get(pid);
     if (!prev || reaction < prev.ms) pendingBuzz.entries.set(pid, { ms: reaction, name: conn.memberName || null });
+  }
+
+  // ---------- Schätzfrage / Reihenfolge ----------
+  // Abgaben ändern nur den Zwischenstand (ohne Undo-Eintrag); erst „Auflösen“ vergibt Punkte.
+  function handleSubmission(conn, msg) {
+    const cur = state.current;
+    const pid = conn.playerId;
+    if (!cur || cur.revealed || !pid || !state.players.some((p) => p.id === pid)) return;
+    const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
+    if (msg.type === 'estimate' && cur.kind === 'estimate') {
+      const v = J.parseNumber(msg.value);
+      if (v == null || Math.abs(v) > 1e15) return;
+      cur.est.guesses[pid] = v;
+    } else if (msg.type === 'order' && cur.kind === 'order') {
+      const n = J.orderItems(clue.a).length;
+      if (!J.isPerm(msg.order, n)) return;
+      cur.ord.answers[pid] = msg.order.map((i) => cur.ord.perm[i]); // angezeigte Position → Original
+    } else return;
+    commit();
+  }
+
+  function resolveSpecial() {
+    const cur = state.current;
+    if (!cur || cur.revealed) return;
+    const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
+    const value = J.pointsFor(cur.round, cur.row);
+    let winners = [];
+    if (cur.kind === 'estimate') {
+      const answer = J.parseNumber(clue.a);
+      winners = J.estimateWinners(cur.est.guesses, answer);
+      cur.est.answer = answer;
+    } else {
+      winners = Object.keys(cur.ord.answers).filter((id) => J.orderCorrect(cur.ord.answers[id]));
+    }
+    winners = winners.filter((id) => state.players.some((p) => p.id === id));
+    mutate(winners.length ? `Aufgelöst: ${winners.map(nameOf).join(', ')} +${value}` : 'Aufgelöst: niemand richtig', () => {
+      if (cur.kind === 'estimate') cur.est.winners = winners;
+      winners.forEach((id) => {
+        state.players.find((p) => p.id === id).score += value;
+        cur.judged[id] = 'right';
+        stat(id).right++;
+      });
+      cur.revealed = true;
+      cur.timer = null;
+      state.used[cur.round][cur.cat][cur.row] = true;
+    });
+    sound(winners.length ? 'right' : 'wrong');
+  }
+  $('resolveBtn').addEventListener('click', resolveSpecial);
+
+  // Abgaben-Übersicht im Host-Pult
+  function renderSpecial(cur, clue) {
+    const box = $('special');
+    const special = cur.kind === 'estimate' || cur.kind === 'order';
+    box.hidden = !special;
+    $('judge').hidden = special;
+    $('buzzBtn').hidden = special;
+    $('reveal').hidden = special;
+    $('resolveBtn').hidden = !special || cur.revealed;
+    if (!special) return;
+    const value = J.pointsFor(cur.round, cur.row);
+    const answers = cur.kind === 'estimate' ? cur.est.guesses : cur.ord.answers;
+    const items = cur.kind === 'order' ? J.orderItems(clue.a) : null;
+    const n = Object.keys(answers).length;
+    const rows = state.players.map((p) => {
+      const has = p.id in answers;
+      let detail = has ? '✓ abgegeben' : '… wartet';
+      if (has && cur.kind === 'estimate') detail = String(answers[p.id]).replace('.', ',');
+      if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
+      const won = cur.judged[p.id] === 'right';
+      return `<div class="srow${won ? ' won' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}</span></div>`;
+    }).join('');
+    const head = cur.kind === 'estimate' ? `🔢 Schätzfrage – ${n}/${state.players.length} getippt` : `↕️ Reihenfolge – ${n}/${state.players.length} abgegeben`;
+    box.innerHTML = `<div class="special-head">${head}</div>${rows}` +
+      (cur.revealed ? '' : `<div class="hint">${cur.kind === 'estimate' ? 'Wer am nächsten dran ist, bekommt' : 'Alle mit komplett richtiger Reihenfolge bekommen'} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
   }
 
   // ---------- Joker ----------
@@ -302,19 +382,23 @@
     const px = lvl == null ? null : pixelImg(clue, lvl);
     const img = lvl == null ? J.safeImg(clue.img) : px && px.src;
     $('clueImg').hidden = !img;
-    $('clueImg').classList.toggle('pixel', lvl != null);
+    $('clueImg').classList.toggle('pixel', lvl != null && J.imgMode(clue) === 'pixel');
+    $('clueImg').classList.toggle('zoomed', lvl != null && J.imgMode(clue) === 'zoom');
     if (img && $('clueImg').getAttribute('src') !== img) $('clueImg').src = img;
     $('pixelHint').textContent = px && px.error ? '⚠ ' + px.error : '';
     $('pixelHint').hidden = !(px && px.error);
     $('pixelBtn').hidden = lvl == null;
     if (lvl != null) {
-      $('pixelBtn').textContent = lvl + 1 < J.PIXEL_STEPS.length
-        ? `🔍 Schärfer (${lvl + 1}/${J.PIXEL_STEPS.length})` : '🖼 Ganzes Bild zeigen';
+      const n = J.imgSteps(clue).length;
+      $('pixelBtn').textContent = lvl + 1 < n
+        ? (J.imgMode(clue) === 'zoom' ? `🔍 Rauszoomen (${lvl + 1}/${n})` : `🔍 Schärfer (${lvl + 1}/${n})`)
+        : '🖼 Ganzes Bild zeigen';
     }
     $('clueA').textContent = clue.a;
     $('clueNote').textContent = clue.note || '';
     $('clueNote').hidden = !clue.note;
     $('reveal').disabled = cur.revealed;
+    renderSpecial(cur, clue);
 
     // Buzzer- und Timer-Steuerung
     const buzz = cur.buzz || (cur.buzz = { open: false, winner: null });
@@ -554,11 +638,13 @@
   const pixelCache = new Map();
   function pixelImg(clue, lvl) {
     const src = J.safeImg(clue.img);
-    const blocks = J.PIXEL_STEPS[lvl];
-    const key = blocks + '|' + src.length + '|' + src.slice(0, 64) + src.slice(-64);
+    const mode = J.imgMode(clue);
+    const n = J.imgSteps(clue)[lvl];
+    const at = clue.zoomAt || null;
+    const key = mode + n + (at ? `@${at.x},${at.y}` : '') + '|' + src.length + '|' + src.slice(0, 64) + src.slice(-64);
     if (!pixelCache.has(key)) {
       pixelCache.set(key, { src: null });
-      J.pixelate(src, blocks)
+      (mode === 'zoom' ? J.zoomCrop(src, n, at) : J.pixelate(src, n))
         .then((u) => pixelCache.set(key, { src: u }))
         .catch((e) => pixelCache.set(key, { src: null, error: e.message }))
         .then(() => { renderClue(); broadcast(); });
@@ -824,6 +910,8 @@
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {
       handleJoker(conn, msg);
+    } else if (msg.type === 'estimate' || msg.type === 'order') {
+      handleSubmission(conn, msg);
     } else if (msg.type === 'react') {
       handleReaction(conn, msg);
     }

@@ -39,6 +39,11 @@ test('Joker im Einzelmodus', async (t) => {
     await host.waitForSelector('#jokerStatus:not([hidden])');
     assert.match(await host.textContent('#jokerStatus'), /🎲 Anna: Doppelt oder nichts/);
     await anna.waitForSelector('.joker-active');
+    // Nur ein Joker pro Frage; wer nicht dran ist, kann gar keinen setzen
+    assert.ok(await anna.locator('.joker[data-kind="hint"]').isDisabled());
+    assert.equal(await anna.getAttribute('.joker[data-kind="hint"]', 'title'), 'Nur ein Joker pro Frage');
+    assert.ok(await ben.locator('.joker[data-kind="double"]').isDisabled());
+    assert.equal(await ben.getAttribute('.joker[data-kind="double"]', 'title'), 'Nur wenn du dran bist');
     await tv.waitForFunction(() => document.querySelector('.buzz-show-name').textContent.includes('Doppelt oder nichts'));
     assert.match(await host.textContent('.jrow >> nth=0'), /✓ \+200/);
     await host.locator('.jrow').nth(0).locator('.green').click();
@@ -49,7 +54,9 @@ test('Joker im Einzelmodus', async (t) => {
   await t.test('Verbrauchter Joker ist ausgegraut', async () => {
     await host.locator('.cell.val').nth(3).click();
     await anna.waitForSelector('.joker[data-kind="double"].used[disabled]');
-    assert.ok(await anna.locator('.joker[data-kind="hint"]').isEnabled());
+    // Ben ist jetzt am Zug, Anna nicht
+    await ben.waitForSelector('.joker[data-kind="hint"]:not([disabled])');
+    assert.ok(await anna.locator('.joker[data-kind="hint"]').isDisabled());
     await host.click('#cancel');
   });
 

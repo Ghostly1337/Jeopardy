@@ -107,3 +107,19 @@ test('Joker zählen pro Team', async () => {
   await ben.waitForSelector('.joker-active');
   assert.deepEqual(env.errors, []);
 });
+
+test('Joker gelten fürs ganze Spiel, nicht pro Runde', async () => {
+  const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
+  const anna = await joinPlayer(env, code, { pick: 'Anna' });
+  await host.locator('.cell.val').nth(4).click(); // Runde 1
+  await useJoker(anna, 'double');
+  await host.waitForSelector('#jokerStatus:not([hidden])');
+  await host.click('#cancel');
+  await host.click('#r1'); // Runde 2
+  await host.click('#introSkip');
+  await host.locator('.cell.val').nth(18).click(); // 800er
+  await anna.waitForFunction(() => document.getElementById('meta').textContent.endsWith('800'));
+  await anna.waitForSelector('.joker[data-kind="double"].used[disabled]');
+  assert.ok(await anna.locator('.joker[data-kind="hint"]').isEnabled(), 'andere Joker bleiben');
+  assert.deepEqual(env.errors, []);
+});

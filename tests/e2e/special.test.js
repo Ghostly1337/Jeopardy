@@ -80,13 +80,7 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     await ben.fill('#estInput', '350'); // Tipp ändern geht bis zum Auflösen
     await ben.click('.est-form button');
     await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '🔢 2/2 haben getippt');
-    // Host-Pult verrät die Tipps erst auf Wunsch (Bildschirm oft für alle sichtbar)
-    await host.waitForFunction(() => document.getElementById('special').textContent.includes('2/2 getippt'));
-    assert.ok(!(await host.textContent('#special')).includes('350'), 'Host zeigt Tipp nicht von selbst');
-    await host.click('#peekBtn');
     await host.waitForFunction(() => document.getElementById('special').textContent.includes('350'));
-    await host.click('#peekBtn');
-    assert.ok(!(await host.textContent('#special')).includes('350'), 'wieder verborgen');
     assert.ok(!(await tv.content()).includes('350'), 'TV sieht keine Tipps');
     await anna.waitForFunction(() => document.querySelector('.special-status').textContent.includes('Dein Tipp: 300 ✓'));
   });

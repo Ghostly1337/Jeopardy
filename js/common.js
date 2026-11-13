@@ -4,6 +4,9 @@
   const ROWS = 5;
   const ROUNDS = 2;
   const SET_KEY = 'jeopardy.set';
+  // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
+  // statt z. B. neue Fragearten falsch anzuzeigen.
+  const APP_VERSION = '2026-11-13.2';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -977,7 +980,7 @@
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
     CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
-    CATS, ROWS, ROUNDS, SET_KEY,
+    APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,
     roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,

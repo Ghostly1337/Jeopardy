@@ -1471,3 +1471,5 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
   .clue-overlay > .clue-meta { margin-top: auto; }
   .clue-overlay .scores { position: static; margin-top: auto; padding-top: 3vh; }
 }
+.version-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 40; padding: 8px 14px; text-align: center; font-weight: 700; font-size: 14px; background: var(--red); color: #fff; }
+.version-banner[hidden] { display: none; }

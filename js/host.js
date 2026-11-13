@@ -959,6 +959,7 @@
     } else {
       data.taken = [...linkedPlayers()];
     }
+    data.v = J.APP_VERSION;
     return { type: 'state', data };
   }
 

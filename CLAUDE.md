@@ -36,6 +36,7 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 ## Projekt
 - Statische Seite (HTML/CSS/JS) + Vercel-Funktionen in `api/`, Logik für Tests in `lib/`.
 - Tests: `npm test` (Unit + Browser über WebRTC), `npm run test:e2e:relay` (Browser über das Relay). CI führt beides aus.
+- Bei jeder Änderung an `js/` die `APP_VERSION` in `js/common.js` hochzählen: Handys mit altem Stand laden sich dann im Spiel selbst neu.
 - Quizfragen nie ins Repo committen (öffentlich, Spieler könnten Antworten finden).
 
 ## Geplant: Fragenpool mit Würfel-Modus (noch nicht gebaut)

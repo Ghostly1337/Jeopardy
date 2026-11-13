@@ -1373,3 +1373,4 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
   -webkit-touch-callout: none;
 }
 .player-body input, .player-body textarea { -webkit-user-select: text; user-select: text; }
+.pod-score.neg { color: var(--red); }

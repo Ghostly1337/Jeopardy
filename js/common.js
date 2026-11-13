@@ -690,7 +690,7 @@
       if (!ps.length) return '<div class="pod-col empty"></div>';
       return `<div class="pod-col p${place}">
         <div class="pod-names">${ps.map((p) => `<div class="pod-name">${escapeHtml(p.name)}</div>`).join('')}</div>
-        <div class="pod-score">${ps[0].score}</div>
+        <div class="pod-score${ps[0].score < 0 ? ' neg' : ''}">${ps[0].score}</div>
         <div class="pod-block"><span>${place}</span></div>
       </div>`;
     };

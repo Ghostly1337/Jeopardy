@@ -126,7 +126,6 @@
       if (kind === 'order') state.current.ord = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
       if (kind === 'choice') state.current.mc = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
     });
-    peekSpecial = false;
     sound('open');
     if (race) armBuzz();
   }
@@ -244,17 +243,12 @@
     const answers = cur.kind === 'estimate' ? cur.est.guesses : cur.kind === 'choice' ? cur.mc.answers : cur.ord.answers;
     const items = cur.kind !== 'estimate' ? J.orderItems(clue.a) : null;
     const n = Object.keys(answers).length;
-    // Inhalte erst nach dem Auflösen zeigen (Host-Bildschirm ist oft für alle sichtbar);
-    // mit „👁 Abgaben zeigen“ kann der Host vorher heimlich nachsehen
-    const show = cur.revealed || peekSpecial;
     const rows = state.players.map((p) => {
       const has = p.id in answers;
       let detail = has ? '✓ abgegeben' : '… wartet';
-      if (!show) {
-        // nichts verraten
-      } else if (has && cur.kind === 'estimate') detail = String(answers[p.id]).replace('.', ',');
-      else if (has && cur.kind === 'choice') detail = (answers[p.id] === 0 ? '✓ ' : '✗ ') + items[answers[p.id]];
-      else if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
+      if (has && cur.kind === 'estimate') detail = String(answers[p.id]).replace('.', ',');
+      if (has && cur.kind === 'choice') detail = (answers[p.id] === 0 ? '✓ ' : '✗ ') + items[answers[p.id]];
+      if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
       const won = cur.judged[p.id] === 'right';
       return `<div class="srow${won ? ' won' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}</span></div>`;
     }).join('');
@@ -264,12 +258,8 @@
     const rule = cur.kind === 'estimate' ? 'Wer am nächsten dran ist, bekommt'
       : cur.kind === 'choice' ? 'Alle mit der richtigen Antwort bekommen' : 'Alle mit komplett richtiger Reihenfolge bekommen';
     box.innerHTML = `<div class="special-head">${head}</div>${rows}` +
-      (cur.revealed ? '' : `<div class="hint">${rule} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>` +
-        `<button class="small ghost" id="peekBtn" type="button">${peekSpecial ? '🙈 Abgaben verbergen' : '👁 Abgaben zeigen'}</button>`);
-    const peek = $('peekBtn');
-    if (peek) peek.addEventListener('click', () => { peekSpecial = !peekSpecial; renderClue(); });
+      (cur.revealed ? '' : `<div class="hint">${rule} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
   }
-  let peekSpecial = false; // nur lokal im Host-Pult, wird beim Öffnen einer Frage zurückgesetzt
 
   // ---------- Joker ----------
   function handleJoker(conn, msg) {

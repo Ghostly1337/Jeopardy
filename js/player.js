@@ -70,8 +70,10 @@
       img.hidden = !cur.img;
       if (cur.img && img.getAttribute('src') !== cur.img) img.src = cur.img;
       if (!cur.img) img.removeAttribute('src');
-      img.classList.toggle('pixel', !!cur.pixel);
-      $('a').textContent = cur.a || '';
+      img.classList.toggle('pixel', !!cur.pixel && cur.pixel.mode !== 'zoom');
+      img.classList.toggle('zoomed', !!cur.pixel && cur.pixel.mode === 'zoom');
+      // Bei Schätzfrage und Reihenfolge zeigt die Ergebnisliste die Lösung
+      $('a').textContent = cur.kind === 'estimate' || cur.kind === 'order' ? '' : cur.a || '';
       J.renderScores($('overlayScores'), s.players, s.turn);
       judgeEffects(ov, opened ? {} : prevJudged, cur.judged || {});
       buzzShow(cur, clueKey, s);
@@ -92,6 +94,7 @@
     renderMe();
     renderBuzz();
     renderJokers(clueKey);
+    renderSpecial(clueKey);
     syncTimer(cur && cur.timer);
   }
 
@@ -144,6 +147,136 @@
     ov.__fx = setTimeout(() => ov.classList.remove(cls), 1000); // sonst startet es beim nächsten Öffnen erneut
   }
 
+  // ---------- Schätzfrage / Reihenfolge ----------
+  let specialKey = null;   // für welche Frage/Phase die Eingabe gebaut ist
+  let myGuess = null;      // eigener Tipp (Schätzfrage)
+  let myOrder = null;      // eigene Reihenfolge: Positionen in der angezeigten Liste
+  let orderSent = false;
+
+  const fmtNum = (n) => (n == null ? '–' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
+
+  function renderSpecial(clueKey) {
+    const box = $('specialBox');
+    const cur = last && last.current;
+    const kind = cur && cur.kind;
+    if (!cur || (kind !== 'estimate' && kind !== 'order')) { box.hidden = true; specialKey = null; return; }
+    box.hidden = false;
+    const isPlayer = !!myPlayer();
+    const data = kind === 'estimate' ? cur.est : cur.ord;
+    const total = last.players.length;
+    const nameOf = (id) => (last.players.find((p) => p.id === id) || {}).name || '?';
+    const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
+    if (key !== specialKey) {
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; }
+      specialKey = key;
+      box.innerHTML = '';
+      if (data.revealed) box.appendChild(kind === 'estimate' ? estimateResult(cur.est, nameOf) : orderResult(cur.ord, nameOf));
+      else if (isPlayer) box.appendChild(kind === 'estimate' ? estimateInput() : orderInput(cur.ord.items));
+      else if (kind === 'order') box.appendChild(orderList(cur.ord.items));
+      const st = document.createElement('div');
+      st.className = 'special-status';
+      box.appendChild(st);
+    }
+    const st = box.querySelector('.special-status');
+    if (data.revealed) { st.textContent = ''; st.hidden = true; return; }
+    st.hidden = false;
+    const n = data.submitted.length;
+    const mine = isPlayer && data.submitted.includes(me);
+    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : `↕️ ${n}/${total} haben abgegeben`) +
+      (mine ? (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : ' · Deine Reihenfolge ist abgegeben ✓') : '');
+  }
+
+  function estimateInput() {
+    const f = document.createElement('form');
+    f.className = 'est-form';
+    f.innerHTML = '<input id="estInput" inputmode="decimal" autocomplete="off" placeholder="Deine Schätzung"><button class="primary" type="submit">Tippen</button>';
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = f.querySelector('input');
+      const v = J.parseNumber(input.value);
+      if (v == null || !conn || !conn.open) { input.classList.add('invalid'); return; }
+      input.classList.remove('invalid');
+      myGuess = v;
+      conn.send({ type: 'estimate', value: v });
+      renderSpecial(lastJokerKey);
+    });
+    return f;
+  }
+
+  function estimateResult(est, nameOf) {
+    const wrap = document.createElement('div');
+    wrap.className = 'est-result';
+    const g = est.guesses || {};
+    const ids = Object.keys(g).sort((a, b) => Math.abs(g[a] - est.answer) - Math.abs(g[b] - est.answer));
+    wrap.innerHTML = `<div class="est-answer">Richtig: <b>${fmtNum(est.answer)}</b></div>` + (ids.length
+      ? `<ol class="est-list">${ids.map((id) => {
+        const won = est.winners.includes(id);
+        const diff = Math.abs(g[id] - est.answer);
+        return `<li class="${won ? 'won' : ''}"><span>${won ? '🏆 ' : ''}${J.escapeHtml(nameOf(id))}</span><b>${fmtNum(g[id])}</b><small>${diff === 0 ? 'exakt!' : 'daneben: ' + fmtNum(diff)}</small></li>`;
+      }).join('')}</ol>`
+      : '<div class="est-none">Niemand hat getippt</div>');
+    return wrap;
+  }
+
+  function orderList(items) {
+    const ol = document.createElement('ol');
+    ol.className = 'order-list';
+    ol.innerHTML = items.map((t) => `<li><span>${J.escapeHtml(t)}</span></li>`).join('');
+    return ol;
+  }
+
+  function orderInput(items) {
+    const wrap = document.createElement('div');
+    wrap.className = 'order-input';
+    if (!myOrder) myOrder = items.map((_, i) => i);
+    const draw = () => {
+      wrap.innerHTML = '';
+      const ol = document.createElement('ol');
+      ol.className = 'order-list editable';
+      myOrder.forEach((idx, pos) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${J.escapeHtml(items[idx])}</span>`;
+        [['▲', -1], ['▼', 1]].forEach(([label, d]) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'small';
+          b.textContent = label;
+          b.disabled = pos + d < 0 || pos + d >= myOrder.length;
+          b.addEventListener('click', () => {
+            [myOrder[pos], myOrder[pos + d]] = [myOrder[pos + d], myOrder[pos]];
+            orderSent = false;
+            draw();
+          });
+          li.appendChild(b);
+        });
+        ol.appendChild(li);
+      });
+      const send = document.createElement('button');
+      send.className = 'primary';
+      send.id = 'orderSend';
+      send.textContent = orderSent ? 'Abgegeben ✓ (ändern möglich)' : 'Reihenfolge abgeben';
+      send.addEventListener('click', () => {
+        if (!conn || !conn.open) return;
+        conn.send({ type: 'order', order: [...myOrder] });
+        orderSent = true;
+        draw();
+      });
+      wrap.append(ol, send);
+    };
+    draw();
+    return wrap;
+  }
+
+  function orderResult(ord, nameOf) {
+    const wrap = document.createElement('div');
+    wrap.className = 'order-result';
+    const res = ord.results || {};
+    const right = Object.keys(res).filter((id) => res[id]);
+    wrap.innerHTML = `<div class="est-answer">Richtige Reihenfolge</div><ol class="order-list solved">${(ord.correct || []).map((t) => `<li><span>${J.escapeHtml(t)}</span></li>`).join('')}</ol>` +
+      `<div class="order-winners">${right.length ? '🏆 ' + right.map((id) => J.escapeHtml(nameOf(id))).join(', ') : 'Niemand hatte alles richtig'}</div>`;
+    return wrap;
+  }
+
   // ---------- Joker ----------
   const hints = {};      // Tipp-Muster je Frage (kommt nur an dieses Gerät)
   let jokerArmed = null; // erster Tipp auf einen Joker: „nochmal tippen zum Einsetzen“
@@ -169,7 +302,7 @@
     const myHint = cur && mePlayer && (cur.jokers.hint || []).includes(me) && hints[clueKey];
     hintBox.hidden = !myHint;
     if (myHint) hintBox.innerHTML = `<span class="hint-label">💡 Tipp</span><span class="hint-text">${J.escapeHtml(myHint)}</span>`;
-    if (!cur || !mePlayer || cur.revealed) { bar.hidden = true; return; }
+    if (!cur || !mePlayer || cur.revealed || (cur.kind && cur.kind !== 'normal')) { bar.hidden = true; return; }
     const ctx = { cur, players: last.players, turn: last.turn, pid: me };
     const double = (cur.jokers.double || []).includes(me);
     bar.hidden = false;
@@ -398,7 +531,8 @@
     const solved = Object.values(judged).includes('right');
     // Wer bei dieser Frage noch antworten darf, sieht den Buzzer die ganze Zeit –
     // grau, solange er zu ist. Drücken auf den grauen Knopf sperrt kurz (gegen Dauer-Hämmern).
-    const eligible = isPlayer && !judged[me] && !solved;
+    const special = cur.kind === 'estimate' || cur.kind === 'order';
+    const eligible = isPlayer && !judged[me] && !solved && !special;
     const canBuzz = eligible && buzz.open;
     // Reaktionszeit startet, sobald der Knopf hier scharf wird (Netzlaufzeit zählt nicht)
     if (canBuzz && shownId !== buzz.id) {

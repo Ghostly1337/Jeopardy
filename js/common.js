@@ -61,6 +61,14 @@
           if (img) cat.clues[row].img = img;
           if (typeof cl.note === 'string') cat.clues[row].note = cl.note;
           if (cl.pixel === true && img) cat.clues[row].pixel = true;
+          else if (cl.zoom === true && img) {
+            cat.clues[row].zoom = true;
+            const at = cl.zoomAt;
+            if (at && Number.isFinite(at.x) && Number.isFinite(at.y)) {
+              cat.clues[row].zoomAt = { x: Math.min(1, Math.max(0, at.x)), y: Math.min(1, Math.max(0, at.y)) };
+            }
+          }
+          if (CLUE_KINDS.includes(cl.kind)) cat.clues[row].kind = cl.kind;
         }
       }
     }
@@ -115,6 +123,7 @@
     if (!p) return 'Nur für Spieler';
     if ((p.usedJokers || []).includes(kind)) return 'Schon benutzt';
     if (!cur) return 'Erst wenn eine Frage offen ist';
+    if (cur.kind && cur.kind !== 'normal') return 'Nicht bei dieser Frageart';
     const judged = cur.judged || {};
     const buzz = cur.buzz || {};
     const jk = cur.jokers || {};
@@ -156,11 +165,93 @@
   const PIXEL_STEPS = [6, 10, 16, 28];
 
   // Aktuelle Pixelstufe oder null, wenn das echte Bild gezeigt werden darf
+  // Zoom-Bild: Vergrößerungsfaktor je Stufe (8 = nur ein Achtel der Breite sichtbar)
+  const ZOOM_STEPS = [8, 4, 2.5, 1.6];
+  const imgSteps = (clue) => (clue && clue.pixel ? PIXEL_STEPS : clue && clue.zoom ? ZOOM_STEPS : null);
+  const imgMode = (clue) => (clue && clue.pixel ? 'pixel' : clue && clue.zoom ? 'zoom' : null);
+
+  // Aktuelle Stufe (verpixelt oder gezoomt) oder null, wenn das echte Bild gezeigt werden darf
   function pixelLevel(clue, cur) {
-    if (!clue || !clue.pixel || !safeImg(clue.img) || !cur || cur.revealed) return null;
+    const steps = imgSteps(clue);
+    if (!steps || !safeImg(clue.img) || !cur || cur.revealed) return null;
     const lvl = Math.max(0, Math.floor(cur.pixel || 0));
-    return lvl < PIXEL_STEPS.length ? lvl : null;
+    return lvl < steps.length ? lvl : null;
   }
+
+  // Zoom: Ausschnitt um den Fokuspunkt (0–1, Standard Bildmitte), auf 480 px Breite gebracht.
+  // Wie beim Verpixeln bekommen die Spieler nur diesen Ausschnitt, nie das ganze Bild.
+  function zoomCrop(src, factor, at) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const W = img.naturalWidth, H = img.naturalHeight;
+        const w = W / factor, h = H / factor;
+        const cx = (at && at.x != null ? at.x : 0.5) * W, cy = (at && at.y != null ? at.y : 0.5) * H;
+        const x = Math.min(W - w, Math.max(0, cx - w / 2)), y = Math.min(H - h, Math.max(0, cy - h / 2));
+        const canvas = document.createElement('canvas');
+        canvas.width = 480;
+        canvas.height = Math.max(1, Math.round(480 * h / w));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        } catch (e) {
+          reject(new Error('Bild lässt sich nicht zoomen – bitte hochladen statt verlinken'));
+        }
+      };
+      img.onerror = () => reject(new Error('Bild lässt sich nicht zoomen – bitte hochladen statt verlinken'));
+      img.src = src;
+    });
+  }
+
+  // ---------- Schätzfrage und Reihenfolge ----------
+  const CLUE_KINDS = ['estimate', 'order'];
+
+  // „330 m“, „1.234,5“, „384 400 km“, „-12“ → Zahl (deutsches und englisches Format)
+  function parseNumber(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    let s = String(v || '').replace(/[\s\u00a0']/g, '');
+    const m = s.match(/-?[\d.,]+/);
+    if (!m) return null;
+    s = m[0];
+    if (s.includes(',') && s.includes('.')) {
+      s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    } else if (s.includes(',')) {
+      s = s.replace(',', '.'); // nur Komma: Dezimalkomma (deutsch)
+    } else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(s)) { // 1.234 / 384.400: Tausenderpunkte
+      s = s.replace(/\./g, '');
+    }
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Wer liegt am nächsten? (Gleichstand: alle) → ids
+  function estimateWinners(guesses, answer) {
+    const ids = Object.keys(guesses).filter((id) => Number.isFinite(guesses[id]));
+    if (!ids.length || !Number.isFinite(answer)) return [];
+    const best = Math.min(...ids.map((id) => Math.abs(guesses[id] - answer)));
+    return ids.filter((id) => Math.abs(guesses[id] - answer) === best);
+  }
+
+  // Reihenfolge: Antwort „A | B | C | D“ in richtiger Reihenfolge
+  const orderItems = (answer) => String(answer || '').split('|').map((x) => x.trim()).filter(Boolean);
+  // Gemischte Reihenfolge, die nie zufällig schon stimmt
+  function shufflePerm(n, rnd = Math.random) {
+    const p = [...Array(n).keys()];
+    if (n < 2) return p;
+    do {
+      for (let i = n - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [p[i], p[j]] = [p[j], p[i]];
+      }
+    } while (p.every((v, i) => v === i));
+    return p;
+  }
+  // Gültige Abgabe: eine Permutation von 0..n-1 (Indizes der Original-Reihenfolge)
+  const isPerm = (a, n) => Array.isArray(a) && a.length === n && [...a].sort((x, y) => x - y).every((v, i) => v === i);
+  const orderCorrect = (a) => Array.isArray(a) && a.every((v, i) => v === i);
 
   // Bild auf wenige Pixel verkleinern (nur im Browser des Hosts). Die Spieler bekommen nur
   // dieses Mini-Bild und vergrößern es per CSS – das echte Bild erreicht sie erst beim Aufdecken.
@@ -354,6 +445,33 @@
   }
   const peerId = (code) => PEER_PREFIX + code.toUpperCase();
 
+  // Schätzfrage: vor dem Auflösen nur, WER getippt hat – nicht was
+  function publicEstimate(cur) {
+    const e = cur.est || {};
+    const guesses = e.guesses || {};
+    return {
+      submitted: Object.keys(guesses),
+      revealed: !!cur.revealed,
+      guesses: cur.revealed ? guesses : null,
+      answer: cur.revealed ? (e.answer != null ? e.answer : null) : null,
+      winners: cur.revealed ? e.winners || [] : [],
+    };
+  }
+  // Reihenfolge: gemischte Begriffe; Lösung und Abgaben erst nach dem Auflösen
+  function publicOrder(clue, cur) {
+    const o = cur.ord || {};
+    const items = orderItems(clue.a);
+    const perm = isPerm(o.perm, items.length) ? o.perm : items.map((_, i) => i);
+    return {
+      items: perm.map((i) => items[i]),
+      perm: null, // bleibt geheim, sonst wäre die Lösung ablesbar
+      submitted: Object.keys(o.answers || {}),
+      revealed: !!cur.revealed,
+      correct: cur.revealed ? items : null,
+      results: cur.revealed ? Object.fromEntries(Object.entries(o.answers || {}).map(([id, a]) => [id, orderCorrect(a)])) : null,
+    };
+  }
+
   // Was die Spieler sehen dürfen: keine Antworten, außer der aktuellen nach dem Aufdecken.
   function publicState(set, state) {
     const r = state.round;
@@ -369,7 +487,10 @@
         q: clue.q,
         // Verpixelte Bilder: echtes Bild erst nach der letzten Stufe; das Mini-Bild setzt der Host ein
         img: pixelLevel(clue, cur) == null ? safeImg(clue.img) || null : null,
-        pixel: pixelLevel(clue, cur) == null ? null : { step: pixelLevel(clue, cur), steps: PIXEL_STEPS.length },
+        pixel: pixelLevel(clue, cur) == null ? null : { step: pixelLevel(clue, cur), steps: imgSteps(clue).length, mode: imgMode(clue) },
+        kind: CLUE_KINDS.includes(clue.kind) ? clue.kind : 'normal',
+        est: clue.kind === 'estimate' ? publicEstimate(cur) : null,
+        ord: clue.kind === 'order' ? publicOrder(clue, cur) : null,
         a: cur.revealed ? clue.a : null,
         revealed: !!cur.revealed,
         // Joker: wer was gesetzt hat (der Tipp-Inhalt geht nur privat an den Spieler)
@@ -821,7 +942,8 @@
   }
 
   window.J = {
-    PIXEL_STEPS, pixelLevel, pixelate, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
+    PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
+    CLUE_KINDS, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
     CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

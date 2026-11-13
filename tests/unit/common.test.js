@@ -73,7 +73,7 @@ test('Verpixelte Bilder: echtes Bild erst nach der letzten Stufe oder beim Aufde
   const st = gameState({ current: { round: 0, cat: 0, row: 0, revealed: false, judged: {} } });
   let pub = J.publicState(set, st);
   assert.equal(pub.current.img, null);
-  assert.deepEqual(plain(pub.current.pixel), { step: 0, steps: J.PIXEL_STEPS.length });
+  assert.deepEqual(plain(pub.current.pixel), { step: 0, steps: J.PIXEL_STEPS.length, mode: 'pixel' });
   assert.ok(!JSON.stringify(pub).includes('ECHT'), 'echtes Bild darf nicht mitgeschickt werden');
   st.current.pixel = J.PIXEL_STEPS.length - 1;
   assert.equal(J.publicState(set, st).current.img, null);

@@ -165,8 +165,8 @@
   const PIXEL_STEPS = [6, 10, 16, 28];
 
   // Aktuelle Pixelstufe oder null, wenn das echte Bild gezeigt werden darf
-  // Zoom-Bild: Vergrößerungsfaktor je Stufe (8 = nur ein Achtel der Breite sichtbar)
-  const ZOOM_STEPS = [8, 4, 2.5, 1.6];
+  // Zoom-Bild: Vergrößerungsfaktor je Stufe (12 = nur ein Zwölftel der Breite sichtbar)
+  const ZOOM_STEPS = [12, 6, 3, 1.6];
   const imgSteps = (clue) => (clue && clue.pixel ? PIXEL_STEPS : clue && clue.zoom ? ZOOM_STEPS : null);
   const imgMode = (clue) => (clue && clue.pixel ? 'pixel' : clue && clue.zoom ? 'zoom' : null);
 
@@ -207,7 +207,8 @@
   }
 
   // ---------- Schätzfrage und Reihenfolge ----------
-  const CLUE_KINDS = ['estimate', 'order'];
+  const CLUE_KINDS = ['estimate', 'order', 'choice'];
+  const isSpecialKind = (k) => CLUE_KINDS.includes(k);
 
   // „330 m“, „1.234,5“, „384 400 km“, „-12“ → Zahl (deutsches und englisches Format)
   function parseNumber(v) {
@@ -472,6 +473,22 @@
     };
   }
 
+  // Multiple Choice: Antwort „Richtig | Falsch | Falsch | Falsch“ (richtige zuerst), gemischt angezeigt
+  function publicChoice(clue, cur) {
+    const m = cur.mc || {};
+    const items = orderItems(clue.a);
+    const perm = isPerm(m.perm, items.length) ? m.perm : items.map((_, i) => i);
+    const answers = m.answers || {};
+    return {
+      options: perm.map((i) => items[i]),
+      submitted: Object.keys(answers),
+      revealed: !!cur.revealed,
+      // erst nach dem Auflösen: welche angezeigte Option richtig war, wer was gewählt hat
+      correct: cur.revealed ? perm.indexOf(0) : null,
+      picks: cur.revealed ? Object.fromEntries(Object.entries(answers).map(([id, orig]) => [id, perm.indexOf(orig)])) : null,
+    };
+  }
+
   // Was die Spieler sehen dürfen: keine Antworten, außer der aktuellen nach dem Aufdecken.
   function publicState(set, state) {
     const r = state.round;
@@ -491,6 +508,7 @@
         kind: CLUE_KINDS.includes(clue.kind) ? clue.kind : 'normal',
         est: clue.kind === 'estimate' ? publicEstimate(cur) : null,
         ord: clue.kind === 'order' ? publicOrder(clue, cur) : null,
+        mc: clue.kind === 'choice' ? publicChoice(clue, cur) : null,
         a: cur.revealed ? clue.a : null,
         revealed: !!cur.revealed,
         // Joker: wer was gesetzt hat (der Tipp-Inhalt geht nur privat an den Spieler)
@@ -943,7 +961,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
     CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

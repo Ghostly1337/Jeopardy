@@ -100,3 +100,17 @@ test('Joker sind bei Schätzfrage und Reihenfolge gesperrt', () => {
   const r = J.jokerBlock('double', { cur: { kind: 'estimate', judged: {}, buzz: {} }, players: [{ id: 'a', usedJokers: [] }], turn: 'a', pid: 'a' });
   assert.equal(r, 'Nicht bei dieser Frageart');
 });
+
+test('Multiple Choice: gemischt, Lösung und Wahl erst nach dem Auflösen', () => {
+  const { set, st } = stateWith({ kind: 'choice', a: 'Richtig | Falsch1 | Falsch2 | Falsch3' },
+    { kind: 'choice', mc: { perm: [2, 0, 3, 1], answers: { a: 0, b: 3 } } });
+  let pub = J.publicState(set, st);
+  assert.deepEqual(plain(pub.current.mc.options), ['Falsch2', 'Richtig', 'Falsch3', 'Falsch1']);
+  assert.equal(pub.current.mc.correct, null);
+  assert.equal(pub.current.mc.picks, null);
+  assert.deepEqual(plain(pub.current.mc.submitted).sort(), ['a', 'b']);
+  st.current.revealed = true;
+  pub = J.publicState(set, st);
+  assert.equal(pub.current.mc.correct, 1, 'angezeigte Position der richtigen Antwort');
+  assert.deepEqual(plain(pub.current.mc.picks), { a: 1, b: 2 });
+});

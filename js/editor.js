@@ -297,11 +297,12 @@
         // Fragenart: normal, Schätzfrage (alle tippen eine Zahl) oder Reihenfolge (alle sortieren)
         const kind = document.createElement('select');
         kind.className = 'ed-kind';
-        kind.innerHTML = '<option value="">Normale Frage</option><option value="estimate">🔢 Schätzfrage</option><option value="order">↕️ Reihenfolge</option>';
+        kind.innerHTML = '<option value="">Normale Frage</option><option value="estimate">🔢 Schätzfrage</option><option value="order">↕️ Reihenfolge</option><option value="choice">🅰️ Multiple Choice</option>';
         kind.value = clue.kind || '';
         const hintFor = () => {
           a.placeholder = clue.kind === 'estimate' ? 'Richtige Zahl, z. B. 330'
-            : clue.kind === 'order' ? 'Richtige Reihenfolge: A | B | C | D' : 'Antwort (nur Host)';
+            : clue.kind === 'order' ? 'Richtige Reihenfolge: A | B | C | D'
+              : clue.kind === 'choice' ? 'Richtige zuerst: Richtig | Falsch | Falsch | Falsch' : 'Antwort (nur Host)';
         };
         kind.addEventListener('change', () => {
           if (kind.value) clue.kind = kind.value; else delete clue.kind;

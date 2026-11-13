@@ -52,6 +52,7 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     Object.assign(s.rounds[0].categories[0].clues[0], { kind: 'estimate', q: 'Wie hoch ist der Eiffelturm (m)?', a: '330' });
     Object.assign(s.rounds[0].categories[1].clues[0], { kind: 'order', q: 'Nach Erscheinungsjahr', a: correct.join(' | ') });
     Object.assign(s.rounds[0].categories[2].clues[0], { img: c.toDataURL('image/png'), zoom: true, zoomAt: { x: 0.25, y: 0.5 }, a: 'Flagge' });
+    Object.assign(s.rounds[0].categories[3].clues[0], { kind: 'choice', q: 'Welche ist richtig?', a: 'Richtig | Falsch eins | Falsch zwei | Falsch drei' });
     localStorage.setItem('jeopardy.set', JSON.stringify(s));
   }, CORRECT);
 
@@ -118,6 +119,24 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '0,100');
     await anna.waitForSelector('.order-list.editable');
     await host.click('#cancel');
+  });
+
+  await t.test('Multiple Choice: alle wählen, Richtige bekommen Punkte', async () => {
+    await host.locator('.cell.val').nth(3).click();
+    await anna.waitForSelector('.mc-opt');
+    assert.ok(await anna.isHidden('#buzzer'));
+    assert.equal(await tv.locator('.mc-opt.right').count(), 0, 'Lösung vorher nicht markiert');
+    await anna.click('.mc-opt:has-text("Falsch eins")');
+    await anna.click('.mc-opt:has-text("Richtig")'); // umentscheiden geht
+    await ben.click('.mc-opt:has-text("Falsch zwei")');
+    await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '🅰️ 2/2 haben gewählt');
+    assert.ok(await tv.locator('.mc-opt').first().isDisabled(), 'TV kann nicht wählen');
+    await host.click('#resolveBtn');
+    await tv.waitForSelector('.mc.revealed');
+    assert.match(await tv.textContent('.mc-opt.right'), /Richtig.*Anna/);
+    await ben.waitForSelector('.mc-opt.wrong:has-text("Falsch zwei")');
+    await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,100');
+    await host.click('#close');
   });
 
   await t.test('Zoom-Bild: nur Ausschnitt, zoomt raus, Buzzer-Rennen', async () => {

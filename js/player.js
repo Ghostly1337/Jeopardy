@@ -73,7 +73,7 @@
       img.classList.toggle('pixel', !!cur.pixel && cur.pixel.mode !== 'zoom');
       img.classList.toggle('zoomed', !!cur.pixel && cur.pixel.mode === 'zoom');
       // Bei Schätzfrage und Reihenfolge zeigt die Ergebnisliste die Lösung
-      $('a').textContent = cur.kind === 'estimate' || cur.kind === 'order' ? '' : cur.a || '';
+      $('a').textContent = J.isSpecialKind(cur.kind) ? '' : cur.a || '';
       J.renderScores($('overlayScores'), s.players, s.turn);
       judgeEffects(ov, opened ? {} : prevJudged, cur.judged || {});
       buzzShow(cur, clueKey, s);
@@ -159,18 +159,19 @@
     const box = $('specialBox');
     const cur = last && last.current;
     const kind = cur && cur.kind;
-    if (!cur || (kind !== 'estimate' && kind !== 'order')) { box.hidden = true; specialKey = null; return; }
+    if (!cur || !J.isSpecialKind(kind)) { box.hidden = true; specialKey = null; return; }
     box.hidden = false;
     const isPlayer = !!myPlayer();
-    const data = kind === 'estimate' ? cur.est : cur.ord;
+    const data = kind === 'estimate' ? cur.est : kind === 'choice' ? cur.mc : cur.ord;
     const total = last.players.length;
     const nameOf = (id) => (last.players.find((p) => p.id === id) || {}).name || '?';
     const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
     if (key !== specialKey) {
-      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; }
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; }
       specialKey = key;
       box.innerHTML = '';
-      if (data.revealed) box.appendChild(kind === 'estimate' ? estimateResult(cur.est, nameOf) : orderResult(cur.ord, nameOf));
+      if (kind === 'choice') box.appendChild(choiceView(cur.mc, isPlayer, nameOf));
+      else if (data.revealed) box.appendChild(kind === 'estimate' ? estimateResult(cur.est, nameOf) : orderResult(cur.ord, nameOf));
       else if (isPlayer) box.appendChild(kind === 'estimate' ? estimateInput() : orderInput(cur.ord.items));
       else if (kind === 'order') box.appendChild(orderList(cur.ord.items));
       const st = document.createElement('div');
@@ -182,8 +183,35 @@
     st.hidden = false;
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
-    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : `↕️ ${n}/${total} haben abgegeben`) +
-      (mine ? (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : ' · Deine Reihenfolge ist abgegeben ✓') : '');
+    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt` : `↕️ ${n}/${total} haben abgegeben`) +
+      (mine ? (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓') : '');
+  }
+
+  // Multiple Choice: vier Antwortknöpfe A–D; nach dem Auflösen richtig/falsch und wer was gewählt hat
+  let myPick = null;
+  function choiceView(mc, isPlayer, nameOf) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mc' + (mc.revealed ? ' revealed' : '');
+    const letters = 'ABCDEFGH';
+    const pickers = (i) => Object.keys(mc.picks || {}).filter((id) => mc.picks[id] === i).map(nameOf);
+    mc.options.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mc-opt' + (myPick === i ? ' picked' : '') + (mc.revealed && i === mc.correct ? ' right' : '') + (mc.revealed && myPick === i && i !== mc.correct ? ' wrong' : '');
+      b.dataset.i = i;
+      b.disabled = !isPlayer || mc.revealed;
+      const who = mc.revealed ? pickers(i) : [];
+      b.innerHTML = `<span class="mc-letter">${letters[i]}</span><span class="mc-text">${J.escapeHtml(opt)}</span>` +
+        (who.length ? `<span class="mc-who">${who.map(J.escapeHtml).join(', ')}</span>` : '');
+      b.addEventListener('click', () => {
+        if (!conn || !conn.open) return;
+        myPick = i;
+        conn.send({ type: 'choice', pick: i });
+        wrap.querySelectorAll('.mc-opt').forEach((x) => x.classList.toggle('picked', Number(x.dataset.i) === i));
+      });
+      wrap.appendChild(b);
+    });
+    return wrap;
   }
 
   function estimateInput() {
@@ -531,7 +559,7 @@
     const solved = Object.values(judged).includes('right');
     // Wer bei dieser Frage noch antworten darf, sieht den Buzzer die ganze Zeit –
     // grau, solange er zu ist. Drücken auf den grauen Knopf sperrt kurz (gegen Dauer-Hämmern).
-    const special = cur.kind === 'estimate' || cur.kind === 'order';
+    const special = J.isSpecialKind(cur.kind);
     const eligible = isPlayer && !judged[me] && !solved && !special;
     const canBuzz = eligible && buzz.open;
     // Reaktionszeit startet, sobald der Knopf hier scharf wird (Netzlaufzeit zählt nicht)

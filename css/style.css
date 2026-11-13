@@ -1445,3 +1445,21 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .special .srow .name { font-weight: 700; }
 .special { margin-top: 12px; }
 .ed-kind { font-size: 12px; padding: 6px 8px; margin-top: 6px; width: 100%; background: var(--field); }
+
+/* ---------- Multiple Choice ---------- */
+.mc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mc-opt {
+  display: flex; align-items: center; gap: 10px; text-align: left; padding: 12px 14px; border-radius: 14px;
+  background: var(--stage-chip); border: 2px solid var(--stage-line); color: var(--stage-text); font-weight: 700;
+  font-size: clamp(15px, 2vw, 22px); position: relative; flex-wrap: wrap;
+}
+.mc-opt:disabled { opacity: 1; }
+.mc-letter { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--stage-line); font-family: var(--display); flex: none; }
+.mc-text { flex: 1; }
+.mc-opt.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
+.mc-opt.picked .mc-letter { background: var(--accent); color: var(--on-accent); }
+.mc.revealed .mc-opt { opacity: .55; }
+.mc.revealed .mc-opt.right { opacity: 1; border-color: var(--green); background: color-mix(in srgb, var(--green) 18%, transparent); }
+.mc.revealed .mc-opt.wrong { opacity: 1; border-color: var(--red); }
+.mc-who { width: 100%; font-size: 12px; font-weight: 600; opacity: .8; padding-left: 40px; }
+@media (max-width: 600px) { .mc { grid-template-columns: 1fr; } .mc-opt { padding: 10px 12px; } }

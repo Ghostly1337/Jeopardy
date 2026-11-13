@@ -124,6 +124,7 @@
       // Schätzfrage / Reihenfolge: alle geben am Handy ab, du löst auf
       if (kind === 'estimate') state.current.est = { guesses: {} };
       if (kind === 'order') state.current.ord = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
+      if (kind === 'choice') state.current.mc = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
     });
     sound('open');
     if (race) armBuzz();
@@ -189,6 +190,10 @@
       const n = J.orderItems(clue.a).length;
       if (!J.isPerm(msg.order, n)) return;
       cur.ord.answers[pid] = msg.order.map((i) => cur.ord.perm[i]); // angezeigte Position → Original
+    } else if (msg.type === 'choice' && cur.kind === 'choice') {
+      const n = J.orderItems(clue.a).length;
+      if (!Number.isInteger(msg.pick) || msg.pick < 0 || msg.pick >= n) return;
+      cur.mc.answers[pid] = cur.mc.perm[msg.pick]; // 0 = richtige Antwort
     } else return;
     commit();
   }
@@ -203,6 +208,8 @@
       const answer = J.parseNumber(clue.a);
       winners = J.estimateWinners(cur.est.guesses, answer);
       cur.est.answer = answer;
+    } else if (cur.kind === 'choice') {
+      winners = Object.keys(cur.mc.answers).filter((id) => cur.mc.answers[id] === 0);
     } else {
       winners = Object.keys(cur.ord.answers).filter((id) => J.orderCorrect(cur.ord.answers[id]));
     }
@@ -225,7 +232,7 @@
   // Abgaben-Übersicht im Host-Pult
   function renderSpecial(cur, clue) {
     const box = $('special');
-    const special = cur.kind === 'estimate' || cur.kind === 'order';
+    const special = J.isSpecialKind(cur.kind);
     box.hidden = !special;
     $('judge').hidden = special;
     $('buzzBtn').hidden = special;
@@ -233,20 +240,25 @@
     $('resolveBtn').hidden = !special || cur.revealed;
     if (!special) return;
     const value = J.pointsFor(cur.round, cur.row);
-    const answers = cur.kind === 'estimate' ? cur.est.guesses : cur.ord.answers;
-    const items = cur.kind === 'order' ? J.orderItems(clue.a) : null;
+    const answers = cur.kind === 'estimate' ? cur.est.guesses : cur.kind === 'choice' ? cur.mc.answers : cur.ord.answers;
+    const items = cur.kind !== 'estimate' ? J.orderItems(clue.a) : null;
     const n = Object.keys(answers).length;
     const rows = state.players.map((p) => {
       const has = p.id in answers;
       let detail = has ? '✓ abgegeben' : '… wartet';
       if (has && cur.kind === 'estimate') detail = String(answers[p.id]).replace('.', ',');
+      if (has && cur.kind === 'choice') detail = (answers[p.id] === 0 ? '✓ ' : '✗ ') + items[answers[p.id]];
       if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
       const won = cur.judged[p.id] === 'right';
       return `<div class="srow${won ? ' won' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}</span></div>`;
     }).join('');
-    const head = cur.kind === 'estimate' ? `🔢 Schätzfrage – ${n}/${state.players.length} getippt` : `↕️ Reihenfolge – ${n}/${state.players.length} abgegeben`;
+    const total = state.players.length;
+    const head = cur.kind === 'estimate' ? `🔢 Schätzfrage – ${n}/${total} getippt`
+      : cur.kind === 'choice' ? `🅰️ Multiple Choice – ${n}/${total} gewählt` : `↕️ Reihenfolge – ${n}/${total} abgegeben`;
+    const rule = cur.kind === 'estimate' ? 'Wer am nächsten dran ist, bekommt'
+      : cur.kind === 'choice' ? 'Alle mit der richtigen Antwort bekommen' : 'Alle mit komplett richtiger Reihenfolge bekommen';
     box.innerHTML = `<div class="special-head">${head}</div>${rows}` +
-      (cur.revealed ? '' : `<div class="hint">${cur.kind === 'estimate' ? 'Wer am nächsten dran ist, bekommt' : 'Alle mit komplett richtiger Reihenfolge bekommen'} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
+      (cur.revealed ? '' : `<div class="hint">${rule} +${value}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
   }
 
   // ---------- Joker ----------
@@ -910,7 +922,7 @@
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {
       handleJoker(conn, msg);
-    } else if (msg.type === 'estimate' || msg.type === 'order') {
+    } else if (msg.type === 'estimate' || msg.type === 'order' || msg.type === 'choice') {
       handleSubmission(conn, msg);
     } else if (msg.type === 'react') {
       handleReaction(conn, msg);

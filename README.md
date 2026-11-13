@@ -26,9 +26,9 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
   - Manuell öffnen/schließen geht auch.
 - **Besondere Fragearten** (im Editor pro Feld einstellbar):
   - 🔍 **Zoom-Bild** (Häkchen „Zoom“ beim Bild): startet als kleiner Ausschnitt (ein Zwölftel der Bildbreite) und zoomt mit 🔍 in vier Stufen heraus; Buzzer-Rennen wie bei verpixelten Bildern. Spieler bekommen nur den Ausschnitt. Der Startpunkt ist die Bildmitte (in der JSON per `"zoomAt": {"x": 0.3, "y": 0.6}` änderbar).
-  - 🔢 **Schätzfrage** (Antwort = Zahl): Alle tippen gleichzeitig am Handy eine Zahl, die Tipps bleiben bis zum Auflösen geheim. Wer am nächsten dran ist (bei Gleichstand alle), bekommt die Punkte. Ergebnisliste auf allen Bildschirmen.
-  - ↕️ **Reihenfolge** (Antwort = `A | B | C | D` in richtiger Reihenfolge): Alle sehen die Begriffe gemischt und sortieren sie am Handy mit ▲▼. Wer komplett richtig liegt, bekommt die Punkte.
-  - 🅰️ **Multiple Choice** (Antwort = `Richtig | Falsch | Falsch | Falsch`, die richtige zuerst): Alle wählen am Handy, die Optionen erscheinen gemischt. Nach dem Auflösen sieht man, wer was gewählt hat; alle Richtigen bekommen die Punkte.
+  - 🔢 **Schätzfrage** (Antwort = Zahl): Alle tippen gleichzeitig am Handy eine Zahl, die Tipps bleiben bis zum Auflösen geheim. Wer am nächsten dran ist (bei Gleichstand alle), bekommt die Punkte – kein Abzug für die anderen. Ergebnisliste auf allen Bildschirmen.
+  - ↕️ **Reihenfolge** (Antwort = `A | B | C | D` in richtiger Reihenfolge): Alle sehen die Begriffe gemischt und sortieren sie am Handy mit ▲▼. Wer komplett richtig liegt, bekommt die Punkte; wer falsch abgibt, verliert den halben Wert (keine Abgabe: 0).
+  - 🅰️ **Multiple Choice** (Antwort = `Richtig | Falsch | Falsch | Falsch`, die richtige zuerst): Alle wählen am Handy, die Optionen erscheinen gemischt. Nach dem Auflösen sieht man, wer was gewählt hat; alle Richtigen bekommen die Punkte, falsche Abgaben kosten den halben Wert (keine Abgabe: 0).
   Bei Schätzfrage, Reihenfolge und Multiple Choice gibt es keinen Buzzer und keine Joker; du drückst „Auflösen & Punkte vergeben“ (Rückgängig möglich).
 - **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel – über beide Runden; eingesetzt am Handy per Doppeltipp):
   - Einsetzen darf nur, **wer gerade dran ist**: wer am Zug ist (vor der ersten Antwort), wer gebuzzert hat oder wem die Frage weitergegeben wurde. Pro Frage höchstens **ein Joker pro Person/Team**.

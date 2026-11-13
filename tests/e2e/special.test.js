@@ -104,12 +104,13 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     assert.deepEqual(await anna.$$eval('.order-list.editable li span', (els) => els.map((e) => e.textContent)), CORRECT);
     await anna.click('#orderSend');
     await ben.click('#orderSend'); // Ben gibt die gemischte Liste ab
-    await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '↕️ 2/2 haben abgegeben');
+    await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '↕️ 2/2 haben abgegeben · Falsch kostet −50');
     await host.click('#resolveBtn');
     await tv.waitForSelector('.order-result');
     assert.deepEqual(await tv.$$eval('.order-list.solved li span', (els) => els.map((e) => e.textContent)), CORRECT);
     assert.match(await tv.textContent('.order-winners'), /Anna/);
-    await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,100');
+    // Anna richtig +100, Ben falsch −50
+    await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,50');
     await host.click('#close');
   });
 
@@ -129,13 +130,14 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     await anna.click('.mc-opt:has-text("Falsch eins")');
     await anna.click('.mc-opt:has-text("Richtig")'); // umentscheiden geht
     await ben.click('.mc-opt:has-text("Falsch zwei")');
-    await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '🅰️ 2/2 haben gewählt');
+    await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '🅰️ 2/2 haben gewählt · Falsch kostet −50');
     assert.ok(await tv.locator('.mc-opt').first().isDisabled(), 'TV kann nicht wählen');
     await host.click('#resolveBtn');
     await tv.waitForSelector('.mc.revealed');
     assert.match(await tv.textContent('.mc-opt.right'), /Richtig.*Anna/);
     await ben.waitForSelector('.mc-opt.wrong:has-text("Falsch zwei")');
-    await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,100');
+    // Anna richtig +100, Ben falsch −50 (vorher 0 und 100)
+    await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,50');
     await host.click('#close');
   });
 

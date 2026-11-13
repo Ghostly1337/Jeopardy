@@ -169,6 +169,37 @@
     if (!prev || reaction < prev.ms) pendingBuzz.entries.set(pid, { ms: reaction, name: conn.memberName || null });
   }
 
+  // ---------- Joker ----------
+  function handleJoker(conn, msg) {
+    const pid = conn.playerId;
+    const kind = msg.kind;
+    const target = kind === 'pass' ? msg.target : undefined;
+    if (kind === 'pass' && typeof target !== 'string') return;
+    const cur = state.current;
+    if (J.jokerBlock(kind, { cur, players: state.players, turn: state.turn, pid, target })) return;
+    const p = state.players.find((x) => x.id === pid);
+    const info = J.jokerInfo(kind);
+    const who = isTeam() && conn.memberName ? `${conn.memberName} (${p.name})` : p.name;
+    const label = kind === 'pass' ? `👉 ${who} gibt weiter an ${nameOf(target)}` : `${info.icon} ${who}: ${info.name}`;
+    mutate(label, () => {
+      p.usedJokers = [...(p.usedJokers || []), kind];
+      const jk = cur.jokers || (cur.jokers = {});
+      if (kind === 'pass') jk.pass = { from: pid, to: target, by: who };
+      else jk[kind] = [...(jk[kind] || []), pid];
+    });
+    sound('joker');
+    if (kind === 'hint') sendHint(pid);
+  }
+
+  // Tipp nur an die Geräte dieses Spielers/Teams schicken – nie an alle
+  function sendHint(pid) {
+    const cur = state.current;
+    if (!cur || !((cur.jokers && cur.jokers.hint) || []).includes(pid)) return;
+    const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
+    const msg = { type: 'hint', key: `${cur.round}:${cur.cat}:${cur.row}`, text: J.hintPattern(clue.a) };
+    conns.forEach((c) => { if (c.open && c.playerId === pid) c.send(msg); });
+  }
+
   function decideBuzz() {
     const pb = pendingBuzz;
     pendingBuzz = null;
@@ -287,6 +318,8 @@
 
     // Buzzer- und Timer-Steuerung
     const buzz = cur.buzz || (cur.buzz = { open: false, winner: null });
+    const jk = cur.jokers || {};
+    const pass = jk.pass && !Object.keys(judged).length ? jk.pass : null;
     const status = $('buzzStatus');
     if (solved) {
       status.textContent = '';
@@ -306,7 +339,13 @@
     } else {
       status.textContent = '';
     }
+    if (pass && !buzz.winner && !solved) status.textContent = `👉 ${pass.by || nameOf(pass.from)} gibt weiter: ${nameOf(pass.to)} muss antworten`;
     status.hidden = !status.textContent;
+    const jparts = [];
+    (jk.double || []).forEach((id) => jparts.push(`🎲 ${nameOf(id)}: Doppelt oder nichts`));
+    (jk.hint || []).forEach((id) => jparts.push(`💡 ${nameOf(id)}: Tipp (${J.hintPattern(clue.a)})`));
+    $('jokerStatus').textContent = jparts.join(' · ');
+    $('jokerStatus').hidden = !jparts.length;
     $('buzzBtn').textContent = buzz.open ? 'Buzzer schließen' : 'Buzzer öffnen';
     $('buzzBtn').disabled = solved;
     $('timerBtn').textContent = cur.timer ? '⏱ Neu starten' : '⏱ 15 s Timer';
@@ -322,11 +361,14 @@
     state.players.forEach((p) => {
       const verdict = judged[p.id];
       const rowEl = document.createElement('div');
-      const isWinner = buzz.winner === p.id && !verdict;
+      const isWinner = (buzz.winner === p.id || (pass && pass.to === p.id && !buzz.winner)) && !verdict;
+      const double = (jk.double || []).includes(p.id);
+      const { gain, penalty } = J.judgePoints(cur.round, cur.row, { stolen, double });
       rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '') + (isWinner ? ' buzzed' : '');
       const name = document.createElement('span');
       name.className = 'name';
-      name.textContent = (isWinner ? '⚡ ' : '') + p.name + (isWinner && isTeam() && buzz.winnerName ? ` (${buzz.winnerName})` : '');
+      name.textContent = (isWinner ? (buzz.winner === p.id ? '⚡ ' : '👉 ') : '') + p.name + (isWinner && isTeam() && buzz.winnerName ? ` (${buzz.winnerName})` : '')
+        + (double ? ' 🎲' : '') + ((jk.hint || []).includes(p.id) ? ' 💡' : '');
       // Pro Frage: nur ein Spieler kann richtig liegen, jeder Spieler wird höchstens einmal gewertet.
       // Korrekturen gehen über „Rückgängig“.
       if (verdict) {
@@ -637,7 +679,7 @@
     if (!confirm('Alle Felder freigeben und Punkte auf 0 setzen? (Rückgängig möglich)')) return;
     mutate('Spielstand zurückgesetzt', () => {
       state.used = J.defaultState().used;
-      state.players.forEach((p) => (p.score = 0));
+      state.players.forEach((p) => { p.score = 0; p.usedJokers = []; });
       state.current = null;
       state.round = 0;
       state.turn = state.players.length ? state.players[0].id : null;
@@ -777,8 +819,11 @@
       conn.playerId = ok;
       renderPlayers();
       broadcast(); // Belegung an alle schicken
+      if (ok) sendHint(ok); // nach Verbindungsabbruch den Tipp erneut schicken
     } else if (msg.type === 'buzz') {
       handleBuzz(conn, msg);
+    } else if (msg.type === 'joker') {
+      handleJoker(conn, msg);
     } else if (msg.type === 'react') {
       handleReaction(conn, msg);
     }

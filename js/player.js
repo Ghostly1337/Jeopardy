@@ -75,6 +75,7 @@
       J.renderScores($('overlayScores'), s.players, s.turn);
       judgeEffects(ov, opened ? {} : prevJudged, cur.judged || {});
       buzzShow(cur, clueKey, s);
+      jokerShow(cur, clueKey, s, opened);
     }
     lastClueKey = clueKey;
     prevJudged = cur ? { ...(cur.judged || {}) } : {};
@@ -90,6 +91,7 @@
     last = s;
     renderMe();
     renderBuzz();
+    renderJokers(clueKey);
     syncTimer(cur && cur.timer);
   }
 
@@ -142,6 +144,106 @@
     ov.__fx = setTimeout(() => ov.classList.remove(cls), 1000); // sonst startet es beim nächsten Öffnen erneut
   }
 
+  // ---------- Joker ----------
+  const hints = {};      // Tipp-Muster je Frage (kommt nur an dieses Gerät)
+  let jokerArmed = null; // erster Tipp auf einen Joker: „nochmal tippen zum Einsetzen“
+  let armTimer = null;
+  let passOpen = false;  // Zielauswahl fürs Weitergeben offen
+  let lastJokerKey = null;
+  let prevJokers = { double: [], hint: [], pass: null };
+
+  function sendJoker(kind, target) {
+    if (!conn || !conn.open) return;
+    conn.send({ type: 'joker', kind, target });
+    jokerArmed = null;
+    passOpen = false;
+  }
+
+  function renderJokers(clueKey) {
+    const bar = $('jokerBar');
+    const hintBox = $('hintBox');
+    const cur = last && last.current;
+    const mePlayer = myPlayer();
+    if (clueKey !== lastJokerKey) { jokerArmed = null; passOpen = false; lastJokerKey = clueKey; }
+    // Tipp anzeigen (nur auf dem eigenen Gerät)
+    const myHint = cur && mePlayer && (cur.jokers.hint || []).includes(me) && hints[clueKey];
+    hintBox.hidden = !myHint;
+    if (myHint) hintBox.innerHTML = `<span class="hint-label">💡 Tipp</span><span class="hint-text">${J.escapeHtml(myHint)}</span>`;
+    if (!cur || !mePlayer || cur.revealed) { bar.hidden = true; return; }
+    const ctx = { cur, players: last.players, turn: last.turn, pid: me };
+    const double = (cur.jokers.double || []).includes(me);
+    bar.hidden = false;
+    bar.innerHTML = '';
+    if (double) {
+      const b = document.createElement('div');
+      b.className = 'joker-active';
+      b.textContent = '🎲 Doppelt oder nichts ist aktiv';
+      bar.appendChild(b);
+    }
+    const row = document.createElement('div');
+    row.className = 'joker-row';
+    J.JOKERS.forEach((j) => {
+      const used = (mePlayer.usedJokers || []).includes(j.id);
+      const block = J.jokerBlock(j.id, ctx);
+      const btn = document.createElement('button');
+      btn.className = 'joker' + (used ? ' used' : '') + (jokerArmed === j.id || (j.id === 'pass' && passOpen) ? ' armed' : '');
+      btn.dataset.kind = j.id;
+      btn.disabled = !!block;
+      btn.title = block || j.desc;
+      btn.innerHTML = `<span class="joker-icon">${j.icon}</span><span class="joker-name">${jokerArmed === j.id ? 'Nochmal tippen' : j.name}</span>`;
+      btn.addEventListener('click', () => {
+        if (j.id === 'pass') { passOpen = !passOpen; renderJokers(clueKey); return; }
+        if (jokerArmed === j.id) { sendJoker(j.id); renderJokers(clueKey); return; }
+        jokerArmed = j.id;
+        clearTimeout(armTimer);
+        armTimer = setTimeout(() => { jokerArmed = null; renderJokers(lastJokerKey); }, 3000);
+        renderJokers(clueKey);
+      });
+      row.appendChild(btn);
+    });
+    bar.appendChild(row);
+    // Weitergeben: an wen?
+    if (passOpen && !J.jokerBlock('pass', ctx)) {
+      const pick = document.createElement('div');
+      pick.className = 'joker-targets';
+      pick.innerHTML = '<span>Weitergeben an:</span>';
+      last.players.filter((p) => p.id !== me).forEach((p) => {
+        const t = document.createElement('button');
+        t.className = 'small';
+        t.dataset.target = p.id;
+        t.textContent = p.name;
+        t.addEventListener('click', () => { sendJoker('pass', p.id); renderJokers(clueKey); });
+        pick.appendChild(t);
+      });
+      bar.appendChild(pick);
+    }
+  }
+
+  // TV-Ansicht: eingesetzte Joker groß ankündigen
+  function jokerShow(cur, clueKey, s, opened) {
+    const jk = cur.jokers || { double: [], hint: [], pass: null };
+    const before = opened ? { double: [], hint: [], pass: null } : prevJokers;
+    prevJokers = { double: [...(jk.double || [])], hint: [...(jk.hint || [])], pass: jk.pass };
+    if (me !== 'tv') return;
+    const nameOf = (id) => (s.players.find((p) => p.id === id) || {}).name || '?';
+    let text = null;
+    if (jk.pass && !before.pass) text = `👉 ${nameOf(jk.pass.from)} → ${nameOf(jk.pass.to)}`;
+    ['double', 'hint'].forEach((k) => (jk[k] || []).forEach((id) => {
+      if (!before[k].includes(id)) text = `${J.jokerInfo(k).icon} ${nameOf(id)}: ${J.jokerInfo(k).name}`;
+    }));
+    if (text) bigShow(text);
+  }
+
+  function bigShow(text) {
+    const el = $('buzzShow');
+    el.querySelector('.buzz-show-name').textContent = text;
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+    clearTimeout(el.__t);
+    el.__t = setTimeout(() => el.classList.remove('go'), 1700);
+  }
+
   // TV-Ansicht: wer buzzert, erscheint kurz groß
   let lastBuzzShown = null;
   function buzzShow(cur, clueKey, s) {
@@ -152,13 +254,7 @@
     lastBuzzShown = key;
     const p = s.players.find((x) => x.id === buzz.winner);
     const name = s.mode === 'team' && buzz.winnerName ? `${buzz.winnerName} (${p ? p.name : '?'})` : (p ? p.name : '?');
-    const el = $('buzzShow');
-    el.querySelector('.buzz-show-name').textContent = '⚡ ' + name;
-    el.classList.remove('go');
-    void el.offsetWidth;
-    el.classList.add('go');
-    clearTimeout(el.__t);
-    el.__t = setTimeout(() => el.classList.remove('go'), 1700);
+    bigShow('⚡ ' + name);
   }
 
   const myPlayer = () => (last && last.players.find((p) => p.id === me)) || null;
@@ -335,6 +431,11 @@
       } else {
         text = `⚡ ${wName} ist dran` + (t(buzz.winner) ? ` (${t(buzz.winner)})` : '');
       }
+    } else if (cur.jokers && cur.jokers.pass && !Object.keys(judged).length && !solved) {
+      const pn = (id) => (last.players.find((p) => p.id === id) || {}).name || '?';
+      text = cur.jokers.pass.to === me
+        ? `👉 ${pn(cur.jokers.pass.from)} gibt an dich weiter – du bist dran!`
+        : `👉 ${pn(cur.jokers.pass.from)} gibt weiter an ${pn(cur.jokers.pass.to)}`;
     } else if (locked) {
       text = 'Zu früh gedrückt – kurz gesperrt';
     } else if (canBuzz && Object.values(judged).includes('wrong')) {
@@ -465,6 +566,10 @@
       if (!msg) return;
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
+      else if (msg.type === 'hint' && typeof msg.key === 'string' && typeof msg.text === 'string') {
+        hints[msg.key] = msg.text;
+        renderJokers(lastJokerKey);
+      }
       else if (msg.type === 'react') J.showReaction(msg.emoji, msg.name);
       else if (msg.type === 'taken' && msg.playerId === me) {
         forget(msg.reason === 'full' ? 'Dieses Team ist schon voll. Wähle ein anderes.' : 'Dieser Name ist schon auf einem anderen Gerät vergeben.');

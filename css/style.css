@@ -1374,3 +1374,40 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 }
 .player-body input, .player-body textarea { -webkit-user-select: text; user-select: text; }
 .pod-score.neg { color: var(--red); }
+
+/* ---------- Joker ---------- */
+.joker-bar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 12px; }
+.joker-bar[hidden] { display: none; }
+.joker-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.joker {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 92px; padding: 8px 10px; border-radius: 14px;
+  background: var(--stage-chip); border: 1px solid var(--stage-line); color: var(--stage-text);
+  font-size: 12px; font-weight: 700; line-height: 1.15;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+}
+.joker .joker-icon { font-size: 22px; }
+.joker.armed { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
+.joker:disabled { opacity: .35; }
+.joker.used { opacity: .25; text-decoration: line-through; }
+.joker-active, .joker-targets {
+  padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 14px;
+  background: var(--stage-chip); border: 1px solid var(--accent); color: var(--accent);
+}
+.joker-targets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; border-radius: 14px; }
+.hint-box {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 2vh;
+  padding: 10px 18px; border-radius: 14px; border: 1px dashed var(--accent); background: var(--stage-chip);
+}
+.hint-box[hidden] { display: none; }
+.hint-label { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+.hint-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(18px, 3vw, 28px); font-weight: 700; white-space: pre-wrap; }
+.joker-status {
+  margin-top: 10px; padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 600;
+  background: var(--stage-chip); border: 1px dashed var(--line-strong);
+}
+@media (max-width: 600px) {
+  .joker { min-width: 78px; padding: 6px 8px; font-size: 11px; }
+  .joker .joker-icon { font-size: 18px; }
+  .joker-bar { margin-top: 8px; gap: 6px; }
+}

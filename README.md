@@ -24,6 +24,11 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
   - Der Buzzer ist während der Frage **immer sichtbar**, aber grau („Noch nicht“), solange er zu ist. Wer zu früh drückt, ist **1 Sekunde gesperrt** – Dauer-Hämmern sperrt sich also selbst aus.
   - Es zählt die **Reaktionszeit** auf dem eigenen Gerät, nicht wessen Signal zuerst ankommt: Eine langsame Internetleitung ist kein Nachteil. Reaktionen unter 0,1 s gelten als Frühstart.
   - Manuell öffnen/schließen geht auch.
+- **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel, eingesetzt am Handy per Doppeltipp, nur vor dem Antworten bzw. Buzzern):
+  - 🎲 **Doppelt oder nichts**: richtig = doppelte Punkte, falsch = voller Abzug statt halber.
+  - 💡 **Tipp**: Anfangsbuchstaben und Länge der Antwort („M _ _ _   L _ _ _“), nur auf dem eigenen Handy. Ziffern werden nie verraten.
+  - 👉 **Weitergeben**: Wer am Zug ist, gibt die Frage vor der ersten Antwort an jemand anderen weiter; der muss antworten.
+  Die TV-Ansicht kündigt eingesetzte Joker groß an, das Host-Pult zeigt sie bei der Frage, Rückgängig gibt den Joker zurück.
 - **🎯 Am Zug** geht **reihum** in der Reihenfolge der Punkte-Liste, jeweils wenn eine Frage mit *Fertig* abgeschlossen wird (*Abbrechen* lässt den Zug beim selben). Mit 🎯 setzt du ihn manuell.
 - **⏱ 15-s-Timer**: per Button, läuft bei allen sichtbar runter, Signal bei 0.
 - **✨ Runden-Intro**: Beim Rundenwechsel (oder per ✨) erscheint „Runde X“, dann werden die Kategorien einzeln aufgedeckt. Mit „Überspringen“ abkürzbar.

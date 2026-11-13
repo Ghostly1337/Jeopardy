@@ -97,6 +97,59 @@
     });
   }
 
+  // ---------- Joker ----------
+  // Jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel. Eingesetzt wird vor dem
+  // Antworten bzw. vor dem Buzzern.
+  const JOKERS = [
+    { id: 'double', icon: '🎲', name: 'Doppelt oder nichts', desc: 'Richtig: doppelte Punkte · Falsch: voller Abzug' },
+    { id: 'hint', icon: '💡', name: 'Tipp', desc: 'Anfangsbuchstaben und Länge der Antwort – nur für dich' },
+    { id: 'pass', icon: '👉', name: 'Weitergeben', desc: 'Wer am Zug ist, gibt die Frage an jemand anderen weiter' },
+  ];
+  const jokerInfo = (id) => JOKERS.find((j) => j.id === id) || null;
+
+  // Darf pid den Joker jetzt einsetzen? → null wenn ja, sonst ein kurzer Grund.
+  // cur: aktuelle Frage (Host-Zustand oder öffentlicher Zustand), players: [{id, usedJokers}]
+  function jokerBlock(kind, { cur, players, turn, pid, target }) {
+    if (!jokerInfo(kind)) return 'Unbekannter Joker';
+    const p = players.find((x) => x.id === pid);
+    if (!p) return 'Nur für Spieler';
+    if ((p.usedJokers || []).includes(kind)) return 'Schon benutzt';
+    if (!cur) return 'Erst wenn eine Frage offen ist';
+    const judged = cur.judged || {};
+    const buzz = cur.buzz || {};
+    const jk = cur.jokers || {};
+    if (cur.revealed || Object.values(judged).includes('right')) return 'Frage ist schon gelöst';
+    if (judged[pid]) return 'Du hast schon geantwortet';
+    if (buzz.winner === pid) return 'Nur vor dem Buzzern';
+    if (kind === 'pass') {
+      if (pid !== turn) return 'Nur wer am Zug ist';
+      if (jk.pass) return 'Schon weitergegeben';
+      if (Object.keys(judged).length || buzz.open || buzz.arming || buzz.winner) return 'Nur vor der ersten Antwort';
+      if (target === undefined) return null; // Ziel wird gleich gewählt
+      if (target === pid || !players.some((x) => x.id === target)) return 'Ungültiges Ziel';
+      return null;
+    }
+    if ((jk[kind] || []).includes(pid)) return 'Schon aktiv';
+    if (jk.pass && jk.pass.to === pid) return null; // wer übernehmen muss, darf noch setzen
+    return null;
+  }
+
+  // Tipp: „Mona Lisa“ → „M _ _ _   L _ _ _“. Ziffern werden nie verraten (sonst wäre „6“ die Antwort).
+  function hintPattern(answer) {
+    return String(answer || '').trim().split(/\s+/).filter(Boolean).map((word) => [...word].map((ch, i) => {
+      if (/\p{L}/u.test(ch)) return i === 0 ? ch.toUpperCase() : '_';
+      if (/\p{N}/u.test(ch)) return '_';
+      return ch;
+    }).join(' ')).join('   ');
+  }
+
+  // Punkte unter Berücksichtigung von „Doppelt oder nichts“
+  function judgePoints(round, row, { stolen, double }) {
+    const value = pointsFor(round, row);
+    const gain = stolen ? stealFor(round, row) : value;
+    return double ? { gain: gain * 2, penalty: value } : { gain, penalty: penaltyFor(round, row) };
+  }
+
   // ---------- Verpixelte Bilder ----------
   // Bild startet grob verpixelt und wird per Knopf schärfer. Werte = Pixel an der längeren Seite;
   // nach der letzten Stufe (oder beim Aufdecken) sieht man das echte Bild.
@@ -318,6 +371,13 @@
         img: pixelLevel(clue, cur) == null ? safeImg(clue.img) || null : null,
         pixel: pixelLevel(clue, cur) == null ? null : { step: pixelLevel(clue, cur), steps: PIXEL_STEPS.length },
         a: cur.revealed ? clue.a : null,
+        revealed: !!cur.revealed,
+        // Joker: wer was gesetzt hat (der Tipp-Inhalt geht nur privat an den Spieler)
+        jokers: {
+          double: (cur.jokers && cur.jokers.double) || [],
+          hint: (cur.jokers && cur.jokers.hint) || [],
+          pass: (cur.jokers && cur.jokers.pass) || null,
+        },
         judged: cur.judged || {},
         buzz: cur.buzz || { open: false, winner: null },
         // Restzeit statt Uhrzeit, damit abweichende Geräteuhren egal sind
@@ -339,6 +399,7 @@
       used: state.used[r],
       players: state.players.map((p, i) => ({
         id: p.id, name: p.name, score: p.score,
+        usedJokers: Array.isArray(p.usedJokers) ? p.usedJokers : [],
         color: state.mode === 'team' ? teamColor(i) : null,
       })),
       mode: state.mode === 'team' ? 'team' : 'single',
@@ -482,6 +543,10 @@
         tone(ctx, { freq: f, start: s, dur: d, type: 'sawtooth', vol: 0.1, filter: 2200 });
         tone(ctx, { freq: f * 2, start: s, dur: d, type: 'triangle', vol: 0.06 });
       });
+    },
+    // Joker eingesetzt: kurzes Glitzern
+    joker(ctx) {
+      [1318.5, 1568, 2093].forEach((f, i) => tone(ctx, { freq: f, start: i * 0.06, dur: 0.25, type: 'sine', vol: 0.1 }));
     },
     // Heller Glockenton beim Aufdecken
     reveal(ctx) {
@@ -756,7 +821,7 @@
   }
 
   window.J = {
-    PIXEL_STEPS, pixelLevel, pixelate,
+    PIXEL_STEPS, pixelLevel, pixelate, JOKERS, jokerInfo, jokerBlock, hintPattern, judgePoints,
     CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

@@ -184,13 +184,40 @@
     const nameOf = (id) => (last.players.find((p) => p.id === id) || {}).name || '?';
     const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
     if (key !== specialKey) {
-      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; }
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; myAbstain = false; }
       specialKey = key;
       box.innerHTML = '';
       if (kind === 'choice') box.appendChild(choiceView(cur.mc, isPlayer, nameOf));
       else if (data.revealed) box.appendChild(kind === 'estimate' ? estimateResult(cur.est, nameOf) : orderResult(cur.ord, nameOf));
       else if (isPlayer) box.appendChild(kind === 'estimate' ? estimateInput() : orderInput(cur.ord.items));
       else if (kind === 'order') box.appendChild(orderList(cur.ord.items));
+      // Enthalten (0 Punkte) – nicht für den, der die Frage ausgesucht hat
+      if (!data.revealed && isPlayer && J.canAbstain(kind, me, last.turn)) {
+        const ab = document.createElement('button');
+        ab.type = 'button';
+        ab.id = 'abstainBtn';
+        ab.className = 'small ghost abstain' + (myAbstain ? ' on' : '');
+        ab.textContent = '🤐 Enthalten (0 Punkte)';
+        ab.addEventListener('click', () => {
+          if (!conn || !conn.open) return;
+          conn.send({ type: 'abstain' });
+          myAbstain = true;
+          myPick = null;
+          orderSent = false;
+          box.querySelectorAll('.mc-opt.picked').forEach((x) => x.classList.remove('picked'));
+          ab.classList.add('on');
+          const send = $('orderSend');
+          if (send) send.textContent = 'Reihenfolge abgeben';
+          renderSpecial(lastJokerKey);
+        });
+        box.appendChild(ab);
+      }
+      if (data.revealed && data.abstained && data.abstained.length) {
+        const ab = document.createElement('div');
+        ab.className = 'abstained';
+        ab.textContent = '🤐 Enthalten: ' + data.abstained.map(nameOf).join(', ');
+        box.appendChild(ab);
+      }
       const st = document.createElement('div');
       st.className = 'special-status';
       box.appendChild(st);
@@ -200,13 +227,15 @@
     st.hidden = false;
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
-    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}`;
+    const mustAnswer = isPlayer && kind !== 'estimate' && me === last.turn;
+    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}` + (mustAnswer ? ' · Du hast die Frage ausgesucht: Antworten ist Pflicht' : '');
     st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
-      (mine ? (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓') : '');
+      (mine ? (myAbstain ? ' · Du enthältst dich ✓' : kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓') : '');
   }
 
   // Multiple Choice: vier Antwortknöpfe A–D; nach dem Auflösen richtig/falsch und wer was gewählt hat
   let myPick = null;
+  let myAbstain = false;
   function choiceView(mc, isPlayer, nameOf) {
     const wrap = document.createElement('div');
     wrap.className = 'mc' + (mc.revealed ? ' revealed' : '');
@@ -224,7 +253,10 @@
       b.addEventListener('click', () => {
         if (!conn || !conn.open) return;
         myPick = i;
+        myAbstain = false;
         conn.send({ type: 'choice', pick: i });
+        const ab = $('abstainBtn');
+        if (ab) ab.classList.remove('on');
         wrap.querySelectorAll('.mc-opt').forEach((x) => x.classList.toggle('picked', Number(x.dataset.i) === i));
       });
       wrap.appendChild(b);
@@ -305,6 +337,9 @@
         if (!conn || !conn.open) return;
         conn.send({ type: 'order', order: [...myOrder] });
         orderSent = true;
+        myAbstain = false;
+        const ab = $('abstainBtn');
+        if (ab) ab.classList.remove('on');
         draw();
       });
       wrap.append(ol, send);

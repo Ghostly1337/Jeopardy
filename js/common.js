@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-15.1';
+  const APP_VERSION = '2026-11-15.2';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -227,6 +227,10 @@
   // ---------- Schätzfrage und Reihenfolge ----------
   const CLUE_KINDS = ['estimate', 'order', 'choice'];
   const isSpecialKind = (k) => CLUE_KINDS.includes(k);
+  // Multiple Choice / Reihenfolge: Enthalten erlaubt (0 Punkte) – außer für den, der die Frage
+  // ausgesucht hat (am Zug ist): der muss antworten, keine Abgabe zählt bei ihm als falsch.
+  const canAbstain = (kind, pid, turn) => (kind === 'choice' || kind === 'order') && !!pid && pid !== turn;
+  const abstainers = (cur) => Object.keys((cur && cur.abstain) || {});
 
   // „330 m“, „1.234,5“, „384 400 km“, „-12“ → Zahl (deutsches und englisches Format)
   function parseNumber(v) {
@@ -484,7 +488,8 @@
     return {
       items: perm.map((i) => items[i]),
       perm: null, // bleibt geheim, sonst wäre die Lösung ablesbar
-      submitted: Object.keys(o.answers || {}),
+      submitted: [...Object.keys(o.answers || {}), ...abstainers(cur)],
+      abstained: cur.revealed ? abstainers(cur) : null,
       revealed: !!cur.revealed,
       correct: cur.revealed ? items : null,
       results: cur.revealed ? Object.fromEntries(Object.entries(o.answers || {}).map(([id, a]) => [id, orderCorrect(a)])) : null,
@@ -499,7 +504,8 @@
     const answers = m.answers || {};
     return {
       options: perm.map((i) => items[i]),
-      submitted: Object.keys(answers),
+      submitted: [...Object.keys(answers), ...abstainers(cur)],
+      abstained: cur.revealed ? abstainers(cur) : null,
       revealed: !!cur.revealed,
       // erst nach dem Auflösen: welche angezeigte Option richtig war, wer was gewählt hat
       correct: cur.revealed ? perm.indexOf(0) : null,
@@ -979,7 +985,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, canAbstain, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

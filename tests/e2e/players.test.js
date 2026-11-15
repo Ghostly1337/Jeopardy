@@ -35,7 +35,15 @@ test('Ein Name gehört genau einem Gerät', async (t) => {
     const clickAnna = (pg) => pg.evaluate(() => [...document.querySelectorAll('.pick')].find((b) => b.textContent === 'Anna').click());
     await Promise.all([clickAnna(a), clickAnna(b)]);
     await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 1);
-    await a.waitForTimeout(800);
+    // Auf den Endzustand warten statt fester Zeit (CI ist manchmal langsamer; übers Relay blendet
+    // die Auswahl nach dem Klick kurz aus und kommt beim Verlierer zurück): genau einer ist drin,
+    // der andere sieht die Meldung
+    const state = (pg) => pg.evaluate(() => ({ in: document.getElementById('picker').hidden, err: !!document.getElementById('pickerError').textContent }));
+    for (let i = 0; i < 100; i++) {
+      const [sa, sb] = [await state(a), await state(b)];
+      if ((sa.in && !sb.in && sb.err) || (sb.in && !sa.in && sa.err)) break;
+      await a.waitForTimeout(100);
+    }
     const aOk = await a.isHidden('#picker');
     assert.notEqual(aOk, await b.isHidden('#picker'));
     [winner, loser] = aOk ? [a, b] : [b, a];

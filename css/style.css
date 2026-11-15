@@ -1151,7 +1151,7 @@ body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
 .ed-clue input { font-size: 13px; border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 6%, var(--field)); }
 .saved { font-size: 13px; font-weight: 600; color: var(--green); }
 .saved.error { color: var(--red); }
-.ed-img { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+.ed-img { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
 .ed-img input { font-size: 12px; padding: 7px 10px; background: var(--field); border-color: var(--line-strong); }
 .ed-img input.invalid { border-color: var(--red); }
 .ed-img img { width: 64px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }

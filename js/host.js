@@ -182,15 +182,6 @@
     const pid = conn.playerId;
     if (!cur || cur.revealed || !pid || !state.players.some((p) => p.id === pid)) return;
     const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
-    if (msg.type === 'abstain') {
-      if (!J.canAbstain(cur.kind, pid, state.turn)) return;
-      (cur.abstain || (cur.abstain = {}))[pid] = true;
-      delete (cur.kind === 'choice' ? cur.mc : cur.ord).answers[pid];
-      commit();
-      sendTeamAnswer(pid, conn, 'abstain');
-      return;
-    }
-    if (cur.abstain) delete cur.abstain[pid]; // doch abgegeben → nicht mehr enthalten
     if (msg.type === 'estimate' && cur.kind === 'estimate') {
       const v = J.parseNumber(msg.value);
       if (v == null || Math.abs(v) > 1e15) return;
@@ -239,9 +230,6 @@
     const penalty = J.penaltyFor(cur.round, cur.row);
     const answers = cur.kind === 'choice' ? cur.mc.answers : cur.kind === 'order' ? cur.ord.answers : {};
     const losers = Object.keys(answers).filter((id) => !winners.includes(id) && state.players.some((p) => p.id === id));
-    // Wer die Frage ausgesucht hat, muss antworten: ohne Abgabe zählt das wie falsch
-    if ((cur.kind === 'choice' || cur.kind === 'order') && state.turn && !(state.turn in answers)
-      && state.players.some((p) => p.id === state.turn)) losers.push(state.turn);
     const label = [winners.length ? `${winners.map(nameOf).join(', ')} +${value}` : 'niemand richtig',
       losers.length ? `${losers.map(nameOf).join(', ')} −${penalty}` : ''].filter(Boolean).join(' · ');
     mutate(`Aufgelöst: ${label}`, () => {
@@ -277,11 +265,10 @@
     const value = J.pointsFor(cur.round, cur.row);
     const answers = cur.kind === 'estimate' ? cur.est.guesses : cur.kind === 'choice' ? cur.mc.answers : cur.ord.answers;
     const items = cur.kind !== 'estimate' ? J.orderItems(clue.a) : null;
-    const abst = cur.abstain || {};
-    const n = Object.keys(answers).length + Object.keys(abst).length;
+    const n = Object.keys(answers).length;
     const rows = state.players.map((p) => {
       const has = p.id in answers;
-      let detail = has ? '✓ abgegeben' : abst[p.id] ? '🤐 enthält sich' : p.id === state.turn && cur.kind !== 'estimate' ? '🎯 … muss antworten' : '… wartet';
+      let detail = has ? '✓ abgegeben' : '… wartet';
       if (has && cur.kind === 'estimate') detail = String(answers[p.id]).replace('.', ',');
       if (has && cur.kind === 'choice') detail = (answers[p.id] === 0 ? '✓ ' : '✗ ') + items[answers[p.id]];
       if (has && cur.kind === 'order') detail = (J.orderCorrect(answers[p.id]) ? '✓ ' : '✗ ') + answers[p.id].map((i) => items[i]).join(' → ');
@@ -962,7 +949,7 @@
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {
       handleJoker(conn, msg);
-    } else if (msg.type === 'estimate' || msg.type === 'order' || msg.type === 'choice' || msg.type === 'abstain') {
+    } else if (msg.type === 'estimate' || msg.type === 'order' || msg.type === 'choice') {
       handleSubmission(conn, msg);
     } else if (msg.type === 'react') {
       handleReaction(conn, msg);

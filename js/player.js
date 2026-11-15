@@ -187,40 +187,13 @@
     const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
     if (key !== specialKey || rebuildSpecial) {
       rebuildSpecial = false;
-      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; myAbstain = false; teamBy = null; }
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; teamBy = null; }
       specialKey = key;
       box.innerHTML = '';
       if (kind === 'choice') box.appendChild(choiceView(cur.mc, isPlayer, nameOf));
       else if (data.revealed) box.appendChild(kind === 'estimate' ? estimateResult(cur.est, nameOf) : orderResult(cur.ord, nameOf));
       else if (isPlayer) box.appendChild(kind === 'estimate' ? estimateInput() : orderInput(cur.ord.items));
       else if (kind === 'order') box.appendChild(orderList(cur.ord.items));
-      // Enthalten (0 Punkte) – nicht für den, der die Frage ausgesucht hat
-      if (!data.revealed && isPlayer && J.canAbstain(kind, me, last.turn)) {
-        const ab = document.createElement('button');
-        ab.type = 'button';
-        ab.id = 'abstainBtn';
-        ab.className = 'small ghost abstain' + (myAbstain ? ' on' : '');
-        ab.textContent = '🤐 Enthalten (0 Punkte)';
-        ab.addEventListener('click', () => {
-          if (!conn || !conn.open) return;
-          conn.send({ type: 'abstain' });
-          myAbstain = true;
-          myPick = null;
-          orderSent = false;
-          box.querySelectorAll('.mc-opt.picked').forEach((x) => x.classList.remove('picked'));
-          ab.classList.add('on');
-          const send = $('orderSend');
-          if (send) send.textContent = 'Reihenfolge abgeben';
-          renderSpecial(lastJokerKey);
-        });
-        box.appendChild(ab);
-      }
-      if (data.revealed && data.abstained && data.abstained.length) {
-        const ab = document.createElement('div');
-        ab.className = 'abstained';
-        ab.textContent = '🤐 Enthalten: ' + data.abstained.map(nameOf).join(', ');
-        box.appendChild(ab);
-      }
       const st = document.createElement('div');
       st.className = 'special-status';
       box.appendChild(st);
@@ -230,18 +203,16 @@
     st.hidden = false;
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
-    const mustAnswer = isPlayer && kind !== 'estimate' && me === last.turn;
-    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}` + (mustAnswer ? ' · Du hast die Frage ausgesucht: Antworten ist Pflicht' : '');
+    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}`;
     st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
-      (mine && isTeamMode() && teamBy && teamBy !== myName ? ` · ${teamBy} hat für euch ${myAbstain ? 'enthalten' : 'abgegeben'}` : '') +
+      (mine && isTeamMode() && teamBy && teamBy !== myName ? ` · ${teamBy} hat für euch abgegeben` : '') +
       (mine ? (isTeamMode()
-        ? (myAbstain ? ' · Ihr enthaltet euch ✓' : kind === 'estimate' ? ` · Euer Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Eure Wahl ist abgegeben ✓' : ' · Eure Reihenfolge ist abgegeben ✓')
-        : (myAbstain ? ' · Du enthältst dich ✓' : kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓')) : '');
+        ? (kind === 'estimate' ? ` · Euer Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Eure Wahl ist abgegeben ✓' : ' · Eure Reihenfolge ist abgegeben ✓')
+        : (kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓')) : '');
   }
 
   // Multiple Choice: vier Antwortknöpfe A–D; nach dem Auflösen richtig/falsch und wer was gewählt hat
   let myPick = null;
-  let myAbstain = false;
   function choiceView(mc, isPlayer, nameOf) {
     const wrap = document.createElement('div');
     wrap.className = 'mc' + (mc.revealed ? ' revealed' : '');
@@ -259,10 +230,7 @@
       b.addEventListener('click', () => {
         if (!conn || !conn.open) return;
         myPick = i;
-        myAbstain = false;
         conn.send({ type: 'choice', pick: i });
-        const ab = $('abstainBtn');
-        if (ab) ab.classList.remove('on');
         wrap.querySelectorAll('.mc-opt').forEach((x) => x.classList.toggle('picked', Number(x.dataset.i) === i));
       });
       wrap.appendChild(b);
@@ -343,9 +311,6 @@
         if (!conn || !conn.open) return;
         conn.send({ type: 'order', order: [...myOrder] });
         orderSent = true;
-        myAbstain = false;
-        const ab = $('abstainBtn');
-        if (ab) ab.classList.remove('on');
         draw();
       });
       wrap.append(ol, send);
@@ -796,9 +761,7 @@
       else if (msg.type === 'teamAnswer' && msg.key === lastJokerKey) {
         // Teammitglied hat abgegeben → hier übernehmen, damit alle sehen, was fürs Team zählt
         teamBy = msg.by;
-        myAbstain = msg.value === 'abstain';
-        if (myAbstain) { myPick = null; }
-        else if (msg.kind === 'estimate') myGuess = msg.value;
+        if (msg.kind === 'estimate') myGuess = msg.value;
         else if (msg.kind === 'choice') myPick = msg.value;
         else if (msg.kind === 'order') { myOrder = [...msg.value]; orderSent = true; }
         rebuildSpecial = true;

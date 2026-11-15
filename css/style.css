@@ -1496,9 +1496,6 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
   .buzzer { width: min(32vw, 130px); height: min(32vw, 130px); font-size: 26px; }
   .buzz-info { font-size: 13px; padding: 6px 12px; }
 }
-.abstain { align-self: center; }
-.abstain.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
-.abstained { text-align: center; font-size: 14px; opacity: .8; }
 
 /* Laptop/Tablet: Bild, Buzzer und Joker nach der Fensterhöhe richten, damit nichts scrollt und
    die Kategorie nicht unter der oberen Leiste verschwindet (Laptop-Browser haben oft nur ~680 px). */

@@ -97,6 +97,7 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
   await t.test('Reihenfolge: gemischt anzeigen, sortieren, abgeben', async () => {
     await host.locator('.cell.val').nth(1).click();
     await anna.waitForSelector('.order-list.editable');
+    await tv.waitForFunction(() => document.querySelectorAll('.order-list li').length === 4); // übers Relay kommt der TV evtl. später an
     const shown = await tv.$$eval('.order-list li span', (els) => els.map((e) => e.textContent));
     assert.equal(shown.length, 4);
     assert.notDeepEqual(shown, CORRECT, 'nicht schon richtig sortiert');
@@ -125,6 +126,7 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
   await t.test('Multiple Choice: alle wählen, Richtige bekommen Punkte', async () => {
     await host.locator('.cell.val').nth(3).click();
     await anna.waitForSelector('.mc-opt');
+    await tv.waitForSelector('.mc-opt');
     assert.ok(await anna.isHidden('#buzzer'));
     assert.equal(await tv.locator('.mc-opt.right').count(), 0, 'Lösung vorher nicht markiert');
     await anna.click('.mc-opt:has-text("Falsch eins")');

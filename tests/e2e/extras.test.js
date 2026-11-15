@@ -71,6 +71,9 @@ test('Siegerehrung mit Gleichstand und Reaktionen', async (t) => {
   await host.locator('.pscore').nth(1).press('Enter');
   await host.locator('.pscore').nth(2).fill('100');
   await host.locator('.pscore').nth(2).press('Enter');
+  await host.locator('.pscore').nth(2).blur();
+  // erst weitermachen, wenn beide Punktestände beim Spieler angekommen sind (übers Relay etwas später)
+  await p.waitForFunction(() => [...document.querySelectorAll('#scores .score-value')].map((e) => e.textContent).join(',') === '0,100,100');
 
   await t.test('Reaktion fliegt bei Host und Spieler mit Namen', async () => {
     await p.click('.react-btn:text-is("😂")');

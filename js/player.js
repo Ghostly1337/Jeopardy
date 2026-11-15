@@ -169,6 +169,8 @@
   let myGuess = null;      // eigener Tipp (Schätzfrage)
   let myOrder = null;      // eigene Reihenfolge: Positionen in der angezeigten Liste
   let orderSent = false;
+  let teamBy = null;       // Team-Modus: wer im Team zuletzt abgegeben hat
+  let rebuildSpecial = false;
 
   const fmtNum = (n) => (n == null ? '–' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
 
@@ -183,8 +185,9 @@
     const total = last.players.length;
     const nameOf = (id) => (last.players.find((p) => p.id === id) || {}).name || '?';
     const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
-    if (key !== specialKey) {
-      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; myAbstain = false; }
+    if (key !== specialKey || rebuildSpecial) {
+      rebuildSpecial = false;
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; myAbstain = false; teamBy = null; }
       specialKey = key;
       box.innerHTML = '';
       if (kind === 'choice') box.appendChild(choiceView(cur.mc, isPlayer, nameOf));
@@ -230,7 +233,10 @@
     const mustAnswer = isPlayer && kind !== 'estimate' && me === last.turn;
     const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}` + (mustAnswer ? ' · Du hast die Frage ausgesucht: Antworten ist Pflicht' : '');
     st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
-      (mine ? (myAbstain ? ' · Du enthältst dich ✓' : kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓') : '');
+      (mine && isTeamMode() && teamBy && teamBy !== myName ? ` · ${teamBy} hat für euch ${myAbstain ? 'enthalten' : 'abgegeben'}` : '') +
+      (mine ? (isTeamMode()
+        ? (myAbstain ? ' · Ihr enthaltet euch ✓' : kind === 'estimate' ? ` · Euer Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Eure Wahl ist abgegeben ✓' : ' · Eure Reihenfolge ist abgegeben ✓')
+        : (myAbstain ? ' · Du enthältst dich ✓' : kind === 'estimate' ? ` · Dein Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Deine Wahl ist abgegeben ✓' : ' · Deine Reihenfolge ist abgegeben ✓')) : '');
   }
 
   // Multiple Choice: vier Antwortknöpfe A–D; nach dem Auflösen richtig/falsch und wer was gewählt hat
@@ -781,6 +787,17 @@
       if (!msg) return;
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
+      else if (msg.type === 'teamAnswer' && msg.key === lastJokerKey) {
+        // Teammitglied hat abgegeben → hier übernehmen, damit alle sehen, was fürs Team zählt
+        teamBy = msg.by;
+        myAbstain = msg.value === 'abstain';
+        if (myAbstain) { myPick = null; }
+        else if (msg.kind === 'estimate') myGuess = msg.value;
+        else if (msg.kind === 'choice') myPick = msg.value;
+        else if (msg.kind === 'order') { myOrder = [...msg.value]; orderSent = true; }
+        rebuildSpecial = true;
+        renderSpecial(lastJokerKey);
+      }
       else if (msg.type === 'hint' && typeof msg.key === 'string' && typeof msg.text === 'string') {
         hints[msg.key] = msg.text;
         renderJokers(lastJokerKey);

@@ -187,6 +187,7 @@
       (cur.abstain || (cur.abstain = {}))[pid] = true;
       delete (cur.kind === 'choice' ? cur.mc : cur.ord).answers[pid];
       commit();
+      sendTeamAnswer(pid, conn, 'abstain');
       return;
     }
     if (cur.abstain) delete cur.abstain[pid]; // doch abgegeben → nicht mehr enthalten
@@ -204,6 +205,17 @@
       cur.mc.answers[pid] = cur.mc.perm[msg.pick]; // 0 = richtige Antwort
     } else return;
     commit();
+    // Team-Modus: alle im Team sehen sofort, was für sie abgegeben wurde (sonst zählt unbemerkt
+    // die zuletzt angekommene Abgabe eines anderen Mitglieds)
+    sendTeamAnswer(pid, conn, msg.type === 'estimate' ? cur.est.guesses[pid]
+      : msg.type === 'choice' ? msg.pick : msg.order);
+  }
+
+  function sendTeamAnswer(pid, from, value) {
+    if (!isTeam()) return;
+    const cur = state.current;
+    const out = { type: 'teamAnswer', key: `${cur.round}:${cur.cat}:${cur.row}`, kind: cur.kind, value, by: from.memberName || null };
+    conns.forEach((c) => { if (c.open && c.playerId === pid) c.send(out); });
   }
 
   function resolveSpecial() {

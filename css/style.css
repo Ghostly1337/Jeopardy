@@ -1499,3 +1499,28 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .abstain { align-self: center; }
 .abstain.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
 .abstained { text-align: center; font-size: 14px; opacity: .8; }
+
+/* Laptop/Tablet: Bild, Buzzer und Joker nach der Fensterhöhe richten, damit nichts scrollt und
+   die Kategorie nicht unter der oberen Leiste verschwindet (Laptop-Browser haben oft nur ~680 px). */
+@media (min-width: 601px) {
+  .clue-overlay { padding-top: 64px; }
+  .clue-img { max-height: 30vh; margin-bottom: 2vh; }
+  .clue-img.pixel, .clue-img.zoomed { height: 30vh; }
+  .buzz-area { margin-top: 2vh; gap: 10px; }
+  .buzzer { width: clamp(110px, 21vh, 220px); height: clamp(110px, 21vh, 220px); font-size: clamp(26px, 5vh, 56px); }
+  .clue-text { font-size: clamp(22px, min(4.2vw, 5.2vh), 54px); }
+}
+@media (min-width: 601px) and (max-height: 820px) {
+  .clue-img { max-height: 26vh; }
+  .clue-img.pixel, .clue-img.zoomed { height: 26vh; }
+  .clue-meta { margin-bottom: 1.5vh; }
+  .joker { padding: 6px 10px; }
+  .buzz-info { padding: 6px 16px; font-size: clamp(14px, 2.2vh, 22px); }
+}
+@media (min-width: 601px) and (max-height: 820px) {
+  .clue-overlay { padding-bottom: 10px; }
+  .clue-overlay .scores { padding-top: 1.5vh; }
+  .clue-img { max-height: 24vh; margin-bottom: 1.5vh; }
+  .clue-img.pixel, .clue-img.zoomed { height: 24vh; }
+  .buzz-area { margin-top: 1.5vh; gap: 8px; }
+}

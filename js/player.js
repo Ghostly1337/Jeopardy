@@ -393,6 +393,12 @@
     const ctx = { cur, players: last.players, turn: last.turn, pid: me };
     const double = (cur.jokers.double || []).includes(me);
     bar.hidden = false;
+    // Nur neu zeichnen, wenn sich an der Leiste etwas ändert – sonst springen die Knöpfe bei jedem
+    // Update vom Host weg, gerade übers Relay, und ein Tipp geht ins Leere
+    const sig = JSON.stringify([clueKey, double, jokerArmed, passOpen, mePlayer.usedJokers,
+      J.JOKERS.map((j) => J.jokerBlock(j.id, ctx)), last.players.map((p) => [p.id, p.name])]);
+    if (bar.__sig === sig && bar.childElementCount) return;
+    bar.__sig = sig;
     bar.innerHTML = '';
     if (double) {
       const b = document.createElement('div');

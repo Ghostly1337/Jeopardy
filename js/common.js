@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.9';
+  const APP_VERSION = '2026-11-23.10';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -220,10 +220,20 @@
   }
 
   // Punkte unter Berücksichtigung von „Doppelt oder nichts“
-  function judgePoints(round, row, { stolen, double }) {
+  // Punkteverteilung: Wer am Zug ist, bekommt den vollen Wert; alle anderen Richtigen nur einen
+  // Anteil (Einstellung im Host-Pult). Klauen, Abzüge und „Doppelt oder nichts“ bleiben unberührt.
+  const OTHER_SHARES = [100, 75, 50, 25, 0];
+  const DEFAULT_OTHER_SHARE = 50;
+  const cleanShare = (v) => (OTHER_SHARES.includes(Number(v)) ? Number(v) : DEFAULT_OTHER_SHARE);
+  const shareOf = (value, pct) => Math.round((value * pct) / 100);
+
+  // active: am Zug (oder niemand ist am Zug) · otherShare: Anteil in % für alle anderen
+  function judgePoints(round, row, { stolen, double, active = true, otherShare = 100 }) {
     const value = pointsFor(round, row);
-    const gain = stolen ? stealFor(round, row) : value;
-    return double ? { gain: gain * 2, penalty: value } : { gain, penalty: penaltyFor(round, row) };
+    const base = stolen ? stealFor(round, row) : value;
+    if (double) return { gain: base * 2, penalty: value };
+    const gain = stolen || active ? base : shareOf(value, cleanShare(otherShare));
+    return { gain, penalty: penaltyFor(round, row) };
   }
 
   // ---------- Verpixelte Bilder ----------
@@ -508,7 +518,7 @@
   function defaultState() {
     return {
       round: 0, used: emptyUsed(), players: [], current: null, turn: null, finished: false,
-      stats: {}, personStats: {}, mode: 'single', teamSize: 3, history: [],
+      stats: {}, personStats: {}, mode: 'single', teamSize: 3, history: [], otherShare: DEFAULT_OTHER_SHARE,
     };
   }
 
@@ -547,6 +557,7 @@
       personStats: s.personStats && typeof s.personStats === 'object' ? s.personStats : {},
       mode: s.mode === 'team' ? 'team' : 'single',
       teamSize: clampTeamSize(s.teamSize),
+      otherShare: cleanShare(s.otherShare),
       finished: !!s.finished,
       history: Array.isArray(s.history) ? s.history : [],
       // Gerät → Team/Spieler, an das es seit Spielbeginn gebunden ist
@@ -674,6 +685,7 @@
       turn: state.turn || null,
       finished: !!state.finished,
       reactionsOff: !!state.reactionsOff,
+      otherShare: cleanShare(state.otherShare),
       stats: state.stats || {},
       personStats: state.mode === 'team' ? state.personStats || {} : {},
       current,
@@ -1119,7 +1131,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, cryptoRandom, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, HINT_TYPES, hintType, hintFor, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, cryptoRandom, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, OTHER_SHARES, DEFAULT_OTHER_SHARE, cleanShare, shareOf, HINT_TYPES, hintType, hintFor, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

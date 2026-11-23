@@ -123,3 +123,27 @@ test('Tipp-Einstellungen überstehen Import/Normalisierung', () => {
   assert.ok(!('hint' in cl[1]), 'Standard wird nicht gespeichert');
   assert.ok(!('hint' in cl[2]), 'Unbekanntes fliegt raus');
 });
+
+test('Punkteverteilung: am Zug voll, andere nach Anteil, gerundet; Klauen und Doppelt unberührt', () => {
+  const pts = (o) => ({ ...J.judgePoints(0, 2, o) }); // Runde 1, 300er
+  assert.deepEqual(pts({ active: true, otherShare: 50 }), { gain: 300, penalty: 150 });
+  assert.deepEqual(pts({ active: false, otherShare: 50 }), { gain: 150, penalty: 150 }, 'Abzug unverändert');
+  assert.equal(pts({ active: false, otherShare: 75 }).gain, 225);
+  assert.equal(pts({ active: false, otherShare: 25 }).gain, 75);
+  assert.equal(pts({ active: false, otherShare: 0 }).gain, 0);
+  assert.equal(J.judgePoints(0, 0, { active: false, otherShare: 25 }).gain, 25);
+  assert.equal(J.judgePoints(1, 0, { active: false, otherShare: 75 }).gain, 150, 'Runde 2, 200er');
+  assert.equal(pts({ stolen: true, active: false, otherShare: 0 }).gain, 150, 'Klauen bleibt halb');
+  assert.deepEqual(pts({ double: true, active: false, otherShare: 50 }), { gain: 600, penalty: 300 }, 'Doppelt oder nichts unberührt');
+  assert.equal(pts({ active: false, otherShare: 'quatsch' }).gain, 150, 'ungültig → Standard 50 %');
+  assert.equal(pts({}).gain, 300, 'ohne Angaben wie bisher');
+});
+
+test('Punkteverteilung: Standard 50 %, wird gespeichert und an Spieler gemeldet', () => {
+  assert.equal(J.defaultState().otherShare, 50);
+  assert.equal(J.cleanShare('75'), 75);
+  assert.equal(J.cleanShare(33), 50);
+  const st = J.defaultState();
+  st.otherShare = 25;
+  assert.equal(J.publicState(J.defaultSet(), st).otherShare, 25);
+});

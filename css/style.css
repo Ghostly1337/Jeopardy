@@ -1212,6 +1212,8 @@ body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
 .mini-seg { padding: 2px; border-radius: 9px; }
 .mini-seg button { padding: 5px 10px; font-size: 12px; border-radius: 7px; text-transform: none; letter-spacing: 0; }
 .team-size { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-top: 12px; }
+.share-row select { padding: 6px 8px; }
 .team-size input { width: 64px; padding: 6px 8px; text-align: center; font-weight: 700; }
 
 /* ---------- TV-Ansicht ---------- */

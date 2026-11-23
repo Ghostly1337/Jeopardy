@@ -206,7 +206,9 @@
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
     const risk = kind === 'estimate' ? '' : ` · Falsch oder keine Abgabe kostet −${cur.value / 2}`;
-    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
+    const share = J.cleanShare(last.otherShare);
+    const shareTxt = last.turn && share !== 100 ? ` · Wer nicht am Zug ist, bekommt ${share} %` : '';
+    st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) + shareTxt +
       (mine && isTeamMode() && teamBy && teamBy !== myName ? ` · ${teamBy} hat für euch abgegeben` : '') +
       (mine ? (isTeamMode()
         ? (kind === 'estimate' ? ` · Euer Tipp: ${fmtNum(myGuess)} ✓` : kind === 'choice' ? ' · Eure Wahl ist abgegeben ✓' : ' · Eure Reihenfolge ist abgegeben ✓')

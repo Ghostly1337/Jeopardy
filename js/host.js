@@ -56,6 +56,7 @@
   // ---------- Rendering ----------
   function render() {
     if (typeof renderReactToggle === 'function') renderReactToggle();
+    if (typeof renderShare === 'function') renderShare();
     renderBoard();
     renderClue();
     renderPlayers();
@@ -234,12 +235,15 @@
     // Multiple Choice / Reihenfolge: Enthalten gibt es nicht – wer nichts abgibt, zählt wie falsch
     const losers = cur.kind === 'estimate' ? []
       : state.players.map((p) => p.id).filter((id) => !winners.includes(id));
-    const label = [winners.length ? `${winners.map(nameOf).join(', ')} +${value}` : 'niemand richtig',
+    const gainOf = (id) => scoreFor(cur, id).gain;
+    const label = [winners.length ? winners.map((id) => `${nameOf(id)} +${gainOf(id)}`).join(', ') : 'niemand richtig',
       losers.length ? `${losers.map(nameOf).join(', ')} −${penalty}` : ''].filter(Boolean).join(' · ');
     mutate(`Aufgelöst: ${label}`, () => {
       if (cur.kind === 'estimate') cur.est.winners = winners;
+      cur.pts = {};
       winners.forEach((id) => {
-        state.players.find((p) => p.id === id).score += value;
+        cur.pts[id] = gainOf(id);
+        state.players.find((p) => p.id === id).score += cur.pts[id];
         cur.judged[id] = 'right';
         stat(id).right++;
       });
@@ -279,15 +283,20 @@
       const won = cur.judged[p.id] === 'right';
       const lost = cur.judged[p.id] === 'wrong';
       const pen = J.penaltyFor(cur.round, cur.row);
-      return `<div class="srow${won ? ' won' : ''}${lost ? ' lost' : ''}"><span class="name">${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${value}` : ''}${lost ? ` · −${pen}` : ''}</span></div>`;
+      const got = cur.pts && p.id in cur.pts ? cur.pts[p.id] : scoreFor(cur, p.id).gain;
+      const mark = state.turn === p.id ? '🎯 ' : '';
+      return `<div class="srow${won ? ' won' : ''}${lost ? ' lost' : ''}"><span class="name">${mark}${J.escapeHtml(p.name)}</span><span>${J.escapeHtml(detail)}${won ? ` · +${got}` : ''}${lost ? ` · −${pen}` : ''}</span></div>`;
     }).join('');
     const total = state.players.length;
     const head = cur.kind === 'estimate' ? `🔢 Schätzfrage – ${n}/${total} getippt`
       : cur.kind === 'choice' ? `🅰️ Multiple Choice – ${n}/${total} gewählt` : `↕️ Reihenfolge – ${n}/${total} abgegeben`;
     const pen = J.penaltyFor(cur.round, cur.row);
-    const rule = cur.kind === 'estimate' ? `Wer am nächsten dran ist, bekommt +${value} (kein Abzug)`
-      : cur.kind === 'choice' ? `Richtig: +${value}, falsch oder keine Abgabe: −${pen}`
-        : `Komplett richtige Reihenfolge: +${value}, sonst (auch ohne Abgabe): −${pen}`;
+    const share = otherShare();
+    const other = state.turn && share !== 100 ? J.shareOf(value, share) : null;
+    const plus = other == null ? `+${value}` : `+${value} (🎯 am Zug) bzw. +${other} (alle anderen)`;
+    const rule = cur.kind === 'estimate' ? `Wer am nächsten dran ist, bekommt ${plus} (kein Abzug)`
+      : cur.kind === 'choice' ? `Richtig: ${plus}, falsch oder keine Abgabe: −${pen}`
+        : `Komplett richtige Reihenfolge: ${plus}, sonst (auch ohne Abgabe): −${pen}`;
     box.innerHTML = `<div class="special-head">${head}</div>${rows}` +
       (cur.revealed ? '' : `<div class="hint">${rule}. Abgaben lassen sich bis zum Auflösen ändern.</div>`);
   }
@@ -492,7 +501,7 @@
       const rowEl = document.createElement('div');
       const isWinner = (buzz.winner === p.id || (pass && pass.to === p.id && !buzz.winner)) && !verdict;
       const double = (jk.double || []).includes(p.id);
-      const { gain, penalty } = J.judgePoints(cur.round, cur.row, { stolen, double });
+      const { gain, penalty } = scoreFor(cur, p.id, { stolen, double });
       rowEl.className = 'jrow' + (verdict ? ' ' + verdict : '') + (isWinner ? ' buzzed' : '');
       const name = document.createElement('span');
       name.className = 'name';
@@ -503,7 +512,8 @@
       if (verdict) {
         const tag = document.createElement('span');
         tag.className = 'verdict';
-        tag.textContent = verdict === 'right' ? `✓ +${gain}` + (stolen ? ' (geklaut)' : '') : `✗ −${penalty}`;
+        const got = cur.pts && p.id in cur.pts ? cur.pts[p.id] : gain; // beim Werten festgehalten
+        tag.textContent = verdict === 'right' ? `✓ +${got}` + (stolen ? ' (geklaut)' : '') : `✗ −${penalty}`;
         rowEl.append(name, tag);
         judge.appendChild(rowEl);
         return;
@@ -516,6 +526,7 @@
       ok.addEventListener('click', () => {
         mutate(`${p.name} richtig (+${gain}${stolen ? ', geklaut' : ''})`, () => {
           p.score += gain;
+          (state.current.pts = state.current.pts || {})[p.id] = gain;
           state.current.judged[p.id] = 'right';
           stat(p.id).right++;
           if (stolen) stat(p.id).steals = (stat(p.id).steals || 0) + 1;
@@ -657,6 +668,23 @@
   });
   function renderSoundToggle() {
     $('soundToggle').textContent = J.soundOn() ? '🔊 Sounds an' : '🔇 Sounds aus';
+  }
+  // Einstellung „Punkte für Richtige, die nicht am Zug sind“ – nach Spielbeginn gesperrt
+  function renderShare() {
+    const sel = $('otherShare');
+    if (!sel) return;
+    if (!sel.options.length) {
+      J.OTHER_SHARES.forEach((v) => sel.add(new Option(v === 100 ? '100 % (volle Punkte)' : `${v} %`, String(v))));
+      sel.addEventListener('change', () => {
+        const v = J.cleanShare(sel.value);
+        if (gameStarted()) { renderShare(); return; }
+        state.otherShare = v; // Einstellung, kein Spielzug: ohne Rückgängig-Eintrag
+        commit();
+      });
+    }
+    sel.value = String(otherShare());
+    sel.disabled = gameStarted();
+    $('otherShareNote').textContent = gameStarted() ? 'Gesperrt, solange das Spiel läuft („Spielstand zurücksetzen“ gibt sie frei).' : '';
   }
   function renderReactToggle() {
     if (!$('reactToggle')) return;
@@ -1081,6 +1109,13 @@
     }
     data.v = J.APP_VERSION;
     return { type: 'state', data };
+  }
+
+  // Punkteverteilung: am Zug (oder niemand am Zug) → voller Wert, alle anderen → Anteil
+  function isActive(id) { return !state.turn || id === state.turn; }
+  function otherShare() { return J.cleanShare(state.otherShare); }
+  function scoreFor(cur, id, extra = {}) {
+    return J.judgePoints(cur.round, cur.row, { active: isActive(id), otherShare: otherShare(), ...extra });
   }
 
   // Hat das Spiel schon begonnen? (Feld offen/gespielt, Punkte vergeben, Runde 2 oder Ende)

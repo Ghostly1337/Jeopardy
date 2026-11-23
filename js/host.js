@@ -837,6 +837,7 @@
       state.finished = false;
       state.stats = {};
       state.personStats = {};
+      state.bindings = {};
     });
   });
   $('newCode').addEventListener('click', () => {
@@ -949,6 +950,16 @@
       conn.deviceId = typeof msg.deviceId === 'string' && msg.deviceId.length <= 64 ? msg.deviceId : null;
       let ok = state.players.some((p) => p.id === pid) ? pid : null;
       conn.memberName = null;
+      // Läuft das Spiel, bleibt jedes Gerät bei seinem Team/Spieler – sonst könnte man kurz
+      // wechseln und die Joker des anderen Teams nutzen oder verbrennen. Lösen kann nur der Host.
+      const bindings = state.bindings || (state.bindings = {});
+      if (ok && gameStarted()) {
+        const bound = conn.deviceId && bindings[conn.deviceId];
+        if (!conn.deviceId || (bound && bound !== ok && state.players.some((p) => p.id === bound))) {
+          conn.send({ type: 'taken', playerId: pid, reason: 'locked', bound: bound || null, boundName: bound ? nameOf(bound) : null });
+          ok = bound || null; // abgelehnter Wechsel: Gerät bleibt bei seinem bisherigen Team/Spieler
+        }
+      }
       if (ok && isTeam()) {
         // Team-Modus: mehrere Geräte pro Team bis zur Teamgröße
         for (const c of conns) {
@@ -979,6 +990,10 @@
         }
       }
       conn.playerId = ok;
+      if (ok && conn.deviceId && bindings[conn.deviceId] !== ok) {
+        bindings[conn.deviceId] = ok;
+        J.saveState(state);
+      }
       renderPlayers();
       broadcast(); // Belegung an alle schicken
       if (ok) { sendHint(ok); resendTeamState(conn); } // nach Verbindungsabbruch Tipp und Team-Stand erneut schicken
@@ -1068,8 +1083,19 @@
     return { type: 'state', data };
   }
 
+  // Hat das Spiel schon begonnen? (Feld offen/gespielt, Punkte vergeben, Runde 2 oder Ende)
+  function gameStarted() {
+    return !!state.current || state.round > 0 || !!state.finished
+      || state.used.some((round) => round.some((col) => col.some(Boolean))) // used[Runde][Kategorie][Zeile]
+      || state.players.some((p) => p.score !== 0 || (p.usedJokers || []).length);
+  }
+
   // Host gibt einen Namen frei (z. B. wenn sich jemand verwählt hat)
   function releasePlayer(pid) {
+    // Bindung lösen: das Gerät darf danach ein anderes Team/einen anderen Namen wählen
+    const bindings = state.bindings || {};
+    Object.keys(bindings).forEach((d) => { if (bindings[d] === pid) delete bindings[d]; });
+    J.saveState(state);
     conns.forEach((c) => {
       if (c.playerId === pid) {
         c.playerId = null;

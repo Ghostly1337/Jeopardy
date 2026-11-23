@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.8';
+  const APP_VERSION = '2026-11-23.9';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -549,6 +549,10 @@
       teamSize: clampTeamSize(s.teamSize),
       finished: !!s.finished,
       history: Array.isArray(s.history) ? s.history : [],
+      // Gerät → Team/Spieler, an das es seit Spielbeginn gebunden ist
+      bindings: s.bindings && typeof s.bindings === 'object' && !Array.isArray(s.bindings)
+        ? Object.fromEntries(Object.entries(s.bindings).filter(([k, v]) => typeof v === 'string' && k.length <= 64))
+        : {},
     };
   }
   const saveState = (s) => save(STATE_KEY, s);

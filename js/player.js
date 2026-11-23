@@ -857,6 +857,20 @@
       }
       else if (msg.type === 'react') J.showReaction(msg.emoji, msg.name);
       else if (msg.type === 'reactLock') lockReactions(msg.ms);
+      else if (msg.type === 'taken' && msg.playerId === me && msg.reason === 'locked') {
+        // Wechsel während des Spiels: zurück zum bisherigen Team/Spieler
+        const team = isTeamMode();
+        if (msg.bound && last && last.players.some((p) => p.id === msg.bound)) {
+          me = msg.bound;
+          try { localStorage.setItem(ME_KEY, me); } catch (e) {}
+          pickerError = '';
+          sendHello();
+          renderMe();
+          alert(`Während des Spiels kannst du ${team ? 'das Team' : 'den Namen'} nicht wechseln – du bleibst bei „${msg.boundName || ''}“. Nur der Host kann dich freigeben.`);
+        } else {
+          forget(`Während des Spiels ist kein Wechsel möglich. Bitte den Host, dich freizugeben.`);
+        }
+      }
       else if (msg.type === 'taken' && msg.playerId === me) {
         forget(msg.reason === 'full' ? 'Dieses Team ist schon voll. Wähle ein anderes.' : 'Dieser Name ist schon auf einem anderen Gerät vergeben.');
       } else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle neu.');

@@ -130,3 +130,51 @@ test('Joker gelten fürs ganze Spiel, nicht pro Runde', async () => {
   assert.ok(await anna.locator('.joker[data-kind="hint"]').isEnabled(), 'andere Joker bleiben');
   assert.deepEqual(env.errors, []);
 });
+
+test('Kein Teamwechsel während des Spiels – keine Joker anderer Teams', async (t) => {
+  const { host, code } = await openHost(env, { mode: 'team', teamSize: 2, names: ['Rot', 'Blau'] });
+  const anna = await joinPlayer(env, code, { name: 'Anna', pick: 'Rot' });
+  const ben = await joinPlayer(env, code, { name: 'Ben', pick: 'Rot' });
+  await host.waitForFunction(() => document.getElementById('players').textContent.includes('Anna, Ben'));
+  const switchTo = async (p, team) => {
+    await p.click('#me');
+    await p.waitForSelector('#picker:not([hidden])');
+    await p.click(`.pick:has-text("${team}")`);
+  };
+
+  await t.test('Vor Spielbeginn darf man das Team noch wechseln', async () => {
+    await switchTo(ben, 'Blau');
+    await ben.waitForFunction(() => document.getElementById('me').textContent === 'Du: Ben · Blau');
+    await host.waitForFunction(() => document.getElementById('players').textContent.includes('📱 Ben'));
+  });
+
+  await t.test('Nach dem ersten Feld bleibt Ben bei Blau', async () => {
+    await host.locator('.cell.val').nth(0).click(); // Rot ist am Zug
+    await ben.waitForSelector('#jokerBar:not([hidden])');
+    await switchTo(ben, 'Rot');
+    await ben.waitForFunction(() => document.getElementById('me').textContent === 'Du: Ben · Blau');
+    await ben.waitForTimeout(400);
+    // Host hat Ben nie bei Rot geführt, Rots Joker sind unberührt
+    assert.ok(await host.isHidden('#jokerStatus'));
+    assert.match(await ben.getAttribute('.joker[data-kind="double"]', 'title'), /Nur wenn du dran bist/);
+    // Auch am UI vorbei: Wechselnachricht direkt an den Host wird abgelehnt
+    const rot = await host.evaluate(() => J.loadState().players.find((p) => p.name === 'Rot').id);
+    await ben.evaluate((id) => window.__jeopConn.send({ type: 'hello', playerId: id, deviceId: localStorage.getItem('jeopardy.device') || 'x', name: 'Ben' }), rot);
+    await ben.waitForTimeout(400);
+    await ben.evaluate(() => window.__jeopConn.send({ type: 'joker', kind: 'double' }));
+    await ben.waitForTimeout(400);
+    assert.ok(await host.isHidden('#jokerStatus'), 'kein Joker für Rot');
+  });
+
+  await t.test('Der Host kann die Bindung lösen', async () => {
+    await host.click('#cancel');
+    // Host trennt Blau (Ben ist das einzige Gerät) → Ben darf neu wählen
+    await host.evaluate(() => {
+      const row = [...document.querySelectorAll('#players .prow')].find((r) => r.textContent.includes('Blau'));
+      const btn = row && row.querySelector('.device');
+      if (btn) btn.click();
+    });
+    await ben.waitForSelector('#picker:not([hidden])');
+    assert.deepEqual(env.errors, []);
+  });
+});

@@ -203,7 +203,7 @@
     st.hidden = false;
     const n = data.submitted.length;
     const mine = isPlayer && data.submitted.includes(me);
-    const risk = kind === 'estimate' ? '' : ` · Falsch kostet −${cur.value / 2}`;
+    const risk = kind === 'estimate' ? '' : ` · Falsch oder keine Abgabe kostet −${cur.value / 2}`;
     st.textContent = (kind === 'estimate' ? `🔢 ${n}/${total} haben getippt` : kind === 'choice' ? `🅰️ ${n}/${total} haben gewählt${risk}` : `↕️ ${n}/${total} haben abgegeben${risk}`) +
       (mine && isTeamMode() && teamBy && teamBy !== myName ? ` · ${teamBy} hat für euch abgegeben` : '') +
       (mine ? (isTeamMode()

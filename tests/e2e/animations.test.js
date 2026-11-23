@@ -45,9 +45,17 @@ test('Animationen auf Handy und TV', async (t) => {
   });
 
   await t.test('Falsch: roter Wackler, Kachel rot, verschwindet wieder', async () => {
+    // Effekte mitschneiden statt abzupassen (sie sind nur ~1 s sichtbar, übers Relay kommt alles etwas später)
+    await anna.evaluate(() => {
+      window.__fx = new Set();
+      const note = () => {
+        if (document.querySelector('#overlay.fx-wrong')) window.__fx.add('wrong');
+        if (document.querySelector('#overlayScores .score.fx-down')) window.__fx.add('down');
+      };
+      new MutationObserver(note).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    });
     await host.locator('.jrow').nth(1).locator('.red').click(); // Ben falsch
-    await anna.waitForSelector('#overlay.fx-wrong');
-    await anna.waitForSelector('#overlayScores .score.fx-down');
+    await anna.waitForFunction(() => window.__fx.has('wrong') && window.__fx.has('down'));
     await anna.waitForSelector('#overlay:not(.fx-wrong)', { timeout: 3000 });
   });
 

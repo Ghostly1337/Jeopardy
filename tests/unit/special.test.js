@@ -114,3 +114,15 @@ test('Multiple Choice: gemischt, Lösung und Wahl erst nach dem Auflösen', () =
   assert.equal(pub.current.mc.correct, 1, 'angezeigte Position der richtigen Antwort');
   assert.deepEqual(plain(pub.current.mc.picks), { a: 1, b: 2 });
 });
+
+test('Multiple Choice: richtige Antwort landet an jeder Position (auch bei Fakt/Fake)', () => {
+  for (const n of [2, 4]) {
+    const seen = new Set();
+    for (let i = 0; i < 400; i++) {
+      const p = J.randomPerm(n);
+      assert.ok(J.isPerm(p, n));
+      seen.add(p.indexOf(0)); // Position der richtigen Antwort
+    }
+    assert.equal(seen.size, n, `bei ${n} Optionen kommt jede Position vor`);
+  }
+});

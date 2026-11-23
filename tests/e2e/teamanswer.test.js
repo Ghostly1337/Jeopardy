@@ -33,6 +33,7 @@ test('Team-Modus: alle im Team sehen, was fürs Team abgegeben wurde', async () 
   await anna.waitForFunction(() => document.querySelector('.special-status').textContent.includes('Ben hat für euch abgegeben'));
   await host.waitForFunction(() => document.getElementById('special').textContent.includes('✓ Richtig'));
   await host.click('#resolveBtn');
-  await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,0');
+  // Rot richtig +100; Blau hat nichts abgegeben → zählt wie falsch (−50), Enthalten gibt es nicht
+  await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,-50');
   assert.deepEqual(env.errors, []);
 });

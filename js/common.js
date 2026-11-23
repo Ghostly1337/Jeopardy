@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-15.6';
+  const APP_VERSION = '2026-11-23.2';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -266,6 +266,16 @@
         [p[i], p[j]] = [p[j], p[i]];
       }
     } while (p.every((v, i) => v === i));
+    return p;
+  }
+  // Echte Zufallsmischung (darf auch unverändert bleiben) – für Multiple Choice. shufflePerm passt nicht:
+  // Bei zwei Optionen (Fakt/Fake) bliebe nur das Vertauschen, die Lösung stünde immer an Position B.
+  function randomPerm(n, rnd = Math.random) {
+    const p = [...Array(n).keys()];
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
     return p;
   }
   // Gültige Abgabe: eine Permutation von 0..n-1 (Indizes der Original-Reihenfolge)
@@ -979,7 +989,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

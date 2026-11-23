@@ -541,7 +541,7 @@
     }
     const btn = $('me');
     btn.hidden = !valid;
-    $('reactBar').hidden = !valid || me === 'tv';
+    $('reactBar').hidden = !valid || me === 'tv' || !!(last && last.reactionsOff);
     btn.textContent = me === 'watch' ? '👀 Zuschauer'
       : me === 'tv' ? '📺 TV'
       : !myPlayer() ? ''
@@ -672,6 +672,23 @@
 
   // ---------- Live-Reaktionen ----------
   let lastReact = 0;
+  let reactLockUntil = 0;
+  let reactLockTimer = null;
+  // Spam-Sperre: Host meldet die Pause, die Leiste zeigt einen Countdown
+  function lockReactions(ms) {
+    reactLockUntil = Date.now() + Math.min(60000, Math.max(0, Number(ms) || 0));
+    clearInterval(reactLockTimer);
+    const tick = () => {
+      const left = Math.ceil((reactLockUntil - Date.now()) / 1000);
+      const bar = $('reactBar');
+      bar.classList.toggle('locked', left > 0);
+      bar.dataset.wait = left > 0 ? `⏳ ${left}` : '';
+      bar.title = left > 0 ? `Zu viele Emojis – Pause noch ${left} s` : '';
+      if (left <= 0) clearInterval(reactLockTimer);
+    };
+    tick();
+    reactLockTimer = setInterval(tick, 250);
+  }
   const toggle = document.createElement('button');
   toggle.className = 'react-btn react-toggle';
   toggle.textContent = '😀';
@@ -684,7 +701,7 @@
     b.textContent = emoji;
     b.addEventListener('click', () => {
       const now = Date.now();
-      if (now - lastReact < 350 || !conn || !conn.open) return; // lokal drosseln
+      if (now - lastReact < 350 || now < reactLockUntil || !conn || !conn.open) return; // lokal drosseln
       lastReact = now;
       conn.send({ type: 'react', emoji });
     });
@@ -772,6 +789,7 @@
         renderJokers(lastJokerKey);
       }
       else if (msg.type === 'react') J.showReaction(msg.emoji, msg.name);
+      else if (msg.type === 'reactLock') lockReactions(msg.ms);
       else if (msg.type === 'taken' && msg.playerId === me) {
         forget(msg.reason === 'full' ? 'Dieses Team ist schon voll. Wähle ein anderes.' : 'Dieser Name ist schon auf einem anderen Gerät vergeben.');
       } else if (msg.type === 'released') forget('Der Host hat dein Gerät getrennt. Bitte wähle neu.');

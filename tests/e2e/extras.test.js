@@ -63,6 +63,41 @@ test('Bilder in Fragen: Upload, Link und unsichere Links', async (t) => {
   });
 });
 
+test('Emoji-Spam-Sperre und Schalter im Host-Pult', async (t) => {
+  const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
+  const p = await joinPlayer(env, code, { pick: 'Anna', viewport: { width: 1280, height: 800 } });
+  const max = await p.evaluate(() => J.REACT_MAX);
+
+  await t.test('Zu viele Emojis: Pause mit Countdown, nichts kommt mehr an', async () => {
+    for (let i = 0; i < max; i++) {
+      await p.click('.react-btn:text-is("🔥")');
+      await p.waitForTimeout(400);
+    }
+    await host.waitForSelector('.react-float .react-emoji:text-is("🔥")');
+    await p.click('.react-btn:text-is("🔥")');
+    await p.waitForSelector('#reactBar.locked');
+    assert.match(await p.getAttribute('#reactBar', 'data-wait'), /^⏳ \d+$/);
+    const before = await host.locator('.react-float').count();
+    await p.locator('.react-btn:text-is("😂")').click({ force: true });
+    await p.waitForTimeout(600);
+    assert.equal(await host.locator('.react-float .react-emoji:text-is("😂")').count(), 0, 'gesperrtes Emoji kommt nicht an');
+    assert.ok(await host.locator('.react-float').count() <= before);
+  });
+
+  await t.test('Host schaltet Emojis ab und wieder an', async () => {
+    assert.equal(await host.textContent('#reactToggle'), '😀 Emojis an');
+    await host.click('#reactToggle');
+    assert.equal(await host.textContent('#reactToggle'), '🚫 Emojis aus');
+    await p.waitForSelector('#reactBar', { state: 'hidden' });
+    await host.click('#reactToggle');
+    await p.waitForSelector('#reactBar', { state: 'visible' });
+  });
+
+  await host.context().close();
+  await p.context().close();
+  assert.deepEqual(env.errors, []);
+});
+
 test('Siegerehrung mit Gleichstand und Reaktionen', async (t) => {
   const { host, code } = await openHost(env, { names: ['Anna', 'Ben', 'Cem'] });
   const p = await joinPlayer(env, code, { pick: 'Anna', viewport: { width: 1280, height: 800 } });

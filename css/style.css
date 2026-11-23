@@ -558,6 +558,11 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .react-btn:hover { background: var(--surface-2); }
 .react-btn:active { transform: scale(.85); }
+.react-bar.locked .react-btn:not(.react-toggle) { opacity: .35; filter: grayscale(1); pointer-events: none; }
+.react-bar.locked::after {
+  content: attr(data-wait); font-size: 12px; font-weight: 700; color: var(--muted);
+  text-align: center; white-space: nowrap; padding: 2px 0;
+}
 body:has(#reactBar:not([hidden])) .player-page { padding-right: 66px; }
 .react-layer { position: fixed; inset: 0; z-index: 27; pointer-events: none; overflow: hidden; }
 .react-float {

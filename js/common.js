@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.2';
+  const APP_VERSION = '2026-11-23.3';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -573,6 +573,7 @@
       teamSize: clampTeamSize(state.teamSize),
       turn: state.turn || null,
       finished: !!state.finished,
+      reactionsOff: !!state.reactionsOff,
       stats: state.stats || {},
       personStats: state.mode === 'team' ? state.personStats || {} : {},
       current,
@@ -947,6 +948,22 @@
 
   // ---------- Live-Reaktionen ----------
   const REACTIONS = ['😂', '👏', '😱', '🔥', '🤔'];
+  // Spam-Sperre: höchstens REACT_MAX Emojis in REACT_WINDOW_MS, wer mehr schickt, pausiert REACT_LOCK_MS
+  const REACT_MAX = 5;
+  const REACT_WINDOW_MS = 8000;
+  const REACT_LOCK_MS = 15000;
+  // Reine Funktion (testbar): entscheidet über eine Reaktion und gibt den neuen Zustand zurück
+  function reactGate(gate, now) {
+    const g = gate || { times: [], lockUntil: 0 };
+    if (now < g.lockUntil) return { ok: false, locked: true, gate: g, wait: g.lockUntil - now };
+    const times = g.times.filter((t) => now - t < REACT_WINDOW_MS);
+    if (times.length >= REACT_MAX) {
+      const next = { times: [], lockUntil: now + REACT_LOCK_MS };
+      return { ok: false, locked: true, justLocked: true, gate: next, wait: REACT_LOCK_MS };
+    }
+    times.push(now);
+    return { ok: true, locked: false, gate: { times, lockUntil: 0 } };
+  }
   function showReaction(emoji, name) {
     if (!REACTIONS.includes(emoji)) return;
     let layer = document.getElementById('reactLayer');
@@ -956,7 +973,7 @@
       layer.className = 'react-layer';
       document.body.appendChild(layer);
     }
-    if (layer.childElementCount > 40) layer.firstElementChild.remove(); // bei Spam begrenzen
+    while (layer.childElementCount >= 15) layer.firstElementChild.remove(); // höchstens 15 gleichzeitig auf dem Bildschirm
     const el = document.createElement('div');
     el.className = 'react-float';
     el.style.left = (8 + Math.random() * 84) + '%';
@@ -1002,7 +1019,7 @@
     nextTurn, turnAfterRemoval, LOCK_MS, MIN_REACTION_MS, isEarly, pickBuzzWinner,
     clampTeamSize, teamIsFull, teamColor, cleanName,
     DEFAULT_ICE, parseTurn, iceConfig, encodeTurn, decodeTurn, loadTurn, saveTurn, scoreDelta,
-    fmtMs, awards, REACTIONS, showReaction, BUZZ_WINDOW_MS: 400,
+    fmtMs, awards, REACTIONS, showReaction, reactGate, REACT_MAX, REACT_WINDOW_MS, REACT_LOCK_MS, BUZZ_WINDOW_MS: 400,
     // Übers Relay kommen Buzzes ungleichmäßiger an (HTTP statt Direktverbindung) → länger sammeln
     BUZZ_WINDOW_RELAY_MS: 900,
   };

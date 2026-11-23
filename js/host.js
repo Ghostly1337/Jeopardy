@@ -55,6 +55,7 @@
 
   // ---------- Rendering ----------
   function render() {
+    if (typeof renderReactToggle === 'function') renderReactToggle();
     renderBoard();
     renderClue();
     renderPlayers();
@@ -644,6 +645,16 @@
   function renderSoundToggle() {
     $('soundToggle').textContent = J.soundOn() ? '🔊 Sounds an' : '🔇 Sounds aus';
   }
+  function renderReactToggle() {
+    if (!$('reactToggle')) return;
+    $('reactToggle').textContent = state.reactionsOff ? '🚫 Emojis aus' : '😀 Emojis an';
+  }
+  $('reactToggle').addEventListener('click', () => {
+    state.reactionsOff = !state.reactionsOff;
+    renderReactToggle();
+    commit();
+  });
+  renderReactToggle();
   $('soundToggle').addEventListener('click', () => {
     J.setSoundOn(!J.soundOn());
     renderSoundToggle();
@@ -958,13 +969,18 @@
     }
   }
 
-  // Live-Reaktionen: prüfen, drosseln (max. ~3 pro Sekunde und Gerät) und an alle verteilen
+  // Live-Reaktionen: prüfen, Spam sperren und an alle verteilen.
+  // Die Sperre hängt am Spieler (bzw. Teammitglied), nicht an der Verbindung: neu verbinden hebt sie nicht auf.
+  const reactGates = new Map();
   function handleReaction(conn, msg) {
-    if (!J.REACTIONS.includes(msg.emoji)) return;
-    const now = Date.now();
-    conn.reactTimes = (conn.reactTimes || []).filter((t) => now - t < 1000);
-    if (conn.reactTimes.length >= 3) return;
-    conn.reactTimes.push(now);
+    if (!J.REACTIONS.includes(msg.emoji) || state.reactionsOff) return;
+    const key = conn.playerId ? conn.playerId + '|' + (conn.memberName || '') : conn;
+    const res = J.reactGate(reactGates.get(key), Date.now());
+    reactGates.set(key, res.gate);
+    if (!res.ok) {
+      if (conn.open) conn.send({ type: 'reactLock', ms: res.wait });
+      return;
+    }
     const name = conn.playerId
       ? (isTeam() && conn.memberName ? `${conn.memberName} (${nameOf(conn.playerId)})` : nameOf(conn.playerId))
       : '👀';

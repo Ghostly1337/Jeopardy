@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Alle Browser-Tests laufen einmal über WebRTC (GitHub Pages) und einmal über das Relay (Vercel)
+        # Alle Browser-Tests laufen einmal über WebRTC und einmal über das Relay (Vercel)
         transport: [peer, relay]
     steps:
       - uses: actions/checkout@v5
@@ -35,26 +35,3 @@ jobs:
         env:
           E2E_TRANSPORT: ${{ matrix.transport }}
 
-  deploy:
-    name: Auf GitHub Pages veröffentlichen
-    needs: test
-    # Nur vom Default-Branch und nur wenn alle Tests grün sind
-    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4

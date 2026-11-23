@@ -1,7 +1,6 @@
 # Jeopardy
 
-**▶ Spielen: https://jeopardy-two-pi.vercel.app** (Vercel mit Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)  
-Ausweichadresse: https://ghostly1337.github.io/Jeopardy/ (GitHub Pages, WebRTC – ohne Passwort, im selben WLAN evtl. nur mit Verbindungshilfe)
+**▶ Spielen: https://jeopardy-two-pi.vercel.app** (Vercel mit Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)
 
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 
@@ -54,7 +53,7 @@ Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verli
 ## Technik
 Reines HTML/CSS/JS ohne Build. Live-Sync per WebRTC über [PeerJS](https://peerjs.com/) und dessen kostenlosen öffentlichen Vermittlungsserver. Dein Browser ist die einzige Datenquelle; die Spieler bekommen nur einen gefilterten Stand ohne Antworten.
 
-Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: die **Verbindungshilfe** (TURN, für GitHub Pages) oder die **Vercel-Variante** (Relay, empfohlen).
+Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: die **Verbindungshilfe** (TURN, für die WebRTC-Variante) oder die **Vercel-Variante** (Relay, empfohlen).
 
 ## Hosting auf Vercel (netzunabhängig, mit Passwort)
 Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **HTTP-Relay** (`api/relay.mjs`): Host und Spieler schicken ihre Nachrichten per HTTPS an eine Vercel Function, die sie in einer Postgres-Datenbank (Neon, Region Frankfurt) zwischenlagert und per Long-Polling ausliefert. Das funktioniert in jedem Netz, in dem normale Webseiten gehen. Die Seite erkennt das Relay selbst (`api/relay?op=ping`); auf GitHub Pages oder lokal bleibt es bei WebRTC.
@@ -74,7 +73,7 @@ vercel env add JEOPARDY_HOST_PASSWORD production
 vercel deploy --prod
 ```
 
-### Verbindungshilfe (nur GitHub Pages / WebRTC)
+### Verbindungshilfe (nur WebRTC)
 Bleiben Spieler bei „Verbinde mit dem Spiel…“ hängen, blockiert das Netz direkte Verbindungen – typisch, wenn alle im selben Uni-WLAN sind. Die Spielerseite zeigt das nach einigen Sekunden an. Lösung: Im Host-Pult unter **🛜 Verbindungshilfe** einen TURN-Zugang eintragen (z. B. kostenlos von [Metered](https://www.metered.ca/stun-turn): Adressen, Benutzername, Passwort; am besten mit `turns:…:443`, das kommt durch fast jede Firewall). Der Zugang wird nur im Browser des Hosts gespeichert und im `#`-Teil des Beitrittslinks an die Spieler weitergegeben – er landet nicht im Code und nicht auf einem Server. Danach den Link neu verschicken.
 
 ## Tests
@@ -93,6 +92,6 @@ npm run test:e2e:relay            # Browser-Tests über das HTTP-Relay (wie auf 
 - Screenshots der Handy-Ansicht: `SHOTS=./shots npm run test:e2e`.
 
 ## CI und Veröffentlichung
-`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus. **Nur wenn alle grün sind**, wird der Default-Branch auf GitHub Pages veröffentlicht (Repo → *Settings* → *Pages* → *Source: GitHub Actions*).
+`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus (WebRTC und Relay). Veröffentlicht wird über Vercel, das jeden Push auf `main` selbst baut.
 
 Lokal ansehen: `python3 -m http.server` im Repo-Ordner, dann `http://localhost:8000` öffnen.

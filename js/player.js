@@ -187,7 +187,7 @@
     const key = clueKey + ':' + (data.revealed ? 'r' : 'o') + ':' + (isPlayer ? me : 'view');
     if (key !== specialKey || rebuildSpecial) {
       rebuildSpecial = false;
-      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; teamBy = null; }
+      if (!specialKey || !specialKey.startsWith(clueKey + ':')) { myGuess = null; myOrder = null; orderSent = false; myPick = null; teamBy = null; estDraft = null; }
       specialKey = key;
       box.innerHTML = '';
       if (kind === 'choice') box.appendChild(choiceView(cur.mc, isPlayer, nameOf));
@@ -238,10 +238,18 @@
     return wrap;
   }
 
+  let estDraft = null; // Team-Modus: gerade getippter (noch nicht abgegebener) Text
   function estimateInput() {
     const f = document.createElement('form');
     f.className = 'est-form';
-    f.innerHTML = '<input id="estInput" inputmode="decimal" autocomplete="off" placeholder="Deine Schätzung"><button class="primary" type="submit">Tippen</button>';
+    f.innerHTML = '<input id="estInput" inputmode="decimal" autocomplete="off" maxlength="30" placeholder="Deine Schätzung"><button class="primary" type="submit">Tippen</button>';
+    if (estDraft != null) f.querySelector('input').value = estDraft;
+    let draftTimer = null;
+    f.querySelector('input').addEventListener('input', (e) => {
+      estDraft = e.target.value;
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => sendDraft('estimate', estDraft), 120);
+    });
     f.addEventListener('submit', (e) => {
       e.preventDefault();
       const input = f.querySelector('input');
@@ -277,6 +285,13 @@
     return ol;
   }
 
+  let redrawOrder = null;
+  // Team-Modus: eigenen Zwischenstand an die anderen Geräte im Team (über den Host)
+  function sendDraft(kind, value) {
+    if (!isTeamMode() || !conn || !conn.open) return;
+    conn.send({ type: 'draft', kind, value });
+  }
+
   function orderInput(items) {
     const wrap = document.createElement('div');
     wrap.className = 'order-input';
@@ -297,6 +312,7 @@
           b.addEventListener('click', () => {
             [myOrder[pos], myOrder[pos + d]] = [myOrder[pos + d], myOrder[pos]];
             orderSent = false;
+            sendDraft('order', [...myOrder]);
             draw();
           });
           li.appendChild(b);
@@ -316,6 +332,7 @@
       wrap.append(ol, send);
     };
     draw();
+    redrawOrder = draw;
     return wrap;
   }
 
@@ -672,6 +689,13 @@
 
   // ---------- Live-Reaktionen ----------
   let lastReact = 0;
+  let reactGate = null;
+  // Name unter dem eigenen Emoji – so, wie der Host ihn auch den anderen zeigt
+  function myReactName() {
+    const p = myPlayer();
+    if (!p) return '👀';
+    return isTeamMode() && myName ? `${myName} (${p.name})` : p.name;
+  }
   let reactLockUntil = 0;
   let reactLockTimer = null;
   // Spam-Sperre: Host meldet die Pause, die Leiste zeigt einen Countdown
@@ -701,8 +725,13 @@
     b.textContent = emoji;
     b.addEventListener('click', () => {
       const now = Date.now();
-      if (now - lastReact < J.REACT_GAP_MS || now < reactLockUntil || !conn || !conn.open) return; // lokal drosseln
+      if (now < reactLockUntil || !conn || !conn.open) return;
+      // Dieselbe Sperre wie beim Host vorab prüfen, dann sofort selbst anzeigen (kein Warten aufs Netz)
+      const res = J.reactGate(reactGate, now);
+      reactGate = res.gate;
+      if (!res.ok) { lockReactions(res.wait); return; }
       lastReact = now;
+      J.showReaction(emoji, myReactName());
       conn.send({ type: 'react', emoji });
     });
     $('reactBar').appendChild(b);
@@ -778,11 +807,23 @@
       else if (msg.type === 'teamAnswer' && msg.key === lastJokerKey) {
         // Teammitglied hat abgegeben → hier übernehmen, damit alle sehen, was fürs Team zählt
         teamBy = msg.by;
-        if (msg.kind === 'estimate') myGuess = msg.value;
+        if (msg.kind === 'estimate') { myGuess = msg.value; estDraft = String(msg.value).replace('.', ','); }
         else if (msg.kind === 'choice') myPick = msg.value;
         else if (msg.kind === 'order') { myOrder = [...msg.value]; orderSent = true; }
         rebuildSpecial = true;
         renderSpecial(lastJokerKey);
+      }
+      else if (msg.type === 'teamDraft' && msg.key === lastJokerKey) {
+        // Teammitglied verschiebt/tippt gerade → live übernehmen, ohne neu aufzubauen
+        if (msg.kind === 'order' && Array.isArray(msg.value)) {
+          myOrder = [...msg.value];
+          orderSent = false;
+          if (redrawOrder && document.querySelector('.order-input')) redrawOrder(); else { rebuildSpecial = true; renderSpecial(lastJokerKey); }
+        } else if (msg.kind === 'estimate' && typeof msg.value === 'string') {
+          estDraft = msg.value;
+          const input = document.getElementById('estInput');
+          if (input && input.value !== msg.value) input.value = msg.value;
+        }
       }
       else if (msg.type === 'hint' && typeof msg.key === 'string' && typeof msg.text === 'string') {
         hints[msg.key] = msg.text;

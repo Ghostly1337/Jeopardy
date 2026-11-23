@@ -111,7 +111,14 @@ test('Siegerehrung mit Gleichstand und Reaktionen', async (t) => {
   await p.waitForFunction(() => [...document.querySelectorAll('#scores .score-value')].map((e) => e.textContent).join(',') === '0,100,100');
 
   await t.test('Reaktion fliegt bei Host und Spieler mit Namen', async () => {
-    await p.click('.react-btn:text-is("😂")');
+    // Der Absender sieht sein Emoji sofort, ohne Umweg übers Netz
+    const shownAt = await p.evaluate(() => {
+      const t0 = performance.now();
+      document.querySelector('.react-btn[title]') ; // Leiste ist da
+      [...document.querySelectorAll('.react-btn')].find((b) => b.textContent === '😂').click();
+      return document.querySelector('.react-float .react-name')?.textContent === 'Anna' ? performance.now() - t0 : null;
+    });
+    assert.ok(shownAt !== null && shownAt < 50, 'sofort beim Absender');
     await host.waitForSelector('.react-float .react-name:text-is("Anna")');
     await p.waitForSelector('.react-float .react-name:text-is("Anna")');
   });

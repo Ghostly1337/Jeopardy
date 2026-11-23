@@ -24,6 +24,9 @@ test('Tipp-Art pro Frage', async (t) => {
     await ed.click('#pwForm button');
   }
   await ed.waitForFunction(() => !document.getElementById('setSelect').disabled);
+  // Übers Relay erst weiter, wenn die Server-Bibliothek geladen ist (sonst überschreibt sie die Änderungen)
+  if (TRANSPORT === 'relay') await ed.waitForFunction(() => document.getElementById('setSource').textContent.includes('Server'));
+  await host.waitForSelector('.cell.cat:text-is("Kategorie 1")');
   const clue = (cat, row) => ed.locator('.ed-cat').nth(cat).locator('.ed-clue').nth(row);
   const anna = await joinPlayer(env, code, { pick: 'Anna' });
   const ben = await joinPlayer(env, code, { pick: 'Ben' });

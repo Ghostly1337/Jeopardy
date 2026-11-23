@@ -207,6 +207,7 @@
     if (!isTeam()) return;
     const cur = state.current;
     const out = { type: 'teamAnswer', key: `${cur.round}:${cur.cat}:${cur.row}`, kind: cur.kind, value, by: from.memberName || null };
+    teamDrafts.delete(pid + '|' + out.key);
     conns.forEach((c) => { if (c.open && c.playerId === pid) c.send(out); });
   }
 
@@ -958,7 +959,7 @@
       conn.playerId = ok;
       renderPlayers();
       broadcast(); // Belegung an alle schicken
-      if (ok) sendHint(ok); // nach Verbindungsabbruch den Tipp erneut schicken
+      if (ok) { sendHint(ok); resendTeamState(conn); } // nach Verbindungsabbruch Tipp und Team-Stand erneut schicken
     } else if (msg.type === 'buzz') {
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {
@@ -967,7 +968,42 @@
       handleSubmission(conn, msg);
     } else if (msg.type === 'react') {
       handleReaction(conn, msg);
+    } else if (msg.type === 'draft') {
+      handleDraft(conn, msg);
     }
+  }
+
+  // Team-Modus: Zwischenstand (Reihenfolge verschoben, Zahl getippt) live an die anderen Geräte
+  // im Team, damit alle denselben Bildschirm haben – wie ein gemeinsames Gerät.
+  const teamDrafts = new Map(); // `${pid}|${frage}` → letzte Nachricht
+  const clueKeyOf = (cur) => `${cur.round}:${cur.cat}:${cur.row}`;
+  function handleDraft(conn, msg) {
+    const cur = state.current;
+    const pid = conn.playerId;
+    if (!isTeam() || !cur || cur.revealed || !pid || msg.kind !== cur.kind) return;
+    const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
+    let value;
+    if (cur.kind === 'order' && J.isPerm(msg.value, J.orderItems(clue.a).length)) value = [...msg.value];
+    else if (cur.kind === 'estimate' && typeof msg.value === 'string' && msg.value.length <= 30) value = msg.value;
+    else return;
+    const out = { type: 'teamDraft', key: clueKeyOf(cur), kind: cur.kind, value, by: conn.memberName || null };
+    teamDrafts.set(pid + '|' + out.key, out);
+    conns.forEach((c) => { if (c !== conn && c.open && c.playerId === pid) c.send(out); });
+  }
+
+  // Nach (Wieder-)Verbinden: aktuellen Team-Stand dieser Frage nachliefern
+  function resendTeamState(conn) {
+    const cur = state.current;
+    const pid = conn.playerId;
+    if (!isTeam() || !cur || cur.revealed || !pid || !J.isSpecialKind(cur.kind)) return;
+    const key = clueKeyOf(cur);
+    const draft = teamDrafts.get(pid + '|' + key);
+    let value = null;
+    if (cur.kind === 'estimate' && cur.est.guesses[pid] != null) value = cur.est.guesses[pid];
+    else if (cur.kind === 'choice' && cur.mc.answers[pid] != null) value = cur.mc.perm.indexOf(cur.mc.answers[pid]);
+    else if (cur.kind === 'order' && cur.ord.answers[pid]) value = cur.ord.answers[pid].map((orig) => cur.ord.perm.indexOf(orig));
+    if (value != null) conn.send({ type: 'teamAnswer', key, kind: cur.kind, value, by: null });
+    if (draft) conn.send(draft);
   }
 
   // Live-Reaktionen: prüfen, Spam sperren und an alle verteilen.
@@ -986,7 +1022,8 @@
       ? (isTeam() && conn.memberName ? `${conn.memberName} (${nameOf(conn.playerId)})` : nameOf(conn.playerId))
       : '👀';
     const out = { type: 'react', emoji: msg.emoji, name };
-    conns.forEach((c) => { if (c.open) c.send(out); });
+    // Der Absender hat sein Emoji schon selbst angezeigt (ohne Umweg über den Host)
+    conns.forEach((c) => { if (c.open && c !== conn) c.send(out); });
     J.showReaction(msg.emoji, name);
   }
 

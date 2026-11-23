@@ -3,7 +3,10 @@
 // eingeschleusten Code zusätzlich blockieren (Verstöße landen in env.errors).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, openHost, joinPlayer } = require('./helpers');
+const { startEnv, openHost, joinPlayer, TRANSPORT } = require('./helpers');
+
+// Escaping in der Oberfläche hängt nicht vom Transport ab: einmal reicht (Flut-Test läuft in beiden)
+const ONCE = { skip: TRANSPORT === 'relay' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
 
 let env;
 test.before(async () => { env = await startEnv(); });
@@ -14,7 +17,7 @@ const EVIL_NAME = EVIL.slice(0, 30); // Namensfeld im Host: maxlength 30
 const xss = (page) => page.evaluate(() => window.__xss);
 const imgs = (page, sel) => page.locator(`${sel} img`).count();
 
-test('HTML in Fragen, Namen und Tipps bleibt Text (Host, Spieler, TV)', async (t) => {
+test('HTML in Fragen, Namen und Tipps bleibt Text (Host, Spieler, TV)', ONCE, async (t) => {
   const { host, code } = await openHost(env, { mode: 'team', teamSize: 2, names: [EVIL, 'Blau'] });
   await host.evaluate((evil) => {
     const s = J.defaultSet();

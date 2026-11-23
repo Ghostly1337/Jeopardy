@@ -19,7 +19,7 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
   await t.test('Editor: Häkchen „Verpixeln“ erscheint mit Bild', async () => {
     const clue = ed.locator('.ed-cat').nth(0).locator('.ed-clue').first();
     assert.equal(await clue.locator('.ed-pixel').count(), 0);
-    await clue.locator('input[type=file]').setInputFiles({ name: 'bild.png', mimeType: 'image/png', buffer: TEST_PNG });
+    await clue.locator('.ed-img input[type=file]').setInputFiles({ name: 'bild.png', mimeType: 'image/png', buffer: TEST_PNG });
     await clue.locator('.ed-pixel input').check();
     await ed.waitForFunction(() => JSON.parse(localStorage.getItem('jeopardy.set')).rounds[0].categories[0].clues[0].pixel === true);
   });

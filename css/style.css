@@ -1548,3 +1548,15 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
   .clue-img.pixel, .clue-img.zoomed { height: 24vh; }
   .buzz-area { margin-top: 1.5vh; gap: 8px; }
 }
+
+/* ---------- Audio-/Video-Clips ---------- */
+.media-box, .media-wrap { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.media-box[hidden], .media-wrap[hidden] { display: none; }
+.host-media, .player-media { max-width: 100%; max-height: 38vh; border-radius: 10px; background: #000; }
+.media-controls, .media-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+.media-kind, .media-label { font-weight: 700; color: var(--muted); }
+.media-wrap.audio .media-label::after { content: ' läuft'; }
+.ed-media { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.ed-media input:not([type=file]) { flex: 1; min-width: 0; font-size: 12px; }
+.ed-media audio, .ed-media video { width: 100%; max-height: 120px; }
+.ed-media-info { font-size: 12px; color: var(--muted); }

@@ -419,6 +419,7 @@
   function renderClue() {
     const cur = state.current;
     $('clue').classList.toggle('show', !!cur);
+    if (window.JMedia) JMedia.hostClue(cur ? set.rounds[cur.round].categories[cur.cat].clues[cur.row] : null, cur ? `${cur.round}:${cur.cat}:${cur.row}` : null);
     if (!cur) return;
     const cat = set.rounds[cur.round].categories[cur.cat];
     const clue = cat.clues[cur.row];
@@ -933,6 +934,7 @@
   });
 
   const conns = new Set();
+  if (window.JMedia) JMedia.host({ $, conns: () => conns });
   let peer;
 
   function setStatus(text, ok) {
@@ -1025,6 +1027,7 @@
       renderPlayers();
       broadcast(); // Belegung an alle schicken
       if (ok) { sendHint(ok); resendTeamState(conn); } // nach Verbindungsabbruch Tipp und Team-Stand erneut schicken
+      if (window.JMedia) JMedia.hostJoined(conn); // Clip der offenen Frage nachreichen (auch an TV/Zuschauer)
     } else if (msg.type === 'buzz') {
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {

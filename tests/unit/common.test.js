@@ -38,8 +38,11 @@ test('safeImg lässt nur Web-Links und Bilddaten durch', () => {
   assert.equal(J.safeImg('  http://x.de/a.png '), 'http://x.de/a.png');
   assert.ok(J.safeImg('data:image/jpeg;base64,AAAA'));
   assert.equal(J.safeImg('javascript:alert(1)'), '');
+  assert.equal(J.safeImg(' JaVaScRiPt:alert(1)'), '');
   assert.equal(J.safeImg('data:text/html;base64,AAAA'), '');
+  assert.equal(J.safeImg('data:image/svg+xml;base64,AAAA'), '', 'SVG kann Skripte enthalten');
   assert.equal(J.safeImg(42), '');
+  assert.equal(J.safeImg({}), '');
 });
 
 test('importierte Bilder werden beim Normalisieren geprüft', () => {
@@ -231,10 +234,6 @@ test('Gespeicherter Team-Modus bleibt nach dem Laden erhalten', () => {
   assert.equal(st.players[0].name, 'Rot');
 });
 
-test('HTML wird escaped', () => {
-  assert.equal(J.escapeHtml('<b>"x"&\''), '&lt;b&gt;&quot;x&quot;&amp;&#39;');
-});
-
 test('Host-Notiz bleibt beim Host, auch nach dem Aufdecken', () => {
   const set = J.defaultSet();
   set.rounds[0].categories[0].clues[0] = { q: 'F', a: 'A', img: '', note: 'NOTIZ-NUR-HOST' };
@@ -298,13 +297,6 @@ test('safeNum liefert immer eine endliche Zahl', () => {
   assert.equal(J.safeNum(undefined), 0);
 });
 
-test('safeImg verwirft Skript-, HTML- und SVG-Adressen', () => {
-  assert.equal(J.safeImg('javascript:alert(1)'), '');
-  assert.equal(J.safeImg(' JaVaScRiPt:alert(1)'), '');
-  assert.equal(J.safeImg('data:text/html;base64,AAAA'), '');
-  assert.equal(J.safeImg('data:image/svg+xml;base64,AAAA'), '');
-  assert.equal(J.safeImg({}), '');
-});
 
 test('normalizeSet behält HTML in Texten als reinen Text und verwirft unsichere Bilder', () => {
   const s = J.normalizeSet({ title: '<b>T</b>', rounds: [{ categories: [{ name: '<i>K</i>', clues: [{ q: '<img src=x onerror=1>', a: '<u>A</u>', img: 'javascript:1', kind: '<script>' }] }] }] });

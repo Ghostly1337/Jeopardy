@@ -3,7 +3,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const jsQR = require('jsqr');
-const { startEnv, openHost, joinPlayer, HOST_PASSWORD } = require('./helpers');
+const { startEnv, openHost, joinPlayer, HOST_PASSWORD, TRANSPORT } = require('./helpers');
+
+// QR-Anzeige hängt nicht vom Transport ab: einmal (WebRTC-Durchlauf) reicht
+const ONCE = { skip: TRANSPORT === 'relay' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
 
 let env;
 test.before(async () => { env = await startEnv(); });
@@ -28,7 +31,7 @@ async function scan(page, sel) {
   return res && res.data;
 }
 
-test('Host zeigt QR und Link; QR enthält nur den Beitrittslink', async () => {
+test('Host zeigt QR und Link; QR enthält nur den Beitrittslink', ONCE, async () => {
   const { host, code } = await openHost(env, { names: ['Anna'] });
   const link = await host.textContent('#link');
   assert.equal(link, `${env.base}/player.html?room=${code}`);
@@ -50,7 +53,7 @@ test('Host zeigt QR und Link; QR enthält nur den Beitrittslink', async () => {
   await p.context().close();
 });
 
-test('TV zeigt großen QR bis zum Spielstart, QR-Taste blendet ein und aus', async () => {
+test('TV zeigt großen QR bis zum Spielstart, QR-Taste blendet ein und aus', ONCE, async () => {
   const { host, code } = await openHost(env, { names: ['Anna'] });
   const tv = await joinPlayer(env, code, { viewport: { width: 1280, height: 720 } });
   await tv.click('#tvView');

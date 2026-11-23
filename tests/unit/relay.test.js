@@ -113,3 +113,21 @@ test('Spieler ohne Host im Raum sieht host=false', async () => {
   const res = (await call('poll', { room: 'EMPTY1', as: P1, after: -1 })).json;
   assert.equal(res.host, false);
 });
+
+test('Große Clips: Antwort bleibt unter dem Größenlimit, der Rest kommt beim nächsten Poll', async () => {
+  const { LIMITS } = await import('../../lib/relay-core.mjs');
+  const call = client(memoryStore());
+  await call('host', { room: 'CLIP01', token: HOST });
+  const start = (await call('poll', { room: 'CLIP01', as: P1, after: -1 })).json;
+  const big = 'A'.repeat(Math.ceil(LIMITS.maxReplyChars * 0.6));
+  for (let i = 0; i < 3; i++) await call('send', { room: 'CLIP01', as: 'host', token: HOST, msgs: [{ to: P1, body: { i, d: big } }] });
+  const seen = [];
+  let after = start.seq;
+  for (let k = 0; k < 5 && seen.length < 3; k++) {
+    const r = (await call('poll', { room: 'CLIP01', as: P1, after })).json;
+    assert.ok(JSON.stringify(r).length < LIMITS.maxReplyChars * 1.3, 'Antwort klein genug');
+    r.msgs.forEach((m) => seen.push(m.body.i));
+    after = r.seq;
+  }
+  assert.deepEqual(seen, [0, 1, 2], 'nichts geht verloren, Reihenfolge bleibt');
+});

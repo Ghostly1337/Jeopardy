@@ -30,7 +30,7 @@ test('Bilder in Fragen: Upload, Link und unsichere Links', async (t) => {
   });
 
   await t.test('Upload wird als JPEG gespeichert', async () => {
-    await ed.locator('.ed-cat').nth(0).locator('.ed-clue').first().locator('input[type=file]')
+    await ed.locator('.ed-cat').nth(0).locator('.ed-clue').first().locator('.ed-img input[type=file]')
       .setInputFiles({ name: 'bild.png', mimeType: 'image/png', buffer: TEST_PNG });
     await ed.waitForSelector('.ed-cat >> nth=0 >> .ed-img img');
     const imgs = await ed.evaluate(() => JSON.parse(localStorage.getItem('jeopardy.set')).rounds[0].categories.map((c) => c.clues[0].img || ''));

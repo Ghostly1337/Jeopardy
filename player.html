@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; media-src 'self' data: blob: https:; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jeopardy</title>
   <link rel="stylesheet" href="css/style.css">
@@ -32,6 +32,14 @@
       <span class="timer-num"></span>
     </div>
     <img class="clue-img" id="img" alt="" hidden>
+    <div class="media-wrap" id="mediaWrap" hidden>
+      <video class="player-media" id="playerMedia" preload="auto" hidden></video>
+      <div class="media-row">
+        <span class="media-label" id="mediaLabel"></span>
+        <button class="small" id="mediaTap" hidden>▶ Tippen zum Abspielen</button>
+        <button class="small ghost" id="mediaLocalMute">🔊 Ton an</button>
+      </div>
+    </div>
     <div class="clue-text" id="q"></div>
     <div class="clue-answer" id="a"></div>
     <div class="hint-box" id="hintBox" hidden></div>
@@ -88,6 +96,7 @@
   <script src="vendor/qrcode.js"></script>
   <script src="js/qr.js"></script>
   <script src="js/common.js"></script>
+  <script src="js/media.js"></script>
   <script src="js/net.js"></script>
   <script src="js/player.js"></script>
 </body>

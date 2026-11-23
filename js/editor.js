@@ -312,6 +312,7 @@
         });
         hintFor();
         box.append(q, a, note, kind, hintControls(clue, a), imageControls(clue));
+        if (window.JMedia) box.appendChild(JMedia.editorControls(clue, persist));
         col.appendChild(box);
       });
       grid.appendChild(col);

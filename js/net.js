@@ -52,6 +52,9 @@
     emit(ev, ...args) { (this._h[ev] || []).slice().forEach((fn) => { try { fn(...args); } catch (e) { console.error(e); } }); }
   }
 
+  const MAX_BATCH_CHARS = 2_400_000; // unter dem Relay-Limit (3 MB) mit Luft für den Umschlag
+  const MAX_MSG_CHARS = 2_900_000;
+
   // Sendet Nachrichten der Reihe nach (immer nur eine Anfrage gleichzeitig) und bündelt,
   // was sich in der Zwischenzeit ansammelt.
   class Outbox {
@@ -69,7 +72,18 @@
     async flush() {
       this.busy = true;
       while (this.queue.length && !this.stopped) {
-        const batch = this.queue.splice(0, 50);
+        // Bündeln nach Anzahl UND Größe: Clips sind groß, das Relay nimmt höchstens ~3 MB pro Anfrage
+        let size = 0;
+        let n = 0;
+        while (n < this.queue.length && n < 50) {
+          const len = JSON.stringify(this.queue[n]).length;
+          if (len > MAX_MSG_CHARS) { console.warn('Relay: Nachricht zu groß, verworfen'); this.queue.splice(n, 1); continue; }
+          if (n && size + len > MAX_BATCH_CHARS) break;
+          size += len;
+          n++;
+        }
+        if (!n) continue;
+        const batch = this.queue.splice(0, n);
         try {
           await api('send', { ...this.params(), msgs: batch });
         } catch (e) {

@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.10';
+  const APP_VERSION = '2026-11-23.11';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -72,6 +72,11 @@
             }
           }
           if (CLUE_KINDS.includes(cl.kind)) cat.clues[row].kind = cl.kind;
+          const media = safeMedia(cl.media); // ungültige oder zu große Clips fallen beim Laden/Import weg
+          if (media) {
+            cat.clues[row].media = media;
+            cat.clues[row].mediaType = mediaTypeOf({ media, mediaType: cl.mediaType });
+          }
           if (HINT_TYPES.some((t) => t.id === cl.hint) && cl.hint !== 'letters') cat.clues[row].hint = cl.hint;
           if (cl.hint === 'custom' && typeof cl.hintText === 'string') cat.clues[row].hintText = cl.hintText.slice(0, 200);
         }
@@ -85,6 +90,43 @@
     if (typeof v !== 'string') return '';
     v = v.trim();
     return /^https?:\/\//i.test(v) || /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(v) ? v : '';
+  }
+
+  // ---------- Audio-/Video-Clips ----------
+  // Erlaubt: https-Links oder hochgeladene Clips als data:audio/… bzw. data:video/… (base64).
+  // Kein http (wird auf https-Seiten ohnehin blockiert), kein HTML/SVG, kein javascript:.
+  const MEDIA_LIMITS = { audio: 1_500_000, video: 2_000_000 }; // Bytes der Datei
+  const MEDIA_DATA_RE = /^data:(audio|video)\/[a-z0-9.+-]+(;codecs=[^;,"'<>]+)?;base64,[a-z0-9+/=]+$/i;
+  const MEDIA_VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)$/i;
+  const mediaDataMax = (kind) => Math.ceil(MEDIA_LIMITS[kind] * 4 / 3) + 200; // base64-Länge inkl. Kopf
+  function safeMedia(v) {
+    if (typeof v !== 'string') return '';
+    v = v.trim();
+    const m = /^data:(audio|video)\//i.exec(v);
+    if (m) return v.length <= mediaDataMax(m[1].toLowerCase()) && MEDIA_DATA_RE.test(v) ? v : '';
+    if (!/^https:\/\//i.test(v) || v.length > 2000) return '';
+    try { const u = new URL(v); return u.protocol === 'https:' && u.hostname ? u.href : ''; } catch (e) { return ''; }
+  }
+  // 'audio' | 'video' (aus der Frage, dem data:-Typ oder der Dateiendung) oder null ohne gültigen Clip
+  function mediaTypeOf(clue) {
+    const src = clue && safeMedia(clue.media);
+    if (!src) return null;
+    const m = /^data:(audio|video)\//i.exec(src);
+    if (m) return m[1].toLowerCase();
+    if (clue.mediaType === 'audio' || clue.mediaType === 'video') return clue.mediaType;
+    try { return MEDIA_VIDEO_EXT.test(new URL(src).pathname) ? 'video' : 'audio'; } catch (e) { return 'audio'; }
+  }
+  // Upload prüfen → Fehlertext oder null
+  function mediaFileError(file) {
+    if (!file) return 'Keine Datei gewählt.';
+    const type = file.type && file.type.split('/')[0];
+    if (type !== 'audio' && type !== 'video') return 'Das ist keine Audio- oder Videodatei.';
+    const max = MEDIA_LIMITS[type];
+    if (file.size > max) {
+      return `Die ${type === 'audio' ? 'Audiodatei' : 'Videodatei'} ist zu groß (${(file.size / 1e6).toFixed(1)} MB). ` +
+        `Erlaubt sind höchstens ${(max / 1e6).toFixed(1).replace('.0', '')} MB – kürze den Clip oder nutze einen Link.`;
+    }
+    return null;
   }
 
   // Hochgeladenes Bild verkleinern (max. 1000 px, JPEG), damit es in den Browserspeicher
@@ -642,6 +684,8 @@
         q: clue.q,
         // Verpixelte Bilder: echtes Bild erst nach der letzten Stufe; das Mini-Bild setzt der Host ein
         img: pixelLevel(clue, cur) == null ? safeImg(clue.img) || null : null,
+        // Nur die Art des Clips; die Daten kommen als eigene 'media'-Nachricht (sonst bei jedem Update mit)
+        media: mediaTypeOf(clue),
         pixel: pixelLevel(clue, cur) == null ? null : { step: pixelLevel(clue, cur), steps: imgSteps(clue).length, mode: imgMode(clue) },
         kind: CLUE_KINDS.includes(clue.kind) ? clue.kind : 'normal',
         est: clue.kind === 'estimate' ? publicEstimate(cur) : null,
@@ -1135,7 +1179,7 @@
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,
-    roomCode, newRoomCode, peerId, joinUrl, parseSetFile, MAX_SET_FILE_BYTES, publicState, escapeHtml, safeColor, safeNum, renderScores,
+    safeMedia, mediaTypeOf, mediaFileError, MEDIA_LIMITS, roomCode, newRoomCode, peerId, joinUrl, parseSetFile, MAX_SET_FILE_BYTES, publicState, escapeHtml, safeColor, safeNum, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
     penaltyFor, stealFor, sfx, startTimerMusic, stopTimerMusic, timerMusicOn, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,

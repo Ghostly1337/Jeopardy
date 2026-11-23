@@ -39,6 +39,8 @@
     return true;
   }
 
+  if (window.JMedia) JMedia.playerInit($);
+
   function render(s) {
     if (!checkVersion(s.v)) return;
     J.applyTheme(s.theme);
@@ -832,6 +834,7 @@
       if (!msg) return;
       if (msg.type === 'state') render(msg.data);
       else if (msg.type === 'sfx' && J.soundOn()) J.sfx(msg.name);
+      else if (msg.type === 'media' && window.JMedia) JMedia.playerMessage(msg);
       else if (msg.type === 'teamAnswer' && msg.key === lastJokerKey) {
         // Teammitglied hat abgegeben → hier übernehmen, damit alle sehen, was fürs Team zählt
         teamBy = msg.by;

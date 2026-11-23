@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.5';
+  const APP_VERSION = '2026-11-23.6';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -72,6 +72,8 @@
             }
           }
           if (CLUE_KINDS.includes(cl.kind)) cat.clues[row].kind = cl.kind;
+          if (HINT_TYPES.some((t) => t.id === cl.hint) && cl.hint !== 'letters') cat.clues[row].hint = cl.hint;
+          if (cl.hint === 'custom' && typeof cl.hintText === 'string') cat.clues[row].hintText = cl.hintText.slice(0, 200);
         }
       }
     }
@@ -113,7 +115,7 @@
   // darf nur, wer gerade dran ist, und pro Frage höchstens einen Joker.
   const JOKERS = [
     { id: 'double', icon: '🎲', name: 'Doppelt oder nichts', desc: 'Richtig: doppelte Punkte · Falsch: voller Abzug' },
-    { id: 'hint', icon: '💡', name: 'Tipp', desc: 'Anfangsbuchstaben und Länge der Antwort – nur für dich' },
+    { id: 'hint', icon: '💡', name: 'Tipp', desc: 'Ein Tipp zur Antwort – nur für dich' },
     { id: 'pass', icon: '👉', name: 'Weitergeben', desc: 'Wer am Zug ist, gibt die Frage an jemand anderen weiter' },
   ];
   const jokerInfo = (id) => JOKERS.find((j) => j.id === id) || null;
@@ -127,6 +129,7 @@
     if ((p.usedJokers || []).includes(kind)) return 'Schon benutzt';
     if (!cur) return 'Erst wenn eine Frage offen ist';
     if (cur.kind && cur.kind !== 'normal') return 'Nicht bei dieser Frageart';
+    if (kind === 'hint' && cur.noHint) return 'Bei dieser Frage gibt es keinen Tipp';
     const judged = cur.judged || {};
     const buzz = cur.buzz || {};
     const jk = cur.jokers || {};
@@ -168,6 +171,52 @@
       if (/\p{N}/u.test(ch)) return '_';
       return ch;
     }).join(' ')).join('   ');
+  }
+
+  // Tipp-Arten, im Editor pro Frage wählbar. Ohne Angabe: Anfangsbuchstaben + Länge.
+  const HINT_TYPES = [
+    { id: 'letters', label: 'Anfangsbuchstaben + Länge' },
+    { id: 'length', label: 'Nur die Länge' },
+    { id: 'first', label: 'Nur der erste Buchstabe' },
+    { id: 'firstlast', label: 'Erster und letzter Buchstabe' },
+    { id: 'words', label: 'Anzahl der Wörter' },
+    { id: 'custom', label: 'Eigener Tipp-Text' },
+    { id: 'none', label: 'Kein Tipp möglich' },
+  ];
+  const hintType = (clue) => (clue && HINT_TYPES.some((t) => t.id === clue.hint) ? clue.hint : 'letters');
+  // Wörter der Antwort maskieren; keep(i, n) entscheidet, welche Buchstaben sichtbar bleiben. Ziffern nie.
+  function maskAnswer(answer, keep) {
+    return String(answer || '').trim().split(/\s+/).filter(Boolean).map((word) => {
+      const chars = [...word];
+      const letters = chars.map((ch, i) => (/\p{L}/u.test(ch) ? i : -1)).filter((i) => i >= 0);
+      return chars.map((ch, i) => {
+        if (/\p{L}/u.test(ch)) return keep(letters.indexOf(i), letters.length) ? (i === letters[0] ? ch.toUpperCase() : ch) : '_';
+        if (/\p{N}/u.test(ch)) return '_';
+        return ch;
+      }).join(' ');
+    }).join('   ');
+  }
+  // Text, den der Tipp-Joker zeigt, oder null bei „Kein Tipp möglich“
+  function hintFor(clue) {
+    const a = clue ? clue.a : '';
+    switch (hintType(clue)) {
+      case 'none': return null;
+      case 'length': return maskAnswer(a, () => false);
+      case 'first': {
+        const m = String(a || '').match(/\p{L}/u);
+        return m ? `Beginnt mit „${m[0].toUpperCase()}“` : maskAnswer(a, () => false);
+      }
+      case 'firstlast': return maskAnswer(a, (i, n) => i === 0 || i === n - 1);
+      case 'words': {
+        const n = String(a || '').trim().split(/\s+/).filter(Boolean).length;
+        return n === 1 ? 'Ein Wort' : `${n} Wörter`;
+      }
+      case 'custom': {
+        const t = String((clue && clue.hintText) || '').trim();
+        return t || hintPattern(a);
+      }
+      default: return hintPattern(a);
+    }
   }
 
   // Punkte unter Berücksichtigung von „Doppelt oder nichts“
@@ -556,6 +605,7 @@
           hint: (cur.jokers && cur.jokers.hint) || [],
           pass: (cur.jokers && cur.jokers.pass) || null,
         },
+        noHint: hintType(clue) === 'none',
         judged: cur.judged || {},
         buzz: cur.buzz || { open: false, winner: null },
         // Restzeit statt Uhrzeit, damit abweichende Geräteuhren egal sind
@@ -1020,7 +1070,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, HINT_TYPES, hintType, hintFor, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

@@ -33,7 +33,7 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - **🃏 Joker** (jeder Spieler bzw. jedes Team hat jeden Joker einmal pro Spiel – über beide Runden; eingesetzt am Handy per Doppeltipp):
   - Einsetzen darf nur, **wer gerade dran ist**: wer am Zug ist (vor der ersten Antwort), wer gebuzzert hat oder wem die Frage weitergegeben wurde. Pro Frage höchstens **ein Joker pro Person/Team**.
   - 🎲 **Doppelt oder nichts**: richtig = doppelte Punkte, falsch = voller Abzug statt halber.
-  - 💡 **Tipp**: Anfangsbuchstaben und Länge der Antwort („M _ _ _   L _ _ _“), nur auf dem eigenen Handy. Ziffern werden nie verraten.
+  - 💡 **Tipp**: erscheint nur auf dem eigenen Handy. Was er zeigt, stellst du im Editor pro Frage ein: Anfangsbuchstaben + Länge („M _ _ _   L _ _ _“, Standard), nur die Länge, nur der erste Buchstabe, erster und letzter Buchstabe, Anzahl der Wörter, ein eigener Tipp-Text oder „Kein Tipp möglich“ (dann ist der Joker für diese Frage gesperrt). Die Vorschau unter der Auswahl zeigt, was der Spieler sieht. Ziffern werden nie verraten.
   - 👉 **Weitergeben**: Wer am Zug ist, gibt die Frage vor der ersten Antwort an jemand anderen weiter; der muss antworten.
   Die TV-Ansicht kündigt eingesetzte Joker groß an, das Host-Pult zeigt sie bei der Frage, Rückgängig gibt den Joker zurück.
 - **🎯 Am Zug** geht **reihum** in der Reihenfolge der Punkte-Liste, jeweils wenn eine Frage mit *Fertig* abgeschlossen wird (*Abbrechen* lässt den Zug beim selben). Mit 🎯 setzt du ihn manuell.

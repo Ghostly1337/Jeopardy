@@ -308,13 +308,47 @@
           if (kind.value) clue.kind = kind.value; else delete clue.kind;
           hintFor();
           persist();
+          box.querySelector('.ed-hint').hidden = !!clue.kind; // Joker gibt es nur bei normalen Fragen
         });
         hintFor();
-        box.append(q, a, note, kind, imageControls(clue));
+        box.append(q, a, note, kind, hintControls(clue, a), imageControls(clue));
         col.appendChild(box);
       });
       grid.appendChild(col);
     });
+  }
+
+  // Tipp-Art für den 💡-Joker: Auswahl, eigener Text und Vorschau, was der Spieler sieht
+  function hintControls(clue, answerInput) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ed-hint';
+    wrap.hidden = !!clue.kind;
+    const sel = document.createElement('select');
+    sel.title = 'Was zeigt der Tipp-Joker bei dieser Frage?';
+    sel.innerHTML = J.HINT_TYPES.map((t) => `<option value="${t.id}">💡 ${J.escapeHtml(t.label)}</option>`).join('');
+    sel.value = J.hintType(clue);
+    const text = document.createElement('input');
+    text.className = 'ed-hint-text';
+    text.maxLength = 200;
+    text.placeholder = 'Dein Tipp, z. B. „Hat mit Stacks zu tun“';
+    text.value = clue.hintText || '';
+    const preview = document.createElement('div');
+    preview.className = 'ed-hint-preview';
+    const update = () => {
+      text.hidden = sel.value !== 'custom';
+      const h = J.hintFor(clue);
+      preview.textContent = h == null ? 'Tipp-Joker ist bei dieser Frage gesperrt' : h ? 'Spieler sieht: ' + h : '';
+    };
+    sel.addEventListener('change', () => {
+      if (sel.value === 'letters') delete clue.hint; else clue.hint = sel.value;
+      if (sel.value !== 'custom') delete clue.hintText; else clue.hintText = text.value;
+      update(); persist();
+    });
+    text.addEventListener('input', () => { clue.hintText = text.value; update(); persist(); });
+    answerInput.addEventListener('input', update);
+    update();
+    wrap.append(sel, text, preview);
+    return wrap;
   }
 
   titleEl.addEventListener('input', () => { set.title = titleEl.value; persist(); });

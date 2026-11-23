@@ -1450,6 +1450,10 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .special .srow .name { font-weight: 700; }
 .special { margin-top: 12px; }
 .ed-kind { font-size: 12px; padding: 6px 8px; margin-top: 6px; width: 100%; background: var(--field); }
+.ed-hint select { font-size: 12px; padding: 6px 8px; margin-top: 6px; width: 100%; background: var(--field); }
+.ed-hint input.ed-hint-text { margin-top: 6px; font-size: 12px; }
+.ed-hint-preview { margin-top: 4px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.ed-hint-preview:empty { display: none; }
 
 /* ---------- Multiple Choice ---------- */
 .mc { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

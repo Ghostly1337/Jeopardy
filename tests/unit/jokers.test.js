@@ -89,3 +89,37 @@ test('Öffentlicher Zustand verrät den Tipp nicht, zeigt aber verbrauchte Joker
   assert.deepEqual([...pub.players[0].usedJokers], ['hint']);
   assert.equal(pub.current.revealed, false);
 });
+
+test('Tipp-Arten: jede Art liefert den passenden Text, Ziffern bleiben verborgen', () => {
+  const h = (a, hint, hintText) => J.hintFor({ a, hint, hintText });
+  assert.equal(h('Mona Lisa'), 'M _ _ _   L _ _ _', 'Standard: Anfangsbuchstaben + Länge');
+  assert.equal(h('Mona Lisa', 'length'), '_ _ _ _   _ _ _ _');
+  assert.equal(h('Mona Lisa', 'first'), 'Beginnt mit „M“');
+  assert.equal(h('Mona Lisa', 'firstlast'), 'M _ _ a   L _ _ a');
+  assert.equal(h('Mona Lisa', 'words'), '2 Wörter');
+  assert.equal(h('Kellerautomat', 'words'), 'Ein Wort');
+  assert.equal(h('Mona Lisa', 'custom', 'Hängt im Louvre'), 'Hängt im Louvre');
+  assert.equal(h('Mona Lisa', 'custom', '   '), 'M _ _ _   L _ _ _', 'leerer eigener Tipp → Standard');
+  assert.equal(h('Mona Lisa', 'none'), null);
+  assert.equal(h('R2-D2', 'firstlast'), 'R _ - D _', 'Ziffern nie verraten');
+  assert.equal(h('Mona Lisa', 'quatsch'), 'M _ _ _   L _ _ _', 'unbekannte Art → Standard');
+});
+
+test('Kein Tipp möglich sperrt nur den Tipp-Joker', () => {
+  const c = { ...cur(), noHint: true };
+  assert.equal(J.jokerBlock('hint', { cur: c, players: players(), turn: 'a', pid: 'a' }), 'Bei dieser Frage gibt es keinen Tipp');
+  assert.equal(J.jokerBlock('double', { cur: c, players: players(), turn: 'a', pid: 'a' }), null);
+});
+
+test('Tipp-Einstellungen überstehen Import/Normalisierung', () => {
+  const s = J.defaultSet();
+  Object.assign(s.rounds[0].categories[0].clues[0], { hint: 'custom', hintText: 'x'.repeat(300) });
+  Object.assign(s.rounds[0].categories[0].clues[1], { hint: 'letters' });
+  Object.assign(s.rounds[0].categories[0].clues[2], { hint: 'böse<script>' });
+  const n = J.normalizeSet(JSON.parse(JSON.stringify(s)));
+  const cl = n.rounds[0].categories[0].clues;
+  assert.equal(cl[0].hint, 'custom');
+  assert.equal(cl[0].hintText.length, 200);
+  assert.ok(!('hint' in cl[1]), 'Standard wird nicht gespeichert');
+  assert.ok(!('hint' in cl[2]), 'Unbekanntes fliegt raus');
+});

@@ -298,7 +298,8 @@
     const target = kind === 'pass' ? msg.target : undefined;
     if (kind === 'pass' && typeof target !== 'string') return;
     const cur = state.current;
-    if (J.jokerBlock(kind, { cur, players: state.players, turn: state.turn, pid, target })) return;
+    const clueNow = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
+    if (J.jokerBlock(kind, { cur: { ...cur, noHint: J.hintType(clueNow) === 'none' }, players: state.players, turn: state.turn, pid, target })) return;
     const p = state.players.find((x) => x.id === pid);
     const info = J.jokerInfo(kind);
     const who = isTeam() && conn.memberName ? `${conn.memberName} (${p.name})` : p.name;
@@ -318,7 +319,7 @@
     const cur = state.current;
     if (!cur || !((cur.jokers && cur.jokers.hint) || []).includes(pid)) return;
     const clue = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
-    const msg = { type: 'hint', key: `${cur.round}:${cur.cat}:${cur.row}`, text: J.hintPattern(clue.a) };
+    const msg = { type: 'hint', key: `${cur.round}:${cur.cat}:${cur.row}`, text: J.hintFor(clue) || '' };
     conns.forEach((c) => { if (c.open && c.playerId === pid) c.send(msg); });
   }
 
@@ -469,7 +470,7 @@
     status.hidden = !status.textContent;
     const jparts = [];
     (jk.double || []).forEach((id) => jparts.push(`🎲 ${nameOf(id)}: Doppelt oder nichts`));
-    (jk.hint || []).forEach((id) => jparts.push(`💡 ${nameOf(id)}: Tipp (${J.hintPattern(clue.a)})`));
+    (jk.hint || []).forEach((id) => jparts.push(`💡 ${nameOf(id)}: Tipp (${J.hintFor(clue) || '–'})`));
     $('jokerStatus').textContent = jparts.join(' · ');
     $('jokerStatus').hidden = !jparts.length;
     $('buzzBtn').textContent = buzz.open ? 'Buzzer schließen' : 'Buzzer öffnen';

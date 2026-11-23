@@ -71,7 +71,7 @@ test('Emoji-Spam-Sperre und Schalter im Host-Pult', async (t) => {
   await t.test('Zu viele Emojis: Pause mit Countdown, nichts kommt mehr an', async () => {
     for (let i = 0; i < max; i++) {
       await p.click('.react-btn:text-is("🔥")');
-      await p.waitForTimeout(400);
+      await p.waitForTimeout(1700);
     }
     await host.waitForSelector('.react-float .react-emoji:text-is("🔥")');
     await p.click('.react-btn:text-is("🔥")');

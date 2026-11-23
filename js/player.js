@@ -701,7 +701,7 @@
     b.textContent = emoji;
     b.addEventListener('click', () => {
       const now = Date.now();
-      if (now - lastReact < 350 || now < reactLockUntil || !conn || !conn.open) return; // lokal drosseln
+      if (now - lastReact < J.REACT_GAP_MS || now < reactLockUntil || !conn || !conn.open) return; // lokal drosseln
       lastReact = now;
       conn.send({ type: 'react', emoji });
     });

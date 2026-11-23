@@ -13,10 +13,10 @@ function send(gate, now) {
 test('Erlaubt REACT_MAX Emojis, das nächste sperrt', () => {
   let g, r;
   for (let i = 0; i < J.REACT_MAX; i++) {
-    [r, g] = send(g, 1000 + i * 400);
+    [r, g] = send(g, 1000 + i * (J.REACT_GAP_MS + 100));
     assert.ok(r.ok, `Emoji ${i + 1} geht durch`);
   }
-  [r, g] = send(g, 1000 + J.REACT_MAX * 400);
+  [r, g] = send(g, 1000 + J.REACT_MAX * (J.REACT_GAP_MS + 100));
   assert.equal(r.ok, false);
   assert.ok(r.justLocked);
   assert.equal(r.wait, J.REACT_LOCK_MS);
@@ -24,8 +24,10 @@ test('Erlaubt REACT_MAX Emojis, das nächste sperrt', () => {
 
 test('Während der Pause bleibt alles gesperrt, danach geht es wieder', () => {
   let g, r;
-  for (let i = 0; i <= J.REACT_MAX; i++) [r, g] = send(g, i * 100);
-  const lockedAt = J.REACT_MAX * 100;
+  [r, g] = send(g, 0);
+  [r, g] = send(g, 100); // zu schnell hintereinander sperrt sofort
+  assert.ok(r.justLocked);
+  const lockedAt = 100;
   [r, g] = send(g, lockedAt + 5000);
   assert.equal(r.ok, false);
   assert.ok(!r.justLocked, 'Pause verlängert sich nicht');
@@ -36,9 +38,16 @@ test('Während der Pause bleibt alles gesperrt, danach geht es wieder', () => {
 
 test('Langsames Reagieren wird nie gesperrt', () => {
   let g, r;
-  const gap = Math.ceil(J.REACT_WINDOW_MS / J.REACT_MAX) + 10;
+  const gap = Math.max(J.REACT_GAP_MS, Math.ceil(J.REACT_WINDOW_MS / J.REACT_MAX)) + 10;
   for (let i = 0; i < 50; i++) {
     [r, g] = send(g, i * gap);
     assert.ok(r.ok, `Emoji ${i + 1}`);
   }
+});
+
+test('Dauerfeuer auf dem Handy wird beim Host nach dem 1. Emoji gesperrt', () => {
+  let g, r;
+  let passed = 0;
+  for (let t = 0; t < 30000; t += 50) { [r, g] = send(g, t); if (r.ok) passed++; }
+  assert.ok(passed <= 3, `in 30 s Dauerfeuer kamen nur ${passed} durch`);
 });

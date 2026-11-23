@@ -7,7 +7,21 @@ export const COOKIE = 'jeop_auth';
 export const LOGIN_PATH = '/__login';
 const MAX_AGE = 60 * 60 * 24 * 30;
 // Styles and fonts are needed by the login page itself and contain nothing secret.
-const PUBLIC_PREFIXES = ['/css/', '/fonts/', '/favicon'];
+const PUBLIC_PREFIXES = ['/css/', '/fonts/', '/favicon', '/js/theme-init.js'];
+const LOGIN_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+// Only files the browser needs at runtime are served at all. Everything else in the repo
+// (tests, lib/, node_modules/, configuration, docs) answers 404, even when logged in.
+const ALLOWED_FILES = new Set(['/', '/index.html', '/host.html', '/player.html', '/editor.html', '/favicon.ico', LOGIN_PATH]);
+const ALLOWED_PREFIXES = ['/css/', '/js/', '/fonts/', '/vendor/'];
+const ALLOWED_API = new Set(['/api/relay', '/api/sets']);
+export function pathAllowed(pathname) {
+  if (pathname.includes('..') || pathname.includes('\\')) return false;
+  return ALLOWED_FILES.has(pathname) || ALLOWED_API.has(pathname)
+    || ALLOWED_PREFIXES.some((p) => pathname.startsWith(p) && pathname.length > p.length);
+}
+// Slows down password guessing: every wrong attempt waits before the answer.
+export const FAIL_DELAY_MS = { value: 800 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function tokenFor(password) {
   const data = new TextEncoder().encode('jeopardy-gate:' + password);
@@ -46,7 +60,7 @@ function loginPage(next, failed) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Jeopardy – Passwort</title>
-  <script>try{document.documentElement.dataset.theme=localStorage.getItem("jeopardy.theme")||"graphit"}catch(e){}</script>
+  <script src="/js/theme-init.js"></script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -67,7 +81,10 @@ function loginPage(next, failed) {
 </html>`;
   return new Response(html, {
     status: failed ? 401 : 200,
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' },
+    headers: {
+      'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex',
+      'content-security-policy': LOGIN_CSP, 'x-frame-options': 'DENY',
+    },
   });
 }
 
@@ -78,6 +95,9 @@ function loginPage(next, failed) {
  */
 export async function gate(request, password) {
   const url = new URL(request.url);
+  if (!pathAllowed(url.pathname)) {
+    return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+  }
   if (PUBLIC_PREFIXES.some((p) => url.pathname.startsWith(p))) return undefined;
   if (!password) return new Response('JEOPARDY_PASSWORD ist nicht gesetzt.', { status: 500 });
   const expected = await tokenFor(password);
@@ -86,7 +106,10 @@ export async function gate(request, password) {
     const form = await request.formData().catch(() => null);
     const given = form ? String(form.get('password') || '') : '';
     const next = safeNext(form ? String(form.get('next') || '/') : '/');
-    if (!safeEqual(await tokenFor(given), expected)) return loginPage(next, true);
+    if (!safeEqual(await tokenFor(given), expected)) {
+      await sleep(FAIL_DELAY_MS.value);
+      return loginPage(next, true);
+    }
     return new Response(null, {
       status: 303,
       headers: {

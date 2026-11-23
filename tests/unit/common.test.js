@@ -276,3 +276,86 @@ test('Punkte-Animation zeigt die Änderung mit Vorzeichen', () => {
   assert.match(J.scoreDelta({ a: 0 }, { id: 'a', score: -250 }), /class="delta neg">−250</);
   assert.equal(J.scoreDelta({}, { id: 'neu', score: 100 }), '');
 });
+
+test('escapeHtml maskiert alle HTML-Sonderzeichen', () => {
+  assert.equal(J.escapeHtml('<img src=x onerror=1>'), '&lt;img src=x onerror=1&gt;');
+  assert.equal(J.escapeHtml(`"a" & 'b'`), '&quot;a&quot; &amp; &#39;b&#39;');
+});
+
+test('safeColor lässt nur Hex-Farben durch', () => {
+  assert.equal(J.safeColor('#ef4444'), '#ef4444');
+  assert.equal(J.safeColor('red;background:url(x)'), '');
+  assert.equal(J.safeColor('#fff" onmouseover="x'), '');
+  assert.equal(J.safeColor(null), '');
+});
+
+test('safeNum liefert immer eine endliche Zahl', () => {
+  assert.equal(J.safeNum(250), 250);
+  assert.equal(J.safeNum('-50'), -50);
+  assert.equal(J.safeNum('<b>'), 0);
+  assert.equal(J.safeNum(NaN), 0);
+  assert.equal(J.safeNum(Infinity), 0);
+  assert.equal(J.safeNum(undefined), 0);
+});
+
+test('safeImg verwirft Skript-, HTML- und SVG-Adressen', () => {
+  assert.equal(J.safeImg('javascript:alert(1)'), '');
+  assert.equal(J.safeImg(' JaVaScRiPt:alert(1)'), '');
+  assert.equal(J.safeImg('data:text/html;base64,AAAA'), '');
+  assert.equal(J.safeImg('data:image/svg+xml;base64,AAAA'), '');
+  assert.equal(J.safeImg({}), '');
+});
+
+test('normalizeSet behält HTML in Texten als reinen Text und verwirft unsichere Bilder', () => {
+  const s = J.normalizeSet({ title: '<b>T</b>', rounds: [{ categories: [{ name: '<i>K</i>', clues: [{ q: '<img src=x onerror=1>', a: '<u>A</u>', img: 'javascript:1', kind: '<script>' }] }] }] });
+  assert.equal(s.title, '<b>T</b>');
+  const c = s.rounds[0].categories[0].clues[0];
+  assert.equal(c.q, '<img src=x onerror=1>');
+  assert.equal(c.img, '');
+  assert.ok(!('kind' in c), 'unbekannte Frageart fliegt raus');
+});
+
+test('Zufall für Raumcode und Mischung kommt aus Web Crypto', () => {
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) {
+    const r = J.cryptoRandom();
+    assert.ok(r >= 0 && r < 1);
+    seen.add(r);
+  }
+  assert.ok(seen.size > 190);
+  assert.match(J.newRoomCode(), /^[A-HJ-NP-Z2-9]{6}$/);
+});
+
+test('parseSetFile: gültig, kaputt, falsche Form, zu groß, unbekannte Fragearten', () => {
+  const ok = J.parseSetFile(JSON.stringify({ title: 'T', rounds: [{ categories: [{ name: 'K', clues: [{ q: 'q', a: 'a', kind: 'choice' }] }] }] }));
+  assert.equal(ok.title, 'T');
+  assert.equal(ok.rounds[0].categories[0].clues[0].kind, 'choice');
+  assert.throws(() => J.parseSetFile('{kaputt'), /JSON/);
+  assert.throws(() => J.parseSetFile('[]'), /Kein gültiges Fragenset/);
+  assert.throws(() => J.parseSetFile('null'), /Kein gültiges Fragenset/);
+  assert.throws(() => J.parseSetFile('{"rounds":"x"}'), /Kein gültiges Fragenset/);
+  assert.throws(() => J.parseSetFile('{"rounds":[]}', J.MAX_SET_FILE_BYTES + 1), /zu groß/);
+  assert.throws(() => J.parseSetFile(JSON.stringify({ rounds: [{ categories: [{ clues: [{ kind: 'zauber' }] }] }] })), /Fragearten/);
+  // __proto__ in der Datei verändert keine Objekte
+  const p = J.parseSetFile('{"rounds":[],"__proto__":{"polluted":1}}');
+  assert.equal(({}).polluted, undefined);
+  assert.equal(p.polluted, undefined);
+});
+
+test('Gespeicherter Spielstand verrät Spielern keine Lösung einer offenen Schätz-/MC-Frage', () => {
+  const set = J.defaultSet();
+  Object.assign(set.rounds[0].categories[0].clues[0], { kind: 'estimate', a: '1024', note: 'geheim' });
+  Object.assign(set.rounds[0].categories[1].clues[0], { kind: 'choice', a: 'Richtig | Falsch' });
+  const st = J.defaultState();
+  st.players = [{ id: 'a', name: 'Anna', score: 0 }];
+  st.current = { round: 0, cat: 0, row: 0, revealed: false, judged: {}, kind: 'estimate', est: { guesses: { a: 1000 } } };
+  // wie nach Neuladen: über JSON
+  const pub = JSON.stringify(J.publicState(set, JSON.parse(JSON.stringify(st))));
+  assert.ok(!pub.includes('1024'), 'Schätzantwort');
+  assert.ok(!pub.includes('geheim'), 'Host-Notiz');
+  assert.ok(!pub.includes('1000'), 'Tipps der anderen');
+  st.current = { round: 0, cat: 1, row: 0, revealed: false, judged: {}, kind: 'choice', mc: { perm: [1, 0], answers: { a: 0 } } };
+  const mc = J.publicState(set, st).current.mc;
+  assert.equal(mc.correct, null);
+  assert.equal(mc.picks, null);
+});

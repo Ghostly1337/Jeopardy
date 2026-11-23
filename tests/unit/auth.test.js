@@ -2,9 +2,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-let gate, tokenFor, COOKIE;
+let gate, tokenFor, COOKIE, pathAllowed, FAIL_DELAY_MS;
 test.before(async () => {
-  ({ gate, tokenFor, COOKIE } = await import('../../middleware.js'));
+  ({ gate, tokenFor, COOKIE, pathAllowed, FAIL_DELAY_MS } = await import('../../middleware.js'));
+  FAIL_DELAY_MS.value = 0;
 });
 
 const PW = 'geheim';
@@ -73,4 +74,68 @@ test('next-Parameter wird im HTML maskiert', async () => {
   const res = await gate(req('/x"><script>alert(1)</script>'), PW);
   const html = await res.text();
   assert.ok(!html.includes('<script>alert(1)'));
+});
+
+test('Nur Laufzeitdateien werden ausgeliefert, auch mit gültigem Cookie', async () => {
+  for (const ok of ['/', '/index.html', '/host.html', '/player.html', '/editor.html', '/js/host.js', '/css/style.css',
+    '/vendor/peerjs.min.js', '/fonts/x.woff2', '/api/relay', '/api/sets', '/__login']) {
+    assert.ok(pathAllowed(ok), ok);
+  }
+  for (const bad of ['/CLAUDE.md', '/README.md', '/package.json', '/package-lock.json', '/vercel.json', '/middleware.js',
+    '/tests/e2e/helpers.js', '/lib/sets-core.mjs', '/node_modules/peer/package.json', '/api/relay.mjs', '/.github/workflows/ci.yml',
+    '/.env', '/js/', '/js/../CLAUDE.md', '/scripts/build-pages.sh']) {
+    assert.ok(!pathAllowed(bad), bad);
+  }
+  const cookie = `${COOKIE}=${await tokenFor(PW)}`;
+  const res = await gate(new Request('https://x.test/CLAUDE.md', { headers: { cookie } }), PW);
+  assert.equal(res.status, 404);
+});
+
+test('Falsches Seitenpasswort wird gebremst', async () => {
+  FAIL_DELAY_MS.value = 150;
+  try {
+    const body = new URLSearchParams({ password: 'falsch', next: '/' });
+    const t0 = Date.now();
+    const res = await gate(new Request('https://x.test/__login', { method: 'POST', body }), PW);
+    assert.equal(res.status, 401);
+    assert.ok(Date.now() - t0 >= 140);
+  } finally { FAIL_DELAY_MS.value = 0; }
+});
+
+test('Login-Weiterleitung lässt keine fremden Ziele zu', async () => {
+  for (const next of ['//evil.example/player.html?room=A', 'https://evil.example/', '/\\evil.example', 'javascript:alert(1)']) {
+    const body = new URLSearchParams({ password: PW, next });
+    const login = await gate(req('/__login', { method: 'POST', body }), PW);
+    assert.equal(login.headers.get('location'), '/', next);
+  }
+});
+
+test('QR-Beitrittslink: nach dem Login landet der Spieler wieder im Raum, ohne Passwort im Link', async () => {
+  const link = '/player.html?room=ABC123';
+  const res = await gate(req(link), PW);
+  assert.equal(res.status, 200);
+  assert.match(await res.text(), /name="next" value="\/player\.html\?room=ABC123"/);
+  const body = new URLSearchParams({ password: PW, next: link });
+  const login = await gate(req('/__login', { method: 'POST', body }), PW);
+  assert.equal(login.status, 303);
+  assert.equal(login.headers.get('location'), link);
+  assert.ok(!login.headers.get('location').includes(PW));
+  assert.match(login.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Lax/);
+});
+
+test('Login-Seite: HTML im Weiterleitungsziel bleibt Text', async () => {
+  const res = await gate(req('/player.html?room="><script>alert(1)</script>'), PW);
+  const html = await res.text();
+  assert.ok(!html.includes('<script>alert'), 'kein eingeschleustes Skript');
+});
+
+test('Login-Seite: strenge CSP, kein Inline-Skript', async () => {
+  const res = await gate(req('/host.html'), PW);
+  const csp = res.headers.get('content-security-policy');
+  assert.match(csp, /script-src 'self'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.ok(!/<script>/.test(await res.text()));
+  // Das Theme-Skript der Login-Seite ist ohne Anmeldung erreichbar, der Rest von /js/ nicht
+  assert.equal(await gate(req('/js/theme-init.js'), PW), undefined);
+  assert.equal((await gate(req('/js/host.js'), PW)).status, 200, 'Login-Seite statt Datei');
 });

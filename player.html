@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jeopardy</title>
   <link rel="stylesheet" href="css/style.css">
@@ -11,6 +12,7 @@
     <button class="small me-btn" id="me" hidden></button>
   </div>
   <div class="topright">
+    <button class="small sound-btn" id="qrBtn" hidden title="QR-Code zum Beitreten ein-/ausblenden">QR</button>
     <button class="small sound-btn" id="fullBtn" hidden title="Vollbild">⛶</button>
     <button class="small sound-btn" id="sound">🔇 Ton aktivieren</button>
     <div class="status bad" id="status">verbinde…</div>
@@ -74,7 +76,17 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="vendor/peerjs.min.js"></script>
+  <div class="invite-tv" id="invite" hidden>
+    <div class="invite-card">
+      <h2>Jetzt mitspielen</h2>
+      <div class="invite-qr" id="inviteQr"></div>
+      <div class="invite-code">Raum <b id="inviteCode"></b></div>
+      <div class="invite-link" id="inviteLink"></div>
+    </div>
+  </div>
+  <script src="vendor/qrcode.js"></script>
+  <script src="js/qr.js"></script>
   <script src="js/common.js"></script>
   <script src="js/net.js"></script>
   <script src="js/player.js"></script>

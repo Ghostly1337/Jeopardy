@@ -45,14 +45,12 @@ test('Tipp-Art pro Frage', async (t) => {
     assert.equal(await clue(1, 0).locator('.ed-hint-preview').textContent(), 'Tipp-Joker ist bei dieser Frage gesperrt');
     // Erst weiter, wenn gespeichert ist (übers Relay zusätzlich auf dem Server)
     if (TRANSPORT === 'relay') await ed.waitForFunction(() => document.getElementById('saved').textContent.includes('Server gespeichert'));
-    await host.waitForFunction(() => {
-      const s = localStorage.getItem(J.SET_KEY) || '';
-      return s.includes('Hat einen Stack') && s.includes('"hint":"none"');
-    });
+    // Zuletzt eine sichtbare Änderung: Zeigt das Host-Pult sie, hat es auch die Tipp-Einstellungen
+    await ed.locator('.ed-cat input').first().fill('Tipp-Test');
+    await host.waitForSelector('.cell.cat:text-is("Tipp-Test")');
   });
 
   await t.test('Eigener Tipp kommt nur beim Nutzer an', async () => {
-    await host.waitForSelector('.cell.cat:text-is("Kategorie 1")');
     await host.locator('.cell.val').nth(0).click();
     await useJoker(anna, 'hint');
     await anna.waitForSelector('#hintBox:not([hidden])');
@@ -66,8 +64,10 @@ test('Tipp-Art pro Frage', async (t) => {
     await host.locator('.cell.val').nth(1).click();
     for (const p of [ben]) { // Anna hat ihren Tipp schon verbraucht
       await p.waitForSelector('#jokerBar:not([hidden])');
-      await p.waitForSelector('.joker[data-kind="hint"][disabled]');
-      assert.equal(await p.getAttribute('.joker[data-kind="hint"]', 'title'), 'Bei dieser Frage gibt es keinen Tipp');
+      await p.waitForFunction(() => {
+        const b = document.querySelector('.joker[data-kind="hint"]');
+        return b && b.disabled && b.title === 'Bei dieser Frage gibt es keinen Tipp';
+      });
     }
     await host.click('#cancel');
   });

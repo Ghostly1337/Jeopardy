@@ -183,7 +183,7 @@
       wrap.innerHTML = '';
       if (clue.img) {
         const thumb = document.createElement('img');
-        thumb.src = clue.img;
+        thumb.src = J.safeImg(clue.img);
         thumb.alt = '';
         const del = document.createElement('button');
         del.className = 'small ghost';
@@ -376,13 +376,8 @@
     const file = fileInput.files[0];
     if (!file) return;
     try {
-      const data = JSON.parse(await file.text());
-      if (!data || !Array.isArray(data.rounds)) throw new Error('Kein gültiges Fragenset');
-      // Unbekannte Fragearten (Datei ist neuer als diese Seite) nicht still verwerfen
-      const unknown = data.rounds.flatMap((r) => (r && r.categories) || []).flatMap((c) => (c && c.clues) || [])
-        .some((cl) => cl && cl.kind && !J.CLUE_KINDS.includes(cl.kind));
-      if (unknown) throw new Error('Das Set nutzt Fragearten, die diese Seite noch nicht kennt. Bitte die Seite neu laden (Strg+Shift+R) und nochmal importieren.');
-      const imported = J.normalizeSet(data);
+      if (file.size > J.MAX_SET_FILE_BYTES) throw new Error('Die Datei ist zu groß (höchstens 8 MB).');
+      const imported = J.parseSetFile(await file.text(), file.size);
       if (lib) {
         // Import legt ein neues Set an, statt das aktive zu überschreiben
         const base = file.name.replace(/\.json$/i, '');

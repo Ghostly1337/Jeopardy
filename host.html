@@ -2,9 +2,10 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jeopardy Host</title>
-  <script>try{document.documentElement.dataset.theme=localStorage.getItem("jeopardy.theme")||"graphit"}catch(e){}</script>
+  <script src="js/theme-init.js"></script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="host">
@@ -17,7 +18,7 @@
           <button class="small primary" id="copy">Link kopieren</button>
           <span class="status-inline" id="peerStatus">verbinde…</span>
           <span class="pill" id="viewers">0 verbunden</span>
-          <div class="link" id="link"></div>
+          <div class="join-line"><button class="qr" id="qr" title="Klicken zum Vergrößern" aria-label="QR-Code vergrößern"></button><div class="link" id="link"></div></div>
         </div>
         <div class="spacer"></div>
         <div class="seg">
@@ -130,7 +131,9 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="vendor/peerjs.min.js"></script>
+  <script src="vendor/qrcode.js"></script>
+  <script src="js/qr.js"></script>
   <script src="js/common.js"></script>
   <script src="js/net.js"></script>
   <script src="js/host.js"></script>

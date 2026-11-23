@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 let handleSets, memorySetStore, pgSetStore, LIMITS;
 test.before(async () => {
   ({ handleSets, memorySetStore, pgSetStore, LIMITS } = await import('../../lib/sets-core.mjs'));
+  LIMITS.failDelayMs = 0; // in Tests nicht warten (eigener Test prüft die Bremse)
 });
 
 const PW = 'host-geheim';
@@ -104,4 +105,16 @@ test('Postgres-Speicher: legt Tabelle einmal an und nutzt Parameter', async () =
   assert.deepEqual(got, { id: 'abcdefgh1234', name: 'N', updated: '1970-01-01T00:00:00.000Z', data: { rounds: [] } });
   assert.equal(calls.filter((c) => c.text.startsWith('CREATE TABLE')).length, 1);
   assert.ok(calls.every((c) => !c.text.includes('abcdefgh1234')), 'Werte nur als Parameter');
+});
+
+test('Falsches Host-Passwort wird gebremst', async () => {
+  LIMITS.failDelayMs = 150;
+  try {
+    const t0 = Date.now();
+    assert.equal((await client(memorySetStore())('check', { pw: 'falsch' })).status, 401);
+    assert.ok(Date.now() - t0 >= 140, 'Antwort kommt verzögert');
+    const t1 = Date.now();
+    assert.equal((await client(memorySetStore())('check')).status, 200);
+    assert.ok(Date.now() - t1 < 100, 'richtiges Passwort ohne Wartezeit');
+  } finally { LIMITS.failDelayMs = 0; }
 });

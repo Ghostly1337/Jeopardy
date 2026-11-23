@@ -98,6 +98,22 @@ test('Emoji-Spam-Sperre und Schalter im Host-Pult', async (t) => {
   assert.deepEqual(env.errors, []);
 });
 
+test('Host tippt Punkte, während sich ein Spieler verbindet: Eingabe bleibt erhalten', async () => {
+  const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
+  const input = host.locator('.pscore').nth(1);
+  await input.click();
+  await input.fill('350');
+  // Verbinden baut die Spielerliste neu auf
+  const p = await joinPlayer(env, code, { pick: 'Anna' });
+  await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 1);
+  assert.equal(await host.locator('.pscore').nth(1).inputValue(), '350', 'getippter Wert bleibt');
+  assert.ok(await host.locator('.pscore').nth(1).evaluate((e) => e === document.activeElement), 'Fokus bleibt');
+  await host.locator('.pscore').nth(1).press('Enter');
+  await p.waitForFunction(() => [...document.querySelectorAll('#scores .score-value')].map((e) => e.textContent).join(',') === '0,350');
+  await host.context().close();
+  await p.context().close();
+});
+
 test('Siegerehrung mit Gleichstand und Reaktionen', async (t) => {
   const { host, code } = await openHost(env, { names: ['Anna', 'Ben', 'Cem'] });
   const p = await joinPlayer(env, code, { pick: 'Anna', viewport: { width: 1280, height: 800 } });

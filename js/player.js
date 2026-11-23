@@ -62,7 +62,7 @@
       for (let c = 0; c < s.categories.length; c++) {
         const used = s.used[c][row];
         const active = s.current && s.current.cat === c && s.current.row === row;
-        html += `<div class="cell val${used ? ' used' : ''}${active ? ' active' : ''}" style="--i:${row * s.categories.length + c}">${s.values[row]}</div>`;
+        html += `<div class="cell val${used ? ' used' : ''}${active ? ' active' : ''}" style="--i:${row * s.categories.length + c}">${J.safeNum(s.values[row])}</div>`;
       }
     }
     board.innerHTML = html;
@@ -84,9 +84,10 @@
       $('meta').textContent = `${cur.category} – ${cur.value}`;
       $('q').textContent = cur.q;
       const img = $('img');
-      img.hidden = !cur.img;
-      if (cur.img && img.getAttribute('src') !== cur.img) img.src = cur.img;
-      if (!cur.img) img.removeAttribute('src');
+      const imgSrc = J.safeImg(cur.img); // nur http(s)- oder data:image-Adressen
+      img.hidden = !imgSrc;
+      if (imgSrc && img.getAttribute('src') !== imgSrc) img.src = imgSrc;
+      if (!imgSrc) img.removeAttribute('src');
       img.classList.toggle('pixel', !!cur.pixel && cur.pixel.mode !== 'zoom');
       img.classList.toggle('zoomed', !!cur.pixel && cur.pixel.mode === 'zoom');
       // Bei Schätzfrage und Reihenfolge zeigt die Ergebnisliste die Lösung
@@ -109,6 +110,7 @@
 
     last = s;
     renderMe();
+    renderInvite();
     renderBuzz();
     renderJokers(clueKey);
     renderSpecial(clueKey);
@@ -398,7 +400,7 @@
       btn.dataset.kind = j.id;
       btn.disabled = !!block;
       btn.title = block || j.desc;
-      btn.innerHTML = `<span class="joker-icon">${j.icon}</span><span class="joker-name">${jokerArmed === j.id ? 'Nochmal tippen' : j.name}</span>`;
+      btn.innerHTML = `<span class="joker-icon">${J.escapeHtml(j.icon)}</span><span class="joker-name">${J.escapeHtml(jokerArmed === j.id ? 'Nochmal tippen' : j.name)}</span>`;
       btn.addEventListener('click', () => {
         if (j.id === 'pass') { passOpen = !passOpen; renderJokers(clueKey); return; }
         if (jokerArmed === j.id) { sendJoker(j.id); renderJokers(clueKey); return; }
@@ -477,6 +479,29 @@
   }
   let pickerError = '';
 
+  // TV: großer QR-Code zum Beitreten, solange noch nichts gespielt wurde; per QR-Taste ein-/ausblendbar
+  const inviteUrl = J.joinUrl(location.href, room, turn);
+  if (window.JQR && room) {
+    try { $('inviteQr').innerHTML = JQR.svg(inviteUrl); } catch (e) { /* zu lang/kein ASCII: nur Text */ }
+  }
+  $('inviteCode').textContent = room;
+  $('inviteLink').textContent = inviteUrl;
+  let inviteDone = false;
+  let inviteManual = null; // null = automatisch, sonst true/false von Hand
+  const gameStarted = (s) => s.round > 0 || !!s.current || !!s.finished || s.used.some((col) => col.some(Boolean));
+  function renderInvite() {
+    const tv = me === 'tv' && !!last;
+    // Spielstart (Intro oder erstes Feld): QR verschwindet – auch wenn er von Hand eingeblendet war –
+    // und kommt danach nur noch per QR-Taste zurück
+    if (!inviteDone && last && (last.intro || gameStarted(last))) { inviteDone = true; inviteManual = null; }
+    const show = tv && (inviteManual === null ? !inviteDone : inviteManual);
+    $('invite').hidden = !show;
+    $('qrBtn').hidden = !tv;
+    $('qrBtn').classList.toggle('on', !!show);
+  }
+  $('qrBtn').addEventListener('click', () => { inviteManual = $('invite').hidden; renderInvite(); });
+  $('invite').addEventListener('click', () => { inviteManual = false; renderInvite(); });
+
   function forget(reason) {
     me = null;
     pickerError = reason;
@@ -536,7 +561,7 @@
         b.className = 'pick';
         if (team) {
           const n = (members[p.id] || []).length;
-          b.innerHTML = `<span class="pick-name"><i class="team-dot" style="--team:${p.color}"></i>${J.escapeHtml(p.name)}</span>` +
+          b.innerHTML = `<span class="pick-name"><i class="team-dot" style="--team:${J.safeColor(p.color)}"></i>${J.escapeHtml(p.name)}</span>` +
             `<span class="pick-count">${n}/${last.teamSize}</span>`;
         } else {
           b.textContent = p.name;
@@ -785,6 +810,7 @@
     if (conn) conn.close();
     setStatus('verbinde…', false);
     conn = peer.connect(J.peerId(room), { reliable: true });
+    if (window.JEOP_TEST) window.__jeopConn = conn; // nur für Browser-Tests (z. B. kaputte Nachrichten)
     const thisConn = conn;
     // Kommt die Direktverbindung nicht zustande, blockiert meist das Netz (z. B. Uni-WLAN)
     clearTimeout(hintTimer);

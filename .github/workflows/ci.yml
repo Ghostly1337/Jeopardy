@@ -25,6 +25,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Bekannte Sicherheitslücken in Laufzeit-Abhängigkeiten lassen die CI scheitern
+      - name: Sicherheits-Audit (Laufzeit-Abhängigkeiten)
+        if: matrix.transport == 'peer'
+        run: npm audit --omit=dev --audit-level=moderate
       - name: Chromium für Playwright installieren
         run: npx playwright install --with-deps chromium
       - name: Unit-Tests
@@ -53,8 +57,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
+      # Nur Laufzeitdateien veröffentlichen (keine Tests, api/, lib/, Konfiguration, Doku)
+      - run: scripts/build-pages.sh _site
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

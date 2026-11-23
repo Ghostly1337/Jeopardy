@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.7';
+  const APP_VERSION = '2026-11-23.8';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -306,7 +306,18 @@
   // Reihenfolge: Antwort „A | B | C | D“ in richtiger Reihenfolge
   const orderItems = (answer) => String(answer || '').split('|').map((x) => x.trim()).filter(Boolean);
   // Gemischte Reihenfolge, die nie zufällig schon stimmt
-  function shufflePerm(n, rnd = Math.random) {
+  // Kryptografischer Zufall in [0, 1) – für Raumcodes und das Mischen der Antworten,
+  // damit sich nichts aus früheren Werten vorhersagen lässt. Fallback nur ohne Web Crypto.
+  function cryptoRandom() {
+    try {
+      const a = new Uint32Array(1);
+      crypto.getRandomValues(a);
+      return a[0] / 4294967296;
+    } catch (e) {
+      return Math.random();
+    }
+  }
+  function shufflePerm(n, rnd = cryptoRandom) {
     const p = [...Array(n).keys()];
     if (n < 2) return p;
     do {
@@ -322,7 +333,7 @@
   // Zwei-Wege-Fragen (Fakt/Fake, Wahr/Falsch, Ja/Nein) stehen immer in derselben Reihenfolge,
   // damit die Position nie etwas verrät; alles andere wird zufällig gemischt.
   const FIXED_PAIRS = [['fakt', 'fake'], ['wahr', 'falsch'], ['richtig', 'falsch'], ['ja', 'nein'], ['true', 'false']];
-  function choicePerm(items, rnd = Math.random) {
+  function choicePerm(items, rnd = cryptoRandom) {
     if (items.length === 2) {
       const low = items.map((s) => String(s).trim().toLowerCase());
       const pair = FIXED_PAIRS.find((p) => p.includes(low[0]) && p.includes(low[1]) && low[0] !== low[1]);
@@ -330,7 +341,7 @@
     }
     return randomPerm(items.length, rnd);
   }
-  function randomPerm(n, rnd = Math.random) {
+  function randomPerm(n, rnd = cryptoRandom) {
     const p = [...Array(n).keys()];
     for (let i = n - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
@@ -395,6 +406,30 @@
     return config;
   }
   // Für den Beitrittslink: kompakt, URL-sicher, Unicode-fest
+  // Import einer Set-Datei: Größe, JSON-Form und Fragearten prüfen, dann normalisieren.
+  // Wirft einen Fehler mit verständlicher Meldung; der Inhalt wird nie als Code ausgeführt.
+  const MAX_SET_FILE_BYTES = 8 * 1024 * 1024;
+  function parseSetFile(text, size = String(text || '').length) {
+    if (size > MAX_SET_FILE_BYTES) throw new Error('Die Datei ist zu groß (höchstens 8 MB).');
+    let data;
+    try { data = JSON.parse(text); } catch (e) { throw new Error('Keine gültige JSON-Datei'); }
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.rounds)) throw new Error('Kein gültiges Fragenset');
+    // Unbekannte Fragearten (Datei ist neuer als diese Seite) nicht still verwerfen
+    const unknown = data.rounds.flatMap((r) => (r && Array.isArray(r.categories) ? r.categories : []))
+      .flatMap((c) => (c && Array.isArray(c.clues) ? c.clues : []))
+      .some((cl) => cl && cl.kind && !CLUE_KINDS.includes(cl.kind));
+    if (unknown) throw new Error('Das Set nutzt Fragearten, die diese Seite noch nicht kennt. Bitte die Seite neu laden (Strg+Shift+R) und nochmal importieren.');
+    return normalizeSet(data);
+  }
+
+  // Beitrittslink: nur Raumcode (+ TURN-Zugang im #-Teil, der nie an einen Server geht).
+  // Query und Fragment der aktuellen Seite (z. B. Passwörter) werden bewusst nicht übernommen.
+  function joinUrl(href, code, turn) {
+    const u = new URL('player.html', href);
+    u.search = '?room=' + encodeURIComponent(code);
+    u.hash = turn ? 't=' + encodeTurn(turn) : '';
+    return u.href;
+  }
   function encodeTurn(t) {
     t = parseTurn(t);
     if (!t) return '';
@@ -528,7 +563,7 @@
   function newRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
-    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(cryptoRandom() * chars.length)];
     try { localStorage.setItem(ROOM_KEY, code); } catch (e) {}
     return code;
   }
@@ -825,7 +860,7 @@
 
   function sfx(name) {
     const ctx = audioCtx();
-    if (!ctx || !SOUNDS[name]) return;
+    if (!ctx || !Object.prototype.hasOwnProperty.call(SOUNDS, name)) return;
     try { SOUNDS[name](ctx); } catch (e) { console.warn('Sound fehlgeschlagen', e); }
   }
 
@@ -845,6 +880,16 @@
     })[ch]);
   }
 
+  // Farbe für style-Attribute: nur #hex (aus der Teampalette); alles andere fällt weg
+  function safeColor(c) {
+    return typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c) ? c : '';
+  }
+  // Zahl für innerHTML: Netzwerkdaten können Strings sein → immer endliche Zahl
+  function safeNum(n) {
+    n = Number(n);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   function renderScores(el, players, turnId) {
     if (!players.length) {
       el.innerHTML = '<div class="score-empty">Noch keine Spieler</div>';
@@ -854,9 +899,9 @@
     const prev = el.__prev || null;
     el.__prev = Object.fromEntries(players.map((p) => [p.id, p.score]));
     el.innerHTML = players.map((p) => `
-      <div class="score${p.id && p.id === turnId ? ' turn' : ''}"${p.color ? ` style="--team:${p.color}"` : ''}>
-        <div class="score-name">${p.color ? '<i class="team-dot"></i>' : ''}${escapeHtml(p.name)}</div>
-        <div class="score-value ${p.score < 0 ? 'neg' : ''}">${p.score}</div>
+      <div class="score${p.id && p.id === turnId ? ' turn' : ''}"${safeColor(p.color) ? ` style="--team:${safeColor(p.color)}"` : ''}>
+        <div class="score-name">${safeColor(p.color) ? '<i class="team-dot"></i>' : ''}${escapeHtml(p.name)}</div>
+        <div class="score-value ${safeNum(p.score) < 0 ? 'neg' : ''}">${safeNum(p.score)}</div>
         ${scoreDelta(prev, p)}
       </div>`).join('');
     // Geänderte Punkte: Kachel leuchtet grün/rot auf, Zahl rollt vom alten zum neuen Wert
@@ -883,7 +928,7 @@
   // „+500“ / „−250“ fliegt kurz über die Kachel, wenn sich die Punkte geändert haben
   function scoreDelta(prev, p) {
     if (!prev || !(p.id in prev)) return '';
-    const d = p.score - prev[p.id];
+    const d = safeNum(p.score) - safeNum(prev[p.id]);
     if (!d) return '';
     return `<span class="delta ${d > 0 ? 'pos' : 'neg'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</span>`;
   }
@@ -984,7 +1029,7 @@
       if (!ps.length) return '<div class="pod-col empty"></div>';
       return `<div class="pod-col p${place}">
         <div class="pod-names">${ps.map((p) => `<div class="pod-name">${escapeHtml(p.name)}</div>`).join('')}</div>
-        <div class="pod-score${ps[0].score < 0 ? ' neg' : ''}">${ps[0].score}</div>
+        <div class="pod-score${safeNum(ps[0].score) < 0 ? ' neg' : ''}">${safeNum(ps[0].score)}</div>
         <div class="pod-block"><span>${place}</span></div>
       </div>`;
     };
@@ -994,12 +1039,12 @@
       <div class="pod-winner">${winners ? '🏆 ' + winners : 'Keine Spieler'}</div>
       <div class="podium">${col(2)}${col(1)}${col(3)}</div>
       ${rest.length ? `<div class="pod-rest">${rest.map((p) =>
-        `<div><span>${p.place}.</span> ${escapeHtml(p.name)} <b>${p.score}</b></div>`).join('')}</div>` : ''}
+        `<div><span>${safeNum(p.place)}.</span> ${escapeHtml(p.name)} <b>${safeNum(p.score)}</b></div>`).join('')}</div>` : ''}
       ${(() => {
         const list = awards(players, stats, persons);
         return list.length ? `<div class="awards">${list.map((a, i) => `
           <div class="award" style="--d:${1.2 + i * 0.25}s">
-            <div class="award-icon">${a.icon}</div>
+            <div class="award-icon">${escapeHtml(a.icon)}</div>
             <div class="award-title">${escapeHtml(a.title)}</div>
             <div class="award-name">${a.names.map(escapeHtml).join(' & ')}</div>
             <div class="award-value">${escapeHtml(a.value)}</div>
@@ -1042,7 +1087,7 @@
     el.className = 'react-float';
     el.style.left = (8 + Math.random() * 84) + '%';
     el.style.setProperty('--sway', (Math.random() * 80 - 40).toFixed(0) + 'px');
-    el.innerHTML = `<span class="react-emoji">${emoji}</span>${name ? `<span class="react-name">${escapeHtml(name)}</span>` : ''}`;
+    el.innerHTML = `<span class="react-emoji">${escapeHtml(emoji)}</span>${name ? `<span class="react-name">${escapeHtml(name)}</span>` : ''}`;
     el.addEventListener('animationend', () => el.remove());
     layer.appendChild(el);
   }
@@ -1070,11 +1115,11 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, HINT_TYPES, hintType, hintFor, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, cryptoRandom, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, HINT_TYPES, hintType, hintFor, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,
-    roomCode, newRoomCode, peerId, publicState, escapeHtml, renderScores,
+    roomCode, newRoomCode, peerId, joinUrl, parseSetFile, MAX_SET_FILE_BYTES, publicState, escapeHtml, safeColor, safeNum, renderScores,
     THEMES, getTheme, applyTheme, setTheme,
     penaltyFor, stealFor, sfx, startTimerMusic, stopTimerMusic, timerMusicOn, soundOn, setSoundOn, unlockAudio, audioUnlocked, renderTimer,
     TIMER_MS: 15000,

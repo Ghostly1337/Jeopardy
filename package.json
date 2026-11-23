@@ -9,10 +9,12 @@
     "test:e2e:relay": "E2E_TRANSPORT=relay node --test --test-concurrency=1 \"tests/e2e/**/*.test.js\""
   },
   "devDependencies": {
+    "jsqr": "1.4.0",
     "node-turn": "0.0.6",
     "peer": "1.0.2",
     "peerjs": "1.5.4",
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "qrcode-generator": "1.4.4"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0"

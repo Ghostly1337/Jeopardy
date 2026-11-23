@@ -299,6 +299,7 @@
     const target = kind === 'pass' ? msg.target : undefined;
     if (kind === 'pass' && typeof target !== 'string') return;
     const cur = state.current;
+    if (!cur || !pid || !J.jokerInfo(kind)) return;
     const clueNow = set.rounds[cur.round].categories[cur.cat].clues[cur.row];
     if (J.jokerBlock(kind, { cur: { ...cur, noHint: J.hintType(clueNow) === 'none' }, players: state.players, turn: state.turn, pid, target })) return;
     const p = state.players.find((x) => x.id === pid);
@@ -352,7 +353,7 @@
   function armBuzz() {
     const cur = state.current;
     const fixed = window.JEOP_BUZZ_DELAY_MS;
-    const delay = fixed != null ? fixed : 500 + Math.random() * 1000;
+    const delay = fixed != null ? fixed : 500 + J.cryptoRandom() * 1000;
     setTimeout(() => {
       if (state.current !== cur || !cur.buzz || !cur.buzz.arming) return;
       cur.buzz = openBuzz();
@@ -550,6 +551,11 @@
 
   function renderPlayers() {
     const box = $('players');
+    // Tippt der Host gerade eine Punktzahl, darf ein Neuaufbau (z. B. weil sich ein Spieler
+    // verbindet) die Eingabe nicht verwerfen: Wert und Fokus danach wiederherstellen.
+    const active = document.activeElement;
+    const typing = active && active.classList.contains('pscore') && box.contains(active)
+      ? { id: active.dataset.pid, value: active.value } : null;
     box.innerHTML = '';
     state.players.forEach((p) => {
       const row = document.createElement('div');
@@ -581,7 +587,8 @@
       const score = document.createElement('input');
       score.type = 'number';
       score.className = 'pscore';
-      score.value = p.score;
+      score.dataset.pid = p.id;
+      score.value = typing && typing.id === p.id ? typing.value : p.score;
       score.addEventListener('change', () => {
         const v = parseInt(score.value, 10);
         if (Number.isNaN(v) || v === p.score) { score.value = p.score; return; }
@@ -630,6 +637,10 @@
       }
       box.appendChild(row);
     });
+    if (typing) {
+      const again = box.querySelector(`.pscore[data-pid="${CSS.escape(typing.id)}"]`);
+      if (again) again.focus();
+    }
   }
 
   function renderLog() {
@@ -858,7 +869,7 @@
       const b = document.createElement('button');
       b.className = 'theme-btn' + (t.id === current ? ' on' : '');
       b.dataset.id = t.id;
-      b.innerHTML = `<span class="sw" style="background:linear-gradient(135deg, ${t.sw[0]} 55%, ${t.sw[1]} 55%)"></span>${t.name}`;
+      b.innerHTML = `<span class="sw" style="background:linear-gradient(135deg, ${J.safeColor(t.sw[0])} 55%, ${J.safeColor(t.sw[1])} 55%)"></span>${J.escapeHtml(t.name)}`;
       b.addEventListener('click', () => {
         J.setTheme(t.id);
         renderThemes();
@@ -873,10 +884,15 @@
   const code = J.roomCode();
   // Verbindungshilfe: TURN-Zugang wandert im #-Teil des Links mit (wird nicht an Server übertragen)
   const turn = J.loadTurn();
-  const joinUrl = new URL('player.html?room=' + code, location.href).href + (turn ? '#t=' + J.encodeTurn(turn) : '');
+  const joinUrl = J.joinUrl(location.href, code, turn);
   const peerOptions = () => ({ config: J.iceConfig(turn, window.JEOP_FORCE_RELAY) });
   $('code').textContent = code;
   $('link').textContent = joinUrl;
+  // QR-Code zum Beitrittslink (offline erzeugt); Klick vergrößert ihn für Handy-Kameras
+  if (window.JQR) {
+    try { $('qr').innerHTML = JQR.svg(joinUrl); } catch (e) { $('qr').hidden = true; }
+    $('qr').addEventListener('click', () => $('qr').classList.toggle('big'));
+  }
   $('copy').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(joinUrl);
@@ -920,11 +936,17 @@
     return ids;
   }
 
+  // Jede Spieler-Nachricht ist unvertrauenswürdig: Form prüfen und Flut drosseln
+  // (höchstens MSG_BURST Nachrichten pro Sekunde und Gerät; der Rest wird verworfen).
+  const MSG_BURST = 40;
   function onData(conn, msg) {
-    if (!msg || typeof msg !== 'object') return;
+    if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
+    const now = Date.now();
+    if (!conn.rate || now - conn.rate.t > 1000) conn.rate = { t: now, n: 0 };
+    if (++conn.rate.n > MSG_BURST) return;
     if (msg.type === 'hello') {
-      const pid = typeof msg.playerId === 'string' ? msg.playerId : null;
-      conn.deviceId = typeof msg.deviceId === 'string' ? msg.deviceId : null;
+      const pid = typeof msg.playerId === 'string' && msg.playerId.length <= 64 ? msg.playerId : null;
+      conn.deviceId = typeof msg.deviceId === 'string' && msg.deviceId.length <= 64 ? msg.deviceId : null;
       let ok = state.players.some((p) => p.id === pid) ? pid : null;
       conn.memberName = null;
       if (ok && isTeam()) {

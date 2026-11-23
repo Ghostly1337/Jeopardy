@@ -40,6 +40,7 @@ Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–50
 - **🎯 Am Zug** geht **reihum** in der Reihenfolge der Punkte-Liste, jeweils wenn eine Frage mit *Fertig* abgeschlossen wird (*Abbrechen* lässt den Zug beim selben). Mit 🎯 setzt du ihn manuell.
 - **⏱ 15-s-Timer**: per Button, läuft bei allen sichtbar runter, Signal bei 0.
 - **✨ Runden-Intro**: Beim Rundenwechsel (oder per ✨) erscheint „Runde X“, dann werden die Kategorien einzeln aufgedeckt. Mit „Überspringen“ abkürzbar.
+- **📱 QR-Code zum Beitreten**: im Host-Pult neben dem Link (antippen vergrößert), in der TV-Ansicht groß bis zum Spielstart (QR-Taste blendet ihn wieder ein). Offline erzeugt, kein externer Dienst sieht den Link.
 - **🏆 Siegerehrung**: Podium (Gleichstand teilt sich den Platz), Auszeichnungen (Buzzer-König, Meisterdieb, Treffsicher, Meiste Fehlversuche – im Team-Modus ist der Buzzer-König eine Person), Konfetti und Fanfare.
 - **Live-Reaktionen**: Spieler tippen 😂 👏 😱 🔥 🤔, das Emoji fliegt mit Namen bei allen über den Bildschirm (am Handy hinter dem 😀-Knopf).
 - **Animationen**: Die Frage wächst aus dem angeklickten Feld heraus, richtig leuchtet grün, falsch wackelt rot, Punktestände zählen hoch. Auf der TV-Ansicht erscheint, wer gebuzzert hat, kurz groß mit Blitz.
@@ -77,6 +78,16 @@ vercel deploy --prod
 
 ### Verbindungshilfe (nur GitHub Pages / WebRTC)
 Bleiben Spieler bei „Verbinde mit dem Spiel…“ hängen, blockiert das Netz direkte Verbindungen – typisch, wenn alle im selben Uni-WLAN sind. Die Spielerseite zeigt das nach einigen Sekunden an. Lösung: Im Host-Pult unter **🛜 Verbindungshilfe** einen TURN-Zugang eintragen (z. B. kostenlos von [Metered](https://www.metered.ca/stun-turn): Adressen, Benutzername, Passwort; am besten mit `turns:…:443`, das kommt durch fast jede Firewall). Der Zugang wird nur im Browser des Hosts gespeichert und im `#`-Teil des Beitrittslinks an die Spieler weitergegeben – er landet nicht im Code und nicht auf einem Server. Danach den Link neu verschicken.
+
+## Sicherheit
+- **Alles von außen ist Text:** Fragen, Namen, Tipps und alles, was übers Netz kommt, wird vor der Anzeige escaped; Farben, Zahlen und Bild-Adressen werden geprüft (`safeColor`, `safeNum`, `safeImg`). Bilder nur über `https://` oder als Bilddaten (kein SVG, kein `javascript:`).
+- **Content-Security-Policy** auf allen Seiten (als `<meta>`, gilt auch auf GitHub Pages): nur eigene Skripte, keine Inline-Skripte, keine Plugins. Selbst eine übersehene Lücke könnte so keinen fremden Code ausführen.
+- **Keine fremden Skripte:** PeerJS und der QR-Generator liegen in `vendor/` (bytegleich mit den npm-Paketen, per Test geprüft), kein CDN.
+- **Host prüft jede Spieler-Nachricht** (Form, Länge, Typ) und drosselt Fluten (40 Nachrichten pro Sekunde und Gerät, Emojis eigene Sperre).
+- **Vercel:** Middleware liefert nur Laufzeitdateien aus (Tests, `lib/`, `node_modules/`, Konfiguration und Doku → 404), falsche Seiten- oder Host-Passwörter werden verzögert beantwortet (gegen Durchprobieren), Passwörter werden in konstanter Zeit verglichen. Header: CSP `frame-ancestors 'none'`, `X-Frame-Options`, HSTS, `Permissions-Policy`, `nosniff`.
+- **GitHub Pages** veröffentlicht nur Laufzeitdateien (`scripts/build-pages.sh`).
+- **Zufall** für Raumcodes und das Mischen der Antworten kommt aus Web Crypto.
+- Die CI bricht bei bekannten Lücken in Laufzeit-Abhängigkeiten ab (`npm audit --omit=dev`).
 
 ## Tests
 

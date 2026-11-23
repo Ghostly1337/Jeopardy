@@ -126,3 +126,23 @@ test('Multiple Choice: richtige Antwort landet an jeder Position (auch bei Fakt/
     assert.equal(seen.size, n, `bei ${n} Optionen kommt jede Position vor`);
   }
 });
+
+test('Fakt oder Fake steht immer gleich: Fakt links, Fake rechts', () => {
+  const shown = (a) => { const items = J.orderItems(a); return [...J.choicePerm(items)].map((i) => items[i]); };
+  for (let k = 0; k < 20; k++) {
+    assert.deepEqual(shown('Fakt | Fake'), ['Fakt', 'Fake']);
+    assert.deepEqual(shown('Fake | Fakt'), ['Fakt', 'Fake']);
+    assert.deepEqual(shown('Falsch | Wahr'), ['Wahr', 'Falsch']);
+    assert.deepEqual(shown('nein | ja'), ['ja', 'nein']);
+  }
+  // Die richtige Antwort (Index 0) liegt je nach Frage mal links, mal rechts
+  assert.equal(J.choicePerm(J.orderItems('Fakt | Fake')).indexOf(0), 0);
+  assert.equal(J.choicePerm(J.orderItems('Fake | Fakt')).indexOf(0), 1);
+});
+
+test('Andere Multiple-Choice-Fragen werden weiter gemischt', () => {
+  const seen = new Set();
+  for (let k = 0; k < 200; k++) seen.add(J.choicePerm(['A', 'B']).join(''));
+  assert.deepEqual([...seen].sort(), ['01', '10']);
+  assert.ok(J.isPerm(J.choicePerm(['x', 'y', 'z', 'w']), 4));
+});

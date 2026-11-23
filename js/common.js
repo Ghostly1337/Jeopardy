@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.4';
+  const APP_VERSION = '2026-11-23.5';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -270,6 +270,17 @@
   }
   // Echte Zufallsmischung (darf auch unverändert bleiben) – für Multiple Choice. shufflePerm passt nicht:
   // Bei zwei Optionen (Fakt/Fake) bliebe nur das Vertauschen, die Lösung stünde immer an Position B.
+  // Zwei-Wege-Fragen (Fakt/Fake, Wahr/Falsch, Ja/Nein) stehen immer in derselben Reihenfolge,
+  // damit die Position nie etwas verrät; alles andere wird zufällig gemischt.
+  const FIXED_PAIRS = [['fakt', 'fake'], ['wahr', 'falsch'], ['richtig', 'falsch'], ['ja', 'nein'], ['true', 'false']];
+  function choicePerm(items, rnd = Math.random) {
+    if (items.length === 2) {
+      const low = items.map((s) => String(s).trim().toLowerCase());
+      const pair = FIXED_PAIRS.find((p) => p.includes(low[0]) && p.includes(low[1]) && low[0] !== low[1]);
+      if (pair) return pair.map((w) => low.indexOf(w));
+    }
+    return randomPerm(items.length, rnd);
+  }
   function randomPerm(n, rnd = Math.random) {
     const p = [...Array(n).keys()];
     for (let i = n - 1; i > 0; i--) {
@@ -1009,7 +1020,7 @@
 
   window.J = {
     PIXEL_STEPS, ZOOM_STEPS, imgSteps, imgMode, pixelLevel, pixelate, zoomCrop,
-    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
+    CLUE_KINDS, isSpecialKind, parseNumber, estimateWinners, orderItems, shufflePerm, randomPerm, choicePerm, isPerm, orderCorrect, JOKERS, jokerInfo, jokerBlock, whoIsUp, hintPattern, judgePoints,
     APP_VERSION, CATS, ROWS, ROUNDS, SET_KEY,
     pointsFor, defaultSet, normalizeSet, defaultState,
     loadSet, saveSet, loadState, saveState,

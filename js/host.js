@@ -125,7 +125,7 @@
       // Schätzfrage / Reihenfolge: alle geben am Handy ab, du löst auf
       if (kind === 'estimate') state.current.est = { guesses: {} };
       if (kind === 'order') state.current.ord = { perm: J.shufflePerm(J.orderItems(clue.a).length), answers: {} };
-      if (kind === 'choice') state.current.mc = { perm: J.randomPerm(J.orderItems(clue.a).length), answers: {} };
+      if (kind === 'choice') state.current.mc = { perm: J.choicePerm(J.orderItems(clue.a)), answers: {} };
     });
     sound('open');
     if (race) armBuzz();

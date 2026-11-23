@@ -12,6 +12,12 @@
   <div class="host-page">
     <main>
       <div class="topbar">
+        <form class="game-gate" id="gameGate" hidden>
+          <label for="gamePw">🔒 Spielleiter-Passwort</label>
+          <input id="gamePw" type="password" autocomplete="current-password" placeholder="zum Hosten nötig">
+          <button class="primary small" type="submit">Spiel eröffnen</button>
+          <span class="hint" id="gameGateError" role="alert"></span>
+        </form>
         <div class="room">
           <span class="label">Raumcode</span>
           <span class="code" id="code">------</span>

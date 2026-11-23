@@ -17,7 +17,12 @@ export default {
       return Response.json({ error: 'relay not configured' }, { status: 503 });
     }
     const rawBody = request.method === 'POST' ? await request.text() : '';
-    const { status, json } = await handleRelay({ method: request.method, query: u.searchParams, rawBody }, store);
+    const { status, json } = await handleRelay(
+      { method: request.method, query: u.searchParams, headers: request.headers, rawBody },
+      store,
+      // Spielleiter-Passwort (optional): ohne es kann niemand einen Raum eröffnen/übernehmen
+      { gamePassword: process.env.JEOPARDY_GAME_PASSWORD, hostPassword: process.env.JEOPARDY_HOST_PASSWORD },
+    );
     return Response.json(json, { status, headers: { 'cache-control': 'no-store' } });
   },
 };

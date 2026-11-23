@@ -12,11 +12,12 @@ const HOST = 'hosttoken-aaaaaaaa';
 const P1 = 'player1-aaaaaaaa';
 const P2 = 'player2-bbbbbbbb';
 
-function client(store) {
-  return async (op, body, method = 'POST') => {
+function client(store, auth, pw) {
+  return async (op, body, method = 'POST', headerPw = pw) => {
     const res = await handleRelay({
       method, query: new URLSearchParams({ op }), rawBody: body ? JSON.stringify(body) : '',
-    }, store);
+      headers: new Headers(headerPw == null ? {} : { 'x-game-password': headerPw }),
+    }, store, auth);
     return res;
   };
 }
@@ -24,7 +25,7 @@ function client(store) {
 test('ping meldet das Relay', async () => {
   const call = client(memoryStore());
   const res = await call('ping', null, 'GET');
-  assert.deepEqual(res, { status: 200, json: { ok: true, relay: true } });
+  assert.deepEqual(res, { status: 200, json: { ok: true, relay: true, hostGate: false } });
 });
 
 test('Host belegt Raum, fremder Token wird abgewiesen, gleicher Token darf neu anmelden', async () => {
@@ -130,4 +131,45 @@ test('Große Clips: Antwort bleibt unter dem Größenlimit, der Rest kommt beim 
     after = r.seq;
   }
   assert.deepEqual(seen, [0, 1, 2], 'nichts geht verloren, Reihenfolge bleibt');
+});
+
+test('Spielleiter-Passwort: Raum eröffnen/übernehmen nur mit Spielleiter- oder Host-Passwort', async () => {
+  const { LIMITS } = await import('../../lib/relay-core.mjs');
+  const delay = LIMITS.failDelayMs;
+  LIMITS.failDelayMs = 0;
+  try {
+    const auth = { gamePassword: 'spielleiter-pw', hostPassword: 'host-pw' };
+    const store = memoryStore();
+    const call = client(store, auth);
+    assert.equal((await call('ping', null, 'GET')).json.hostGate, true);
+    for (const pw of [null, '', 'falsch', 'SPIELLEITER-PW']) {
+      const r = await call('host', { room: 'GATE01', token: HOST }, 'POST', pw);
+      assert.deepEqual(r, { status: 401, json: { error: 'game password required' } }, String(pw));
+    }
+    assert.equal((await call('host', { room: 'GATE01', token: HOST }, 'POST', 'spielleiter-pw')).status, 200);
+    assert.equal((await call('host', { room: 'GATE02', token: HOST }, 'POST', 'host-pw')).status, 200, 'Host-Passwort geht auch');
+    // Spieler brauchen kein Passwort: pollen und senden geht weiter
+    assert.equal((await call('poll', { room: 'GATE01', as: P1, after: -1 }, 'POST', null)).status, 200);
+    assert.equal((await call('send', { room: 'GATE01', as: P1, msgs: [{ body: { t: 'open' } }] }, 'POST', null)).status, 200);
+    // Ohne Passwort kann auch ein verwaister Raum nicht übernommen werden
+    let t = 0;
+    const timed = memoryStore({ now: () => t });
+    const c2 = client(timed, auth, 'spielleiter-pw');
+    await c2('host', { room: 'GATE03', token: HOST });
+    t = 61_000;
+    assert.equal((await c2('host', { room: 'GATE03', token: 'other-token-xxxxx' }, 'POST', null)).status, 401);
+  } finally { LIMITS.failDelayMs = delay; }
+});
+
+test('Spielleiter-Passwort: ohne Einstellung bleibt Hosten offen; falsche Versuche werden gebremst', async () => {
+  const { LIMITS } = await import('../../lib/relay-core.mjs');
+  assert.equal((await client(memoryStore(), {})('host', { room: 'OPEN01', token: HOST })).status, 200);
+  const delay = LIMITS.failDelayMs;
+  LIMITS.failDelayMs = 150;
+  try {
+    const t0 = Date.now();
+    const r = await client(memoryStore(), { gamePassword: 'x-pw' }, 'falsch')('host', { room: 'SLOW01', token: HOST });
+    assert.equal(r.status, 401);
+    assert.ok(Date.now() - t0 >= 140);
+  } finally { LIMITS.failDelayMs = delay; }
 });

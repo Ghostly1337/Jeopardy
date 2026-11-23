@@ -46,6 +46,7 @@ async function startTurn() {
 }
 
 const HOST_PASSWORD = 'host-test-pw';
+const GAME_PASSWORD = 'spielleiter-test-pw';
 const TRANSPORT = process.env.E2E_TRANSPORT === 'relay' ? 'relay' : 'peer';
 
 function readBody(req) {
@@ -70,7 +71,10 @@ async function startEnv(init = {}) {
     relay = async (req, res) => {
       const u = new URL(req.url, 'http://x');
       const rawBody = req.method === 'POST' ? await readBody(req) : '';
-      const { status, json } = await handleRelay({ method: req.method, query: u.searchParams, rawBody }, store);
+      const headers = { get: (k) => req.headers[k.toLowerCase()] ?? null };
+      // wie auf Vercel mit Spielleiter-Passwort; Tests bekommen es vorab (außer noGamePw)
+      const { status, json } = await handleRelay({ method: req.method, query: u.searchParams, headers, rawBody }, store,
+        { gamePassword: GAME_PASSWORD, hostPassword: HOST_PASSWORD });
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(json));
     };
@@ -124,8 +128,9 @@ async function startEnv(init = {}) {
   async function page({ viewport = { width: 1280, height: 800 }, extraInit = {} } = {}) {
     const ctx = await browser.newContext({ viewport });
     await ctx.route('https://img.example.com/**', (r) => r.fulfill({ body: TEST_PNG, contentType: 'image/png' }));
-    await ctx.addInitScript(([port, vars]) => {
+    await ctx.addInitScript(([port, vars, gamePw]) => {
       Object.assign(window, vars);
+      if (gamePw && !vars.noGamePw) { try { sessionStorage.setItem('jeopardy.gamePw', gamePw); } catch (e) {} }
       let P;
       Object.defineProperty(window, 'Peer', {
         configurable: true,
@@ -140,7 +145,7 @@ async function startEnv(init = {}) {
         },
       });
     // Punkte-Zählanimation standardmäßig aus, damit Tests keine Zwischenwerte lesen
-    }, [peerPort, { JEOP_COUNT_MS: 0, JEOP_TEST: true, ...init, ...extraInit }]);
+    }, [peerPort, { JEOP_COUNT_MS: 0, JEOP_TEST: true, ...init, ...extraInit }, TRANSPORT === 'relay' ? GAME_PASSWORD : '']);
     const p = await ctx.newPage();
     p.on('pageerror', (e) => errors.push(e.message));
     // Verstöße gegen die Content-Security-Policy gelten als Fehler
@@ -202,4 +207,4 @@ async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true 
 const scoresOf = (page, sel = '#scores') =>
   page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
 
-module.exports = { TRANSPORT, HOST_PASSWORD, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };
+module.exports = { TRANSPORT, HOST_PASSWORD, GAME_PASSWORD, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

@@ -64,6 +64,7 @@ Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **H
 
 - **Passwort**: `middleware.js` sperrt die ganze Seite hinter einem gemeinsamen Passwort aus der Umgebungsvariable `JEOPARDY_PASSWORD` (Cookie 30 Tage). Passwort ändern = alle müssen es neu eingeben.
 - **Datenbank**: Neon-Integration im Vercel-Marketplace (`vercel integration add neon`); sie setzt `DATABASE_URL`. Die Tabellen `jeop_rooms`/`jeop_msgs` legt das Relay selbst an. Nachrichten werden nach 10 Minuten gelöscht, Räume nach 2 Tagen ohne Host.
+- **Spielleiter-Passwort** (optional, `JEOPARDY_GAME_PASSWORD`): Ist es gesetzt, vergibt das Relay einen Raum nur mit diesem Passwort (oder dem Host-Passwort). Spieler mit dem Seitenpasswort können dann weder selbst hosten noch einen Raum übernehmen, dessen Host kurz weg ist. Das Host-Pult fragt einmal danach und merkt es sich nur für den Tab. Wer nur das Spielleiter-Passwort kennt, kommt nicht an die gespeicherten Sets.
 - **Fragensets** (`api/sets.mjs`): Liegen in der Tabelle `jeop_sets` derselben Datenbank. Jede Anfrage braucht das Host-Passwort aus `JEOPARDY_HOST_PASSWORD` (Header `x-host-password`). Ist es nicht gesetzt, speichert der Editor nur im Browser.
 - **Fairer Buzzer**: Übers Relay sammelt der Host nach dem ersten Buzz 0,9 s statt 0,4 s, weil HTTP-Nachrichten ungleichmäßiger ankommen. Es zählt weiterhin die Reaktionszeit auf dem Gerät.
 
@@ -74,6 +75,7 @@ vercel link
 vercel integration add neon --meta region=fra1
 vercel env add JEOPARDY_PASSWORD production
 vercel env add JEOPARDY_HOST_PASSWORD production
+vercel env add JEOPARDY_GAME_PASSWORD production   # optional: nur wer es kennt, darf hosten
 vercel deploy --prod
 ```
 

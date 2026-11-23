@@ -26,10 +26,18 @@
     return t;
   }
 
-  async function api(op, body, signal) {
+  const GAME_PW_KEY = 'jeopardy.gamePw';
+  function gamePassword() {
+    try { return sessionStorage.getItem(GAME_PW_KEY) || localStorage.getItem('jeopardy.hostPw') || ''; } catch (e) { return ''; }
+  }
+  function setGamePassword(pw) {
+    try { if (pw) sessionStorage.setItem(GAME_PW_KEY, pw); else sessionStorage.removeItem(GAME_PW_KEY); } catch (e) {}
+  }
+
+  async function api(op, body, signal, extraHeaders) {
     const res = await fetch(`${API}?op=${op}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...extraHeaders },
       body: JSON.stringify(body),
       signal,
       cache: 'no-store',
@@ -137,10 +145,13 @@
     }
     async _start() {
       try {
-        const res = await api('host', { room: this.room, token: this.token }, this.abort.signal);
+        // Spielleiter-Passwort (nur für diesen Tab gemerkt); ersatzweise das Host-Passwort aus dem Editor
+        const pw = gamePassword();
+        const res = await api('host', { room: this.room, token: this.token }, this.abort.signal, pw ? { 'x-game-password': pw } : undefined);
         this.cursor = res.seq;
       } catch (e) {
         if (this.destroyed) return;
+        if (e.status === 401) return this.emit('error', { type: 'game-password' }); // wartet auf retry()
         if (e.status === 409) return this.emit('error', { type: 'unavailable-id' });
         this.emit('error', { type: 'network' });
         await sleep(RETRY_MS * 2);
@@ -150,6 +161,8 @@
       this._online(true);
       this._loop();
     }
+    // Nach Eingabe des Spielleiter-Passworts erneut anmelden
+    retry() { if (!this.destroyed) this._start(); }
     _online(ok) {
       if (ok === !this.disconnected) return;
       this.disconnected = !ok;
@@ -357,6 +370,7 @@
 
   J.net = {
     ready,
+    setGamePassword,
     get mode() { return mode; },
     available: () => mode === 'relay' || typeof Peer !== 'undefined',
     // PeerJS-kompatibel: mit ID = Host, ohne ID = Spieler.

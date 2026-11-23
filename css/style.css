@@ -1560,3 +1560,10 @@ body.tv .buzz-area, body.tv .react-bar { display: none !important; }
 .ed-media input:not([type=file]) { flex: 1; min-width: 0; font-size: 12px; }
 .ed-media audio, .ed-media video { width: 100%; max-height: 120px; }
 .ed-media-info { font-size: 12px; color: var(--muted); }
+
+/* Spielleiter-Passwort im Host-Pult */
+.game-gate { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; margin-bottom: 10px; border: 1px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.game-gate[hidden] { display: none; }
+.game-gate input { flex: 1; min-width: 160px; }
+.game-gate .hint { flex-basis: 100%; color: #f87171; }
+.game-gate .hint:empty { display: none; }

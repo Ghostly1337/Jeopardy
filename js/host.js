@@ -1150,6 +1150,26 @@
     conns.forEach((c) => { if (c.open) c.send(msg); });
   }
 
+  // Spielleiter-Passwort: Formular zeigen, bis der Server den Raum vergibt
+  let gateTries = 0;
+  function showGameGate(peer) {
+    const form = $('gameGate');
+    form.hidden = false;
+    $('gameGateError').textContent = gateTries ? 'Falsches Passwort.' : '';
+    $('gamePw').focus();
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const pw = $('gamePw').value;
+      if (!pw) return;
+      gateTries++;
+      J.net.setGamePassword(pw);
+      $('gamePw').value = '';
+      form.hidden = true;
+      setStatus('prüfe…', false);
+      peer.retry();
+    };
+  }
+
   function startPeer() {
     if (!J.net.available()) {
       setStatus('PeerJS nicht geladen (offline?)', false);
@@ -1182,7 +1202,11 @@
       setTimeout(() => { if (!peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 2000);
     });
     peer.on('error', (err) => {
-      if (err.type === 'unavailable-id') {
+      if (err.type === 'game-password') {
+        // Raum eröffnen braucht das Spielleiter-Passwort (falsch oder noch nicht eingegeben)
+        setStatus('Spielleiter-Passwort nötig', false);
+        showGameGate(peer);
+      } else if (err.type === 'unavailable-id') {
         // Alte Sitzung (z. B. nach Reload) hält die ID noch kurz fest.
         setStatus('Raumcode noch belegt – neuer Versuch…', false);
         peer.destroy();

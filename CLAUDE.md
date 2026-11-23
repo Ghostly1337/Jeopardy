@@ -39,7 +39,7 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 - Tests: `npm test` (Unit + Browser über WebRTC), `npm run test:e2e:relay` (Browser über das Relay). CI führt beides aus.
 - Bei jeder Änderung an `js/` die `APP_VERSION` in `js/common.js` hochzählen: Handys mit altem Stand laden sich dann im Spiel selbst neu.
 - Quizfragen nie ins Repo committen (öffentlich, Spieler könnten Antworten finden).
-- Sicherheit: Alles aus Fragen, Namen und Netzwerk vor `innerHTML` mit `J.escapeHtml`/`safeColor`/`safeNum`/`safeImg` absichern (lieber `textContent`). Keine Inline-Skripte oder `on…=`-Attribute (CSP), keine Skripte von CDNs (nach `vendor/`, per Test gegen npm geprüft). Neue Laufzeitdateien in `scripts/build-pages.sh` und `pathAllowed` in `middleware.js` eintragen. Spieler-Nachrichten im Host immer prüfen.
+- Sicherheit: Alles aus Fragen, Namen und Netzwerk vor `innerHTML` mit `J.escapeHtml`/`safeColor`/`safeNum`/`safeImg` absichern (lieber `textContent`). Keine Inline-Skripte oder `on…=`-Attribute (CSP), keine Skripte von CDNs (nach `vendor/`, per Test gegen npm geprüft). Neue Laufzeitdateien in `pathAllowed` in `middleware.js` eintragen (sonst 404 auf Vercel). Spieler-Nachrichten im Host immer prüfen.
 
 ## Geplant: Fragenpool mit Würfel-Modus (noch nicht gebaut)
 Idee des Nutzers, umsetzen sobald genug Fragen da sind (Ziel: 3–4 Fragen pro Stufe in den Hauptkategorien).

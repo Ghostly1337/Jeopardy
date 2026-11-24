@@ -50,6 +50,7 @@ test('Styles, Schriften und das Theme-Skript sind ohne Passwort erreichbar, der 
   assert.equal(await gate(req('/css/style.css'), PW), undefined);
   assert.equal(await gate(req('/fonts/x.woff2'), PW), undefined);
   assert.equal(await gate(req('/js/theme-init.js'), PW), undefined);
+  assert.equal(await gate(req('/icons/favicon.svg'), PW), undefined, 'Tab-Symbol auch auf der Login-Seite');
   assert.equal((await gate(req('/js/host.js'), PW)).status, 200, 'Login-Seite statt Datei');
 });
 
@@ -93,7 +94,7 @@ test('HTML im Weiterleitungsziel bleibt Text; Fehlermeldungen nur aus fester Lis
 
 test('Nur Laufzeitdateien werden ausgeliefert, auch mit gültigem Cookie', async () => {
   for (const ok of ['/', '/index.html', '/host.html', '/player.html', '/editor.html', '/js/host.js', '/css/style.css',
-    '/vendor/peerjs.min.js', '/fonts/x.woff2', '/api/relay', '/api/sets', '/api/login', '/__login']) {
+    '/vendor/peerjs.min.js', '/fonts/x.woff2', '/icons/favicon.svg', '/api/relay', '/api/sets', '/api/login', '/__login']) {
     assert.ok(pathAllowed(ok), ok);
   }
   for (const bad of ['/CLAUDE.md', '/README.md', '/package.json', '/package-lock.json', '/vercel.json', '/middleware.js',

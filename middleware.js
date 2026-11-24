@@ -12,12 +12,12 @@ export const LOGIN_PATH = '/__login';
 const LOGIN_API = '/api/login';
 const SESSION_MAX_AGE = 30 * 24 * 3600;
 // Styles, Schriften und das Theme-Skript braucht die Login-Seite selbst; sie enthalten nichts Geheimes.
-const PUBLIC_PREFIXES = ['/css/', '/fonts/', '/favicon', '/js/theme-init.js'];
+const PUBLIC_PREFIXES = ['/css/', '/fonts/', '/icons/', '/favicon', '/js/theme-init.js'];
 const LOGIN_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 // Nur Dateien, die der Browser zur Laufzeit braucht, werden überhaupt ausgeliefert. Alles andere
 // im Repo (Tests, lib/, node_modules/, Konfiguration, Doku) antwortet mit 404, auch angemeldet.
 const ALLOWED_FILES = new Set(['/', '/index.html', '/host.html', '/player.html', '/editor.html', '/favicon.ico', LOGIN_PATH]);
-const ALLOWED_PREFIXES = ['/css/', '/js/', '/fonts/', '/vendor/'];
+const ALLOWED_PREFIXES = ['/css/', '/js/', '/fonts/', '/vendor/', '/icons/'];
 const ALLOWED_API = new Set(['/api/relay', '/api/sets', LOGIN_API]);
 export function pathAllowed(pathname) {
   if (pathname.includes('..') || pathname.includes('\\')) return false;
@@ -89,6 +89,8 @@ function loginPage(next, error) {
   <meta name="robots" content="noindex">
   <title>Jeopardy – Passwort</title>
   <script src="/js/theme-init.js"></script>
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>

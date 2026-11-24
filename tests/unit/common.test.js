@@ -351,3 +351,20 @@ test('Gespeicherter Spielstand verrät Spielern keine Lösung einer offenen Sch�
   assert.equal(mc.correct, null);
   assert.equal(mc.picks, null);
 });
+
+test('Buzzer: gefälschte Reaktionszeiten werden auf das Plausible hochgesetzt', () => {
+  // Host misst 900 ms seit dem Öffnen, Netz hin+zurück 200 ms → echt möglich: 900 − (200 + Puffer) … 900
+  const lower = 900 - 200 - J.NET_MARGIN_MS;
+  assert.equal(J.plausibleReaction(650, 900, 200), 650, 'ehrliche Angabe bleibt');
+  assert.equal(J.plausibleReaction(101, 900, 200), lower, 'gefälscht schnell → Untergrenze');
+  assert.equal(J.plausibleReaction(5000, 900, 200), 900, 'langsamer als gemessen geht nicht');
+  assert.equal(J.plausibleReaction('x', 900, 200), lower, 'keine Angabe → Host-Messung');
+  assert.equal(J.plausibleReaction(101, 2000, 99999), 2000 - 900 - J.NET_MARGIN_MS, 'absichtlich langsame Pings: Spielraum gedeckelt (Relay 900 ms)');
+  assert.equal(J.plausibleReaction(300, 900, 99999, 300), 900 - 300 - J.NET_MARGIN_MS, 'Deckel WebRTC 300 ms');
+  assert.equal(J.plausibleReaction(50, 120, 0), 100 <= 120 - J.NET_MARGIN_MS ? 120 - J.NET_MARGIN_MS : null, 'Frühstart bleibt Frühstart');
+  assert.equal(J.plausibleReaction(80, null, 0), null, 'ohne Messung: Frühstart-Grenze');
+  assert.equal(J.plausibleReaction(250, null, 0), 250, 'ohne Messung: Angabe');
+  assert.equal(J.netDelay([120, 80, 300]), 120, 'Median, ein Ausreißer zählt nicht');
+  assert.equal(J.netDelay([100, 200]), 150);
+  assert.equal(J.netDelay([]), null);
+});

@@ -6,7 +6,7 @@
   const SET_KEY = 'jeopardy.set';
   // Bei jeder Änderung am Spiel-Code hochzählen: Handys mit anderem Stand laden sich dann neu,
   // statt z. B. neue Fragearten falsch anzuzeigen.
-  const APP_VERSION = '2026-11-23.12';
+  const APP_VERSION = '2026-11-24.1';
   const STATE_KEY = 'jeopardy.state';
   const ROOM_KEY = 'jeopardy.room';
   const PEER_PREFIX = 'jeop-ghostly-';
@@ -528,6 +528,33 @@
   const LOCK_MS = 1000;
   const MIN_REACTION_MS = 100;
   const isEarly = (reactionMs) => !(reactionMs >= MIN_REACTION_MS);
+
+  // Buzzer fälschungssicher: Die Reaktionszeit vom Handy ist nur eine Angabe. Der Host misst selbst,
+  // wie lange es seit dem Öffnen gedauert hat (hostMs = Hinweg + Reaktion + Rückweg) und kennt die
+  // Netzwerk-Verzögerung zu diesem Gerät (netMs, aus Pings). Echt sein kann die Angabe nur zwischen
+  // hostMs − netMs und hostMs; außerhalb wird sie auf diese Grenzen gesetzt.
+  // So bringt „101 ms“ zu schicken nichts mehr. netMs ist gedeckelt, damit absichtlich langsame
+  // Ping-Antworten den Spielraum nicht vergrößern.
+  const NET_MARGIN_MS = 120;
+  function plausibleReaction(clientMs, hostMs, netMs, cap = 900) {
+    const h = Number(hostMs);
+    let c = Number(clientMs);
+    if (hostMs == null || !Number.isFinite(h)) return Number.isFinite(c) && !isEarly(c) ? Math.min(60000, Math.round(c)) : null;
+    const net = Math.min(Math.max(0, Number(netMs) || 0), cap) + NET_MARGIN_MS;
+    const lower = h - net;
+    if (!Number.isFinite(c)) c = lower;
+    const r = Math.min(60000, Math.round(Math.min(h, Math.max(c, lower))));
+    return isEarly(r) ? null : r;
+  }
+  // Netzwerk-Verzögerung eines Geräts: Median der letzten Ping-Rundreisen (einzelne Ausreißer –
+  // z. B. ein kurz ausgelastetes Gerät – öffnen so keinen Spielraum; normales Schwanken fängt der Puffer ab)
+  function netDelay(samples) {
+    if (!Array.isArray(samples) || !samples.length) return null;
+    const s = samples.filter(Number.isFinite).sort((a, b) => a - b);
+    if (!s.length) return null;
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+  }
 
   // Schnellste gültige Reaktion gewinnt. entries: [[id, ms, name?], ...]
   function pickBuzzWinner(entries) {
@@ -1185,7 +1212,7 @@
     TIMER_MS: 15000,
     safeImg, compressImage, renderTurn, renderPodium, confetti, ranking,
     renderIntro, introCellClass,
-    nextTurn, turnAfterRemoval, LOCK_MS, MIN_REACTION_MS, isEarly, pickBuzzWinner,
+    nextTurn, turnAfterRemoval, LOCK_MS, MIN_REACTION_MS, isEarly, plausibleReaction, netDelay, NET_MARGIN_MS, pickBuzzWinner,
     clampTeamSize, teamIsFull, teamColor, cleanName,
     DEFAULT_ICE, parseTurn, iceConfig, encodeTurn, decodeTurn, loadTurn, saveTurn, scoreDelta,
     fmtMs, awards, REACTIONS, showReaction, reactGate, REACT_MAX, REACT_WINDOW_MS, REACT_GAP_MS, REACT_LOCK_MS, BUZZ_WINDOW_MS: 400,

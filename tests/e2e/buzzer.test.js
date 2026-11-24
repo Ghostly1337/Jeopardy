@@ -5,7 +5,7 @@ const { startEnv, openHost, joinPlayer, scoresOf } = require('./helpers');
 
 let env;
 test.before(async () => {
-  env = await startEnv({ JEOP_TIMER_MS: 2500, JEOP_BUZZ_DELAY_MS: 400, JEOP_BUZZ_WINDOW_MS: 1200 });
+  env = await startEnv({ JEOP_TIMER_MS: 2500, JEOP_BUZZ_DELAY_MS: 400, JEOP_BUZZ_WINDOW_MS: 1200, JEOP_PING_MS: 300 });
 });
 test.after(async () => { await env.stop(); });
 
@@ -79,24 +79,30 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
     await cem.waitForFunction(() => document.getElementById('buzzInfo').textContent.includes('Anna'));
   });
 
-  await t.test('Fairer Buzzer: schnellere Reaktion schlägt frühere Ankunft', async () => {
+  await t.test('Fairer Buzzer: langsame Verbindung wird ausgeglichen – schnellere Reaktion gewinnt', async () => {
     await host.click('#undo'); // Buzz rückgängig → Buzzer wieder offen
     await host.click('#undo'); // Ben falsch rückgängig
     await anna.waitForSelector('#buzzer.wait'); // Buzzer zu abwarten (siehe oben)
     await cem.waitForSelector('#buzzer.wait');
+    // Cem hat eine langsame Leitung: Antworten brauchen 350 ms länger (der Host misst das per Ping)
+    await cem.evaluate(() => {
+      const c = window.__jeopConn; const orig = c.send.bind(c);
+      c.send = (m) => (m && m.type === 'pong' ? setTimeout(() => orig(m), 350) : orig(m));
+    });
+    await cem.waitForTimeout(1200); // ein paar Pings abwarten
     await host.locator('.jrow').nth(1).locator('.red').click();
-    // Anna: Uhr manipulieren → ihre gemessene Reaktion ist 0,9 s langsamer
-    await anna.evaluate(() => {
+    // Cems Buzzer erscheint (simuliert) 500 ms später – seine Uhr misst die Reaktion ab dem Erscheinen
+    await cem.evaluate(() => {
       const o = performance.now.bind(performance); let off = 0;
-      performance.now = () => o() + off; window.__slow = () => { off = 900; };
+      performance.now = () => o() + off; window.__late = () => { off = -500; };
     });
     await anna.waitForSelector('#buzzer.live');
     await cem.waitForSelector('#buzzer.live');
-    await anna.evaluate(() => window.__slow());
-    await anna.waitForTimeout(200);
-    await anna.click('#buzzer'); // kommt zuerst an
+    await cem.evaluate(() => window.__late());
+    await anna.waitForTimeout(500);
+    await anna.click('#buzzer'); // kommt zuerst an, Reaktion ~500 ms
     await cem.waitForTimeout(150);
-    await cem.click('#buzzer'); // später, aber schneller reagiert
+    await cem.click('#buzzer'); // kommt später an, hat aber nur ~150 ms gebraucht
     await host.waitForFunction(() => document.querySelector('.jrow.buzzed'), null, { timeout: 5000 });
     assert.equal(await host.textContent('.jrow.buzzed .name'), '⚡ Cem');
     assert.match(await host.textContent('#buzzStatus'), /Cem hat gebuzzert.*danach: Anna/);
@@ -113,4 +119,27 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
   });
 
   assert.deepEqual(env.errors, []);
+});
+
+test('Gefälschte Buzzer-Zeit gewinnt nicht gegen einen echten schnellen Druck', async () => {
+  const { host, code } = await openHost(env, { names: ['Anna', 'Ben', 'Cem'] });
+  const anna = await joinPlayer(env, code, { pick: 'Anna' });
+  const ben = await joinPlayer(env, code, { pick: 'Ben' });
+  await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 2);
+  await host.locator('.cell.val').nth(1).click();
+  // Erste Antwort falsch → Buzzer öffnet für die anderen (Klauen)
+  await host.locator('.jrow').nth(2).locator('.red').click();
+  await anna.waitForSelector('#buzzer.live');
+  await ben.waitForSelector('#buzzer.live');
+  // Ben drückt echt nach ~250 ms; Anna wartet länger und schickt dann „101 ms“ direkt an den Host
+  await ben.waitForTimeout(250);
+  await ben.click('#buzzer');
+  await anna.waitForTimeout(700);
+  const buzzId = await host.evaluate(() => J.loadState().current.buzz.id);
+  await anna.evaluate((id) => window.__jeopConn.send({ type: 'buzz', id, reaction: 101 }), buzzId);
+  await host.waitForSelector('.jrow.buzzed');
+  assert.match(await host.textContent('.jrow.buzzed .name'), /Ben/, 'der echte, schnellere Druck gewinnt');
+  await host.context().close();
+  await anna.context().close();
+  await ben.context().close();
 });

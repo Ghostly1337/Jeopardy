@@ -146,7 +146,13 @@
   }
 
   // Neue Buzzer-Runde mit eigener ID, damit verspätete Buzzes aus einer älteren Runde nicht zählen
-  const openBuzz = () => ({ open: true, winner: null, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5) });
+  // Der Host merkt sich, wann er den Buzzer geöffnet hat – die Zeit vom Handy wird damit geprüft
+  let buzzOpenedAt = null; // { id, t } mit performance.now()
+  const openBuzz = () => {
+    const id = Date.now().toString(36) + Math.floor(J.cryptoRandom() * 46656).toString(36);
+    buzzOpenedAt = { id, t: performance.now() };
+    return { open: true, winner: null, id };
+  };
   const closedBuzz = () => ({ open: false, winner: null });
 
   function stat(pid) {
@@ -164,10 +170,10 @@
     if (!cur || !cur.buzz || !cur.buzz.open || !pid) return;
     if (msg.id !== cur.buzz.id) return;
     if (!state.players.some((p) => p.id === pid) || (cur.judged || {})[pid]) return;
-    let reaction = Number(msg.reaction);
-    if (!Number.isFinite(reaction)) return;
-    reaction = Math.min(60000, Math.round(reaction));
-    if (J.isEarly(reaction)) return; // unmenschlich schnell = Frühstart, zählt nicht
+    // Handy-Zeit gegen die eigene Messung prüfen (gefälschte „101 ms“ werden hochgesetzt)
+    const hostMs = buzzOpenedAt && buzzOpenedAt.id === cur.buzz.id ? performance.now() - buzzOpenedAt.t : null;
+    const reaction = J.plausibleReaction(msg.reaction, hostMs, J.netDelay(conn.rtts), J.net.mode === 'relay' ? 900 : 300);
+    if (reaction == null) return; // unmenschlich schnell = Frühstart, zählt nicht
     if (!pendingBuzz || pendingBuzz.id !== cur.buzz.id) {
       pendingBuzz = { id: cur.buzz.id, entries: new Map() };
       setTimeout(decideBuzz, window.JEOP_BUZZ_WINDOW_MS || (J.net.mode === 'relay' ? J.BUZZ_WINDOW_RELAY_MS : J.BUZZ_WINDOW_MS));
@@ -1028,6 +1034,7 @@
       broadcast(); // Belegung an alle schicken
       if (ok) { sendHint(ok); resendTeamState(conn); } // nach Verbindungsabbruch Tipp und Team-Stand erneut schicken
       if (window.JMedia) JMedia.hostJoined(conn); // Clip der offenen Frage nachreichen (auch an TV/Zuschauer)
+      setTimeout(pingAll, 200);
     } else if (msg.type === 'buzz') {
       handleBuzz(conn, msg);
     } else if (msg.type === 'joker') {
@@ -1038,6 +1045,14 @@
       handleReaction(conn, msg);
     } else if (msg.type === 'draft') {
       handleDraft(conn, msg);
+    } else if (msg.type === 'pong') {
+      // Netzwerk-Rundreise messen (nur eigene, frische Pings zählen)
+      const t = Number(msg.t);
+      const rtt = performance.now() - t;
+      if (conn.pingSent && conn.pingSent.has(t) && rtt >= 0 && rtt < 10000) {
+        conn.pingSent.delete(t);
+        conn.rtts = [...(conn.rtts || []), Math.round(rtt)].slice(-6);
+      }
     }
   }
 
@@ -1169,6 +1184,19 @@
       peer.retry();
     };
   }
+
+  // Pings an alle Geräte: Grundlage für die Prüfung der Buzzer-Zeiten
+  function pingAll() {
+    conns.forEach((c) => {
+      if (!c.open) return;
+      const t = performance.now();
+      c.pingSent = c.pingSent || new Set();
+      if (c.pingSent.size > 10) c.pingSent.clear();
+      c.pingSent.add(t);
+      c.send({ type: 'ping', t });
+    });
+  }
+  setInterval(pingAll, window.JEOP_PING_MS || 4000);
 
   function startPeer() {
     if (!J.net.available()) {

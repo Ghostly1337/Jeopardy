@@ -115,6 +115,10 @@
       if (password) put(PW_KEY, null);
       return { needsPassword: true, wrong: !!password };
     }
+    if (res.status === 429) {
+      // Zu viele Fehlversuche von dieser IP: gesperrt, Wartezeit vom Server
+      return { needsPassword: true, wrong: true, lockedFor: Number(res.headers.get('retry-after')) || 60 };
+    }
     // Kein Server (404) oder Server ohne Datenbank/Host-Passwort (503) → lokal
     if (res.status === 404 || (res.status === 503 && json && json.error === 'sets not configured') || !json) {
       return { lib: localLib() };

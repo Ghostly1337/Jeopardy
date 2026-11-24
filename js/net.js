@@ -26,6 +26,12 @@
     return t;
   }
 
+  // Verbindungs-ID = erste 32 Hex-Zeichen von SHA-256('jeopardy-conn:' + Schlüssel) – wie im Relay
+  async function connIdFor(key) {
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('jeopardy-conn:' + key));
+    return [...new Uint8Array(h)].slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
   const GAME_PW_KEY = 'jeopardy.gamePw';
   function gamePassword() {
     try { return sessionStorage.getItem(GAME_PW_KEY) || localStorage.getItem('jeopardy.hostPw') || ''; } catch (e) { return ''; }
@@ -47,6 +53,7 @@
     if (!res.ok) {
       const err = new Error(json.error || 'HTTP ' + res.status);
       err.status = res.status;
+      err.retryAfter = Number(res.headers.get('retry-after')) || 0;
       throw err;
     }
     return json;
@@ -152,6 +159,7 @@
       } catch (e) {
         if (this.destroyed) return;
         if (e.status === 401) return this.emit('error', { type: 'game-password' }); // wartet auf retry()
+        if (e.status === 429) return this.emit('error', { type: 'game-password', lockedFor: e.retryAfter || 60 });
         if (e.status === 409) return this.emit('error', { type: 'unavailable-id' });
         this.emit('error', { type: 'network' });
         await sleep(RETRY_MS * 2);
@@ -254,20 +262,24 @@
       super();
       this.peer = peer;
       this.room = room;
-      this.id = randomId(16);
+      // Geheimer Schlüssel nur auf diesem Gerät; die ID ist sein Hash (das Relay prüft das).
+      // So kann niemand mit unserer ID senden oder unsere privaten Nachrichten abholen.
+      this.key = randomId(32);
+      this.id = null;
       this.open = false;
       this.closed = false;
       this.cursor = -1;
       this.hostSeenAt = 0;
       this.abort = new AbortController();
-      this.outbox = new Outbox(() => ({ room, as: this.id }));
+      this.outbox = new Outbox(() => ({ room, as: this.id, key: this.key }));
       this._start();
     }
     async _start() {
+      this.id = await connIdFor(this.key);
       let first = true;
       while (!this.closed) {
         try {
-          const res = await api('poll', { room: this.room, as: this.id, after: this.cursor, wait: first ? 0 : WAIT_MS }, this.abort.signal);
+          const res = await api('poll', { room: this.room, as: this.id, key: this.key, after: this.cursor, wait: first ? 0 : WAIT_MS }, this.abort.signal);
           if (this.closed) return;
           this.cursor = res.seq;
           if (res.host) this.hostSeenAt = Date.now();
@@ -310,7 +322,8 @@
       this._end(false);
     }
     _sendClose() {
-      const payload = JSON.stringify({ room: this.room, as: this.id, msgs: [{ body: { t: 'close' } }] });
+      if (!this.id) return;
+      const payload = JSON.stringify({ room: this.room, as: this.id, key: this.key, msgs: [{ body: { t: 'close' } }] });
       try {
         if (navigator.sendBeacon && navigator.sendBeacon(`${API}?op=send`, new Blob([payload], { type: 'application/json' }))) return;
       } catch (e) {}

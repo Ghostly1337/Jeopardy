@@ -73,10 +73,12 @@
       : lib.kind === 'server' ? '☁ Auf dem Server gespeichert' : '💾 Nur in diesem Browser gespeichert';
   }
 
-  function lock(wrong) {
+  function lock(wrong, lockedFor) {
     lib = null;
     $('pwForm').hidden = false;
-    $('pwError').textContent = wrong ? 'Falsches Passwort.' : '';
+    $('pwError').textContent = lockedFor
+      ? `Zu viele Versuche – bitte in ${lockedFor >= 120 ? Math.ceil(lockedFor / 60) + ' Minuten' : lockedFor + ' Sekunden'} erneut probieren.`
+      : wrong ? 'Falsches Passwort.' : '';
     renderSetBar();
   }
 
@@ -113,7 +115,7 @@
   async function connect(password) {
     sourceEl.textContent = 'Verbinde…';
     const res = await J.sets.connect(password);
-    if (res.needsPassword) return lock(res.wrong);
+    if (res.needsPassword) return lock(res.wrong, res.lockedFor);
     lib = res.lib;
     $('pwForm').hidden = true;
     await refreshList();

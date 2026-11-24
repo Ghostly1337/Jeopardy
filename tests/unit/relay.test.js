@@ -2,23 +2,32 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-let handleRelay, memoryStore;
+let handleRelay, memoryStore, connIdFor, LIMITS, rateLimiter, MAX_ROOM_MSGS;
+const HOST = 'hosttoken-aaaaaaaa';
+// Spieler: geheimer Schlüssel → ID (Hash). Die Tests nutzen die IDs, client() ergänzt den Schlüssel.
+const K1 = 'player1-key-aaaaaaaaaaaaaaaaaaaaaaaa';
+const K2 = 'player2-key-bbbbbbbbbbbbbbbbbbbbbbbb';
+let P1, P2;
+const KEYS = {};
 test.before(async () => {
-  ({ handleRelay } = await import('../../lib/relay-core.mjs'));
-  ({ memoryStore } = await import('../../lib/relay-stores.mjs'));
+  ({ handleRelay, connIdFor, LIMITS } = await import('../../lib/relay-core.mjs'));
+  ({ memoryStore, MAX_ROOM_MSGS } = await import('../../lib/relay-stores.mjs'));
+  ({ rateLimiter } = await import('../../lib/throttle.mjs'));
+  P1 = await connIdFor(K1);
+  P2 = await connIdFor(K2);
+  KEYS[P1] = K1;
+  KEYS[P2] = K2;
 });
 
-const HOST = 'hosttoken-aaaaaaaa';
-const P1 = 'player1-aaaaaaaa';
-const P2 = 'player2-bbbbbbbb';
-
-function client(store, auth, pw) {
+function client(store, auth = {}, pw, ip = '10.0.0.1') {
   return async (op, body, method = 'POST', headerPw = pw) => {
-    const res = await handleRelay({
-      method, query: new URLSearchParams({ op }), rawBody: body ? JSON.stringify(body) : '',
-      headers: new Headers(headerPw == null ? {} : { 'x-game-password': headerPw }),
-    }, store, auth);
-    return res;
+    const b = body && KEYS[body.as] && !('key' in body) ? { ...body, key: KEYS[body.as] } : body;
+    const h = { 'x-real-ip': ip };
+    if (headerPw != null) h['x-game-password'] = headerPw;
+    return handleRelay({
+      method, query: new URLSearchParams({ op }), rawBody: b ? JSON.stringify(b) : '',
+      headers: new Headers(h),
+    }, store, { rate: rateLimiter(), ...auth });
   };
 }
 
@@ -171,5 +180,73 @@ test('Spielleiter-Passwort: ohne Einstellung bleibt Hosten offen; falsche Versuc
     const r = await client(memoryStore(), { gamePassword: 'x-pw' }, 'falsch')('host', { room: 'SLOW01', token: HOST });
     assert.equal(r.status, 401);
     assert.ok(Date.now() - t0 >= 140);
+  } finally { LIMITS.failDelayMs = delay; }
+});
+
+test('Verbindungs-ID gehört dem Gerät: ohne passenden Schlüssel kein Senden und kein Mitlesen', async () => {
+  const store = memoryStore();
+  const call = client(store);
+  await call('host', { room: 'OWN001', token: HOST });
+  const start = (await call('poll', { room: 'OWN001', as: P1, after: -1 })).json;
+  await call('send', { room: 'OWN001', as: 'host', token: HOST, msgs: [{ to: P1, body: { tipp: 'geheim' } }] });
+  for (const key of [undefined, K2, 'x'.repeat(40), '']) {
+    const fake = { room: 'OWN001', as: P1, key, after: start.seq };
+    assert.equal((await call('poll', fake)).status, key === undefined ? 403 : 403, 'Mitlesen mit fremder ID');
+    assert.equal((await call('send', { room: 'OWN001', as: P1, key, msgs: [{ body: { t: 'data', d: 'gefälscht' } }] })).status, 403);
+  }
+  const mine = (await call('poll', { room: 'OWN001', as: P1, after: start.seq })).json;
+  assert.deepEqual(mine.msgs.map((m) => m.body.tipp), ['geheim']);
+});
+
+test('Limits: Spieler-Anfragen klein, Nachrichten pro Verbindung begrenzt, neue Räume pro IP begrenzt', async () => {
+  const store = memoryStore();
+  const call = client(store);
+  await call('host', { room: 'LIM001', token: HOST });
+  // zu große Spieler-Anfrage
+  const big = { room: 'LIM001', as: P1, msgs: [{ body: { d: 'x'.repeat(LIMITS.maxPlayerBodyBytes) } }] };
+  assert.equal((await call('send', big)).status, 413);
+  // Der Host darf große Nachrichten (Clips) schicken
+  assert.equal((await call('send', { room: 'LIM001', as: 'host', token: HOST, msgs: [{ body: { d: 'x'.repeat(100_000) } }] })).status, 200);
+  // Flut pro Verbindung
+  const rate = rateLimiter();
+  const flood = client(store, { rate });
+  let last;
+  for (let i = 0; i < LIMITS.playerMsgsPerMin / 50 + 1; i++) {
+    last = await flood('send', { room: 'LIM001', as: P1, msgs: Array.from({ length: 50 }, () => ({ body: { t: 'hb' } })) });
+  }
+  assert.equal(last.status, 429);
+  assert.equal(last.headers['retry-after'], '10');
+  assert.equal((await flood('send', { room: 'LIM001', as: P2, msgs: [{ body: { t: 'hb' } }] })).status, 200, 'andere Verbindung nicht betroffen');
+  // neue Räume pro IP
+  const rooms = client(memoryStore(), { rate: rateLimiter() }, null, '10.9.9.9');
+  let r;
+  for (let i = 0; i <= LIMITS.newRoomsPerHour; i++) r = await rooms('host', { room: 'R' + String(i).padStart(5, '0'), token: HOST });
+  assert.equal(r.status, 429);
+  assert.equal((await rooms('host', { room: 'R00000', token: HOST })).status, 200, 'Neuladen eines bestehenden Raums bleibt erlaubt');
+});
+
+test('Pro Raum werden höchstens MAX_ROOM_MSGS Nachrichten aufbewahrt', async () => {
+  const store = memoryStore();
+  const call = client(store, { rate: () => true });
+  await call('host', { room: 'CAP001', token: HOST });
+  for (let i = 0; i < 25; i++) {
+    await call('send', { room: 'CAP001', as: 'host', token: HOST, msgs: Array.from({ length: 50 }, (_, k) => ({ body: { n: i * 50 + k } })) });
+  }
+  assert.equal(store._rooms.get('CAP001').msgs.length, MAX_ROOM_MSGS);
+});
+
+test('Spielleiter-Passwort: nach 5 Fehlversuchen gesperrt (429), auch richtiges Passwort', async () => {
+  const { memoryThrottle } = await import('../../lib/throttle.mjs');
+  const delay = LIMITS.failDelayMs;
+  LIMITS.failDelayMs = 0;
+  try {
+    const throttle = memoryThrottle();
+    const auth = { gamePassword: 'spielleiter-pw', throttle };
+    const store = memoryStore();
+    for (let i = 0; i < 5; i++) assert.equal((await client(store, auth, 'falsch')('host', { room: 'LOCK01', token: HOST })).status, 401);
+    const r = await client(store, auth, 'spielleiter-pw')('host', { room: 'LOCK01', token: HOST });
+    assert.equal(r.status, 429);
+    assert.ok(Number(r.headers['retry-after']) >= 60);
+    assert.equal((await client(store, auth, 'spielleiter-pw', '10.7.7.7')('host', { room: 'LOCK01', token: HOST })).status, 200, 'andere IP');
   } finally { LIMITS.failDelayMs = delay; }
 });

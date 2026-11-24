@@ -118,3 +118,19 @@ test('Falsches Host-Passwort wird gebremst', async () => {
     assert.ok(Date.now() - t1 < 100, 'richtiges Passwort ohne Wartezeit');
   } finally { LIMITS.failDelayMs = 0; }
 });
+
+test('Host-Passwort: nach 5 Fehlversuchen pro IP gesperrt (429), richtiges Passwort setzt zurück', async () => {
+  const { memoryThrottle } = await import('../../lib/throttle.mjs');
+  const throttle = memoryThrottle();
+  const store = memorySetStore();
+  const call = (pw, ip = '1.1.1.1') => handleSets({
+    method: 'GET', query: new URLSearchParams({ op: 'check' }),
+    headers: new Headers({ 'x-host-password': pw, 'x-real-ip': ip }), rawBody: '',
+  }, store, PW, throttle);
+  assert.equal((await call(PW)).status, 200);
+  for (let i = 0; i < 5; i++) assert.equal((await call('falsch')).status, 401);
+  const locked = await call(PW);
+  assert.equal(locked.status, 429);
+  assert.ok(Number(locked.headers['retry-after']) >= 60);
+  assert.equal((await call(PW, '2.2.2.2')).status, 200, 'andere IP');
+});

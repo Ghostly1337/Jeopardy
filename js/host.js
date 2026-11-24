@@ -976,6 +976,7 @@
   // Jede Spieler-Nachricht ist unvertrauenswürdig: Form prüfen und Flut drosseln
   // (höchstens MSG_BURST Nachrichten pro Sekunde und Gerät; der Rest wird verworfen).
   const MSG_BURST = 40;
+  const MAX_CONNS = 60;
   function onData(conn, msg) {
     if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return;
     const now = Date.now();
@@ -1167,10 +1168,12 @@
 
   // Spielleiter-Passwort: Formular zeigen, bis der Server den Raum vergibt
   let gateTries = 0;
-  function showGameGate(peer) {
+  function showGameGate(peer, lockedFor) {
     const form = $('gameGate');
     form.hidden = false;
-    $('gameGateError').textContent = gateTries ? 'Falsches Passwort.' : '';
+    $('gameGateError').textContent = lockedFor
+      ? `Zu viele Versuche – bitte in ${lockedFor >= 120 ? Math.ceil(lockedFor / 60) + ' Minuten' : lockedFor + ' Sekunden'} erneut probieren.`
+      : gateTries ? 'Falsches Passwort.' : '';
     $('gamePw').focus();
     form.onsubmit = (e) => {
       e.preventDefault();
@@ -1211,6 +1214,8 @@
         conn.on('open', () => setTimeout(() => conn.close(), 500));
         return;
       }
+      // Schutz gegen Verbindungsfluten: mehr als MAX_CONNS gleichzeitige Geräte braucht kein Spiel
+      if ([...conns].filter((c) => c.open).length >= MAX_CONNS) { try { conn.close(); } catch (e) {} return; }
       conn.on('open', () => {
         conns.add(conn);
         updateViewers();
@@ -1233,7 +1238,7 @@
       if (err.type === 'game-password') {
         // Raum eröffnen braucht das Spielleiter-Passwort (falsch oder noch nicht eingegeben)
         setStatus('Spielleiter-Passwort nötig', false);
-        showGameGate(peer);
+        showGameGate(peer, err.lockedFor);
       } else if (err.type === 'unavailable-id') {
         // Alte Sitzung (z. B. nach Reload) hält die ID noch kurz fest.
         setStatus('Raumcode noch belegt – neuer Versuch…', false);

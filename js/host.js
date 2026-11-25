@@ -1330,7 +1330,7 @@
   });
   renderTurnBox();
   // Übers Relay (Vercel) wird keine Verbindungshilfe gebraucht
-  J.net.ready.then((m) => { $('turnBox').hidden = m === 'relay'; });
+  J.net.ready.then((m) => { $('turnBox').hidden = m !== 'peer'; });
 
   window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
 

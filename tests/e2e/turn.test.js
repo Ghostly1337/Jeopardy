@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { TRANSPORT, startEnv, startTurn, openHost } = require('./helpers');
 
 // Nur für WebRTC: Übers Relay gibt es keine Direktverbindung, die umgeleitet werden müsste
-const skip = TRANSPORT === 'relay';
+const skip = TRANSPORT !== 'peer';
 
 let env;
 let turn;

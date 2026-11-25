@@ -10,14 +10,15 @@ permissions:
 
 jobs:
   test:
-    name: Tests (${{ matrix.transport == 'relay' && 'Relay/Vercel' || 'WebRTC' }})
+    name: Tests (${{ matrix.transport == 'relay' && 'Relay/Vercel' || matrix.transport == 'ws' && 'WebSocket/eigener Server' || 'WebRTC' }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        # Alle Browser-Tests laufen einmal über WebRTC und einmal über das Relay (Vercel)
-        transport: [peer, relay]
+        # Alle Browser-Tests laufen über WebRTC, über das HTTP-Relay (Vercel) und über das
+        # WebSocket-Relay (eigener Server, server.mjs)
+        transport: [peer, relay, ws]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

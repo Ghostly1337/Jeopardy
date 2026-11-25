@@ -1,7 +1,7 @@
 // Tipp-Joker: Art des Tipps pro Frage im Editor einstellbar (eigener Text, kein Tipp, …)
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, openHost, joinPlayer, TRANSPORT, HOST_PASSWORD } = require('./helpers');
+const { startEnv, openHost, joinPlayer, SERVER, HOST_PASSWORD } = require('./helpers');
 
 let env;
 test.before(async () => { env = await startEnv(); });
@@ -18,14 +18,14 @@ test('Tipp-Art pro Frage', async (t) => {
   const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
   const ed = await host.context().newPage();
   await ed.goto(env.base + '/editor.html');
-  if (TRANSPORT === 'relay') {
+  if (SERVER) {
     await ed.waitForSelector('#pwForm:not([hidden])');
     await ed.fill('#hostPw', HOST_PASSWORD);
     await ed.click('#pwForm button');
   }
   await ed.waitForFunction(() => !document.getElementById('setSelect').disabled);
   // Übers Relay erst weiter, wenn die Server-Bibliothek geladen ist (sonst überschreibt sie die Änderungen)
-  if (TRANSPORT === 'relay') await ed.waitForFunction(() => document.getElementById('setSource').textContent.includes('Server'));
+  if (SERVER) await ed.waitForFunction(() => document.getElementById('setSource').textContent.includes('Server'));
   await host.waitForSelector('.cell.cat:text-is("Kategorie 1")');
   const clue = (cat, row) => ed.locator('.ed-cat').nth(cat).locator('.ed-clue').nth(row);
   const anna = await joinPlayer(env, code, { pick: 'Anna' });
@@ -44,7 +44,7 @@ test('Tipp-Art pro Frage', async (t) => {
     await clue(1, 0).locator('.ed-hint select').selectOption('none');
     assert.equal(await clue(1, 0).locator('.ed-hint-preview').textContent(), 'Tipp-Joker ist bei dieser Frage gesperrt');
     // Erst weiter, wenn gespeichert ist (übers Relay zusätzlich auf dem Server)
-    if (TRANSPORT === 'relay') await ed.waitForFunction(() => document.getElementById('saved').textContent.includes('Server gespeichert'));
+    if (SERVER) await ed.waitForFunction(() => document.getElementById('saved').textContent.includes('Server gespeichert'));
     // Zuletzt eine sichtbare Änderung: Zeigt das Host-Pult sie, hat es auch die Tipp-Einstellungen
     await ed.locator('.ed-cat input').first().fill('Tipp-Test');
     await host.waitForSelector('.cell.cat:text-is("Tipp-Test")');

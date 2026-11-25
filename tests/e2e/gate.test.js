@@ -2,11 +2,11 @@
 // falsches Passwort → Hinweis, richtiges oder Host-Passwort → Raum ist online.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, joinPlayer, TRANSPORT, GAME_PASSWORD, HOST_PASSWORD } = require('./helpers');
+const { startEnv, joinPlayer, SERVER, GAME_PASSWORD, HOST_PASSWORD } = require('./helpers');
 
-const ONLY_RELAY = { skip: TRANSPORT !== 'relay' && 'nur übers Relay (WebRTC hat keinen Server)' };
+const ONLY_RELAY = { skip: !SERVER && 'nur übers Relay (WebRTC hat keinen Server)' };
 let env;
-test.before(async () => { if (TRANSPORT === 'relay') env = await startEnv(); });
+test.before(async () => { if (SERVER) env = await startEnv(); });
 test.after(async () => { if (env) await env.stop(); });
 
 async function openGatedHost() {

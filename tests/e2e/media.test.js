@@ -2,7 +2,7 @@
 // vom Host, Nachreichen für Nachzügler, große Clips übers Relay, gefälschte Clip-Daten.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { startEnv, joinPlayer, TRANSPORT, HOST_PASSWORD } = require('./helpers');
+const { startEnv, joinPlayer, SERVER, HOST_PASSWORD } = require('./helpers');
 
 let env;
 test.before(async () => { env = await startEnv(); });
@@ -21,7 +21,7 @@ const CLIP = wav(1_200_000); // ~1,2 MB: groß genug, um das Bündeln übers Rel
 
 async function openEditor(page) {
   await page.goto(env.base + '/editor.html');
-  if (TRANSPORT === 'relay') {
+  if (SERVER) {
     await page.waitForSelector('#pwForm:not([hidden])');
     await page.fill('#hostPw', HOST_PASSWORD);
     await page.click('#pwForm button');
@@ -68,7 +68,7 @@ test('Clips im Editor, auf allen Geräten, gesteuert vom Host', async (t) => {
     assert.match(saved[0], /^data:audio\/wav;base64,/);
     assert.equal(saved[1], 'https://media.example.com/clip.mp4');
     assert.equal(saved[2], '');
-    if (TRANSPORT === 'relay') await ed.waitForFunction(() => document.getElementById('saved').textContent.includes('Server gespeichert'), null, { timeout: 15000 });
+    if (SERVER) await ed.waitForFunction(() => document.getElementById('saved').textContent.includes('Server gespeichert'), null, { timeout: 15000 });
   });
 
   const host = await ed.context().newPage();

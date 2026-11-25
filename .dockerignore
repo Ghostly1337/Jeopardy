@@ -1,0 +1,11 @@
+# Nichts Geheimes und nichts Unnötiges ins Image
+.env*
+.git
+.github
+node_modules
+tests
+test-results
+.vercel
+*.md
+Dockerfile
+.dockerignore

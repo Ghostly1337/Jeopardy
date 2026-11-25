@@ -57,8 +57,8 @@ test('Runden-Intro bei Host und Spieler', async (t) => {
   await p.context().close();
 });
 
-// Betrifft nur WebRTC: das Relay fragt ohnehin ständig beim Server nach
-test('Host meldet sich nach stillem Verbindungsabbruch neu an', { skip: TRANSPORT === 'relay' }, async () => {
+// Betrifft nur WebRTC: die Relays erkennen Abbrüche selbst
+test('Host meldet sich nach stillem Verbindungsabbruch neu an', { skip: TRANSPORT !== 'peer' }, async () => {
   const { host, code } = await openHost(env, { names: ['Anna', 'Ben'] });
   const a = await joinPlayer(env, code, { pick: 'Anna' });
 
@@ -79,4 +79,27 @@ test('Host meldet sich nach stillem Verbindungsabbruch neu an', { skip: TRANSPOR
   await host.click('#addForm button');
   await a.waitForFunction(() => document.querySelectorAll('#scores .score').length === 3, null, { timeout: 10000 });
   assert.deepEqual(env.errors, []);
+});
+
+// WebSocket-Relay: Bricht die Verbindung ab (Funkloch), bauen Spieler und Host sie selbst neu auf –
+// mit derselben Kennung, das Spiel läuft ohne neues Beitreten weiter.
+test('WebSocket: Verbindungsabbruch heilt sich selbst', { skip: TRANSPORT !== 'ws' }, async () => {
+  const { host, code } = await openHost(env, { names: ['Anna'] });
+  const p = await joinPlayer(env, code, { pick: 'Anna' });
+  await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 1);
+
+  await p.evaluate(() => window.__jeopConn.ws.close()); // Spieler-Verbindung kappen
+  await p.waitForFunction(() => window.__jeopConn.ready === true, null, { timeout: 10000 });
+  await host.locator('.cell.val').nth(0).click();
+  await p.waitForSelector('#overlay.show');
+  assert.equal(await p.textContent('#me'), 'Du: Anna', 'kein neues Beitreten nötig');
+
+  await host.evaluate(() => window.__peer.ws.close()); // Host-Verbindung kappen
+  await host.waitForFunction(() => window.__peer.ready === true, null, { timeout: 10000 });
+  await host.click('#close');
+  await p.waitForSelector('#overlay:not(.show)', { state: 'attached', timeout: 10000 });
+  assert.equal(await host.locator('#players .device').count(), 1, 'Spieler bleibt verbunden');
+  assert.deepEqual(env.errors, []);
+  await host.context().close();
+  await p.context().close();
 });

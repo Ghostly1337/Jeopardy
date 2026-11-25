@@ -59,6 +59,14 @@ Reines HTML/CSS/JS ohne Build. Live-Sync per WebRTC über [PeerJS](https://peerj
 
 Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: die **Vercel-Variante** (Relay, so läuft das Spiel) oder – nur bei WebRTC, z. B. lokal – die **Verbindungshilfe** (TURN).
 
+## Eigener Server (Coolify) – schnelles WebSocket-Relay
+`server.mjs` ersetzt Vercel: Passwort-Sperre (derselbe Code wie `middleware.js`), Login, Fragensets und dazu ein **WebSocket-Relay** unter `/api/ws` (`lib/ws-hub.mjs`). Statt Long-Polling bleibt die Verbindung offen; Nachrichten brauchen lokal 1–3 ms statt 70–130 ms (`npm run test:load`, 30 Spieler). Das HTTP-Relay bleibt als Notlösung erreichbar. Die Seite erkennt den eigenen Server selbst (`ping` meldet `ws: true`).
+
+- Start: `npm start` (Port 3000) oder das `Dockerfile` (läuft als unprivilegierter Benutzer, nur Laufzeitdateien).
+- Umgebungsvariablen: `JEOPARDY_PASSWORD` (Pflicht), `JEOPARDY_HOST_PASSWORD`, `JEOPARDY_GAME_PASSWORD`, `DATABASE_URL` (Postgres für Fragensets und Passwortsperre; ohne: keine Server-Sets, Sperre im Speicher), `TRUST_PROXY=1` **nur** hinter Coolify/Traefik (sonst zählt die echte Verbindungs-IP, gefälschte `X-Forwarded-For` werden ignoriert).
+- Coolify: Application aus GitHub, Build Pack **Dockerfile**, Port 3000, Domain eintragen. Variablen als Runtime-Variablen (keine Build-Variablen nötig).
+- Schutz: WebSocket nur mit gültigem Login-Cookie und nur von der eigenen Seite (Origin-Prüfung); Spieler-Nachrichten max. 32 KB und 600/min, max. 60 Verbindungen pro IP, Spielleiter-Passwort mit Sperre pro IP, Verbindungs-ID nur mit passendem Schlüssel – wie beim HTTP-Relay.
+
 ## Hosting auf Vercel (netzunabhängig, mit Passwort)
 Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **HTTP-Relay** (`api/relay.mjs`): Host und Spieler schicken ihre Nachrichten per HTTPS an eine Vercel Function, die sie in einer Postgres-Datenbank (Neon, Region Frankfurt) zwischenlagert und per Long-Polling ausliefert. Das funktioniert in jedem Netz, in dem normale Webseiten gehen. Die Seite erkennt das Relay selbst (`api/relay?op=ping`); lokal (ohne Relay) bleibt es bei WebRTC.
 
@@ -104,6 +112,8 @@ npm test                          # Unit- und Browser-Tests
 npm run test:unit                 # nur Spiellogik (Sekunden, kein Browser)
 npm run test:e2e                  # nur Browser-Tests (WebRTC)
 npm run test:e2e:relay            # Browser-Tests über das HTTP-Relay (wie auf Vercel)
+npm run test:e2e:ws               # Browser-Tests über das WebSocket-Relay (eigener Server)
+npm run test:load                 # Lasttest: 1 Host + 30 Spieler, WebSocket gegen HTTP-Relay
 ```
 
 - **Unit-Tests** (`tests/unit/`, `node:test`): Spielregeln aus `js/common.js` – Punkte, halbe Punkte beim Klauen, Reihenfolge, Frühstart-Regeln, Buzzer-Auswertung, Teamgröße, Rangliste, Auszeichnungen, und dass der öffentliche Spielstand **nie Antworten** enthält. Außerdem Relay, Passwortsperre und Fragenset-Speicher (Host-Passwort, Speichern/Laden/Löschen, Eingabeprüfung).
@@ -111,6 +121,6 @@ npm run test:e2e:relay            # Browser-Tests über das HTTP-Relay (wie auf 
 - Screenshots der Handy-Ansicht: `SHOTS=./shots npm run test:e2e`.
 
 ## CI und Veröffentlichung
-`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus (WebRTC und Relay) und prüft die Laufzeit-Abhängigkeiten auf bekannte Lücken. Veröffentlicht wird über Vercel, das jeden Push auf `main` selbst baut.
+`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus (WebRTC, HTTP-Relay und WebSocket-Relay) und prüft die Laufzeit-Abhängigkeiten auf bekannte Lücken. Veröffentlicht wird über Vercel, das jeden Push auf `main` selbst baut.
 
 Lokal ansehen: `python3 -m http.server` im Repo-Ordner, dann `http://localhost:8000` öffnen.

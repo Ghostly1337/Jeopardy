@@ -3,9 +3,9 @@
 // sonst im Browser.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { TRANSPORT, HOST_PASSWORD, startEnv } = require('./helpers');
+const { SERVER: ON_SERVER, HOST_PASSWORD, startEnv } = require('./helpers');
 
-const SERVER = TRANSPORT === 'relay';
+const SERVER = ON_SERVER;
 let env;
 test.before(async () => { env = await startEnv(); });
 test.after(async () => { await env.stop(); });

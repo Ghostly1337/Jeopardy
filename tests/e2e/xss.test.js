@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { startEnv, openHost, joinPlayer, TRANSPORT } = require('./helpers');
 
 // Escaping in der Oberfläche hängt nicht vom Transport ab: einmal reicht (Flut-Test läuft in beiden)
-const ONCE = { skip: TRANSPORT === 'relay' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
+const ONCE = { skip: TRANSPORT !== 'peer' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
 
 let env;
 test.before(async () => { env = await startEnv(); });

@@ -4,6 +4,7 @@
 // - Chromium über Playwright; PeerJS kommt aus vendor/ (kein CDN)
 // - mit E2E_TRANSPORT=relay stattdessen das HTTP-Relay (api/relay) mit Speicher-Backend,
 //   so wie die Seite auf Vercel läuft
+// - mit E2E_TRANSPORT=ws das WebSocket-Relay (api/ws) wie auf dem eigenen Server (server.mjs)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -47,7 +48,9 @@ async function startTurn() {
 
 const HOST_PASSWORD = 'host-test-pw';
 const GAME_PASSWORD = 'spielleiter-test-pw';
-const TRANSPORT = process.env.E2E_TRANSPORT === 'relay' ? 'relay' : 'peer';
+const TRANSPORT = ['relay', 'ws'].includes(process.env.E2E_TRANSPORT) ? process.env.E2E_TRANSPORT : 'peer';
+// Mit Server (Vercel-Relay oder eigener Server): Fragensets auf dem Server, Spielleiter-Passwort usw.
+const SERVER = TRANSPORT !== 'peer';
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -64,7 +67,7 @@ async function startEnv(init = {}) {
   const peerPort = await freePort();
   let relay = null;
   let sets = null;
-  if (TRANSPORT === 'relay') {
+  if (SERVER) {
     const { handleRelay } = await import('../../lib/relay-core.mjs');
     const { memoryStore } = await import('../../lib/relay-stores.mjs');
     const store = memoryStore();
@@ -74,7 +77,7 @@ async function startEnv(init = {}) {
       const headers = { get: (k) => req.headers[k.toLowerCase()] ?? null };
       // wie auf Vercel mit Spielleiter-Passwort; Tests bekommen es vorab (außer noGamePw)
       const { status, json } = await handleRelay({ method: req.method, query: u.searchParams, headers, rawBody }, store,
-        { gamePassword: GAME_PASSWORD, hostPassword: HOST_PASSWORD });
+        { gamePassword: GAME_PASSWORD, hostPassword: HOST_PASSWORD, ws: TRANSPORT === 'ws' });
       res.writeHead(status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(json));
     };
@@ -110,6 +113,13 @@ async function startEnv(init = {}) {
     fs.createReadStream(file).pipe(res);
   });
   await new Promise((r) => web.listen(webPort, '127.0.0.1', r));
+  if (TRANSPORT === 'ws') {
+    // Dasselbe WebSocket-Relay wie server.mjs (ohne Seitenpasswort – das testen die Unit-Tests)
+    const { attachWs } = await import('../../server.mjs');
+    const { createHub } = await import('../../lib/ws-hub.mjs');
+    const hub = createHub({ gamePassword: GAME_PASSWORD, hostPassword: HOST_PASSWORD });
+    attachWs(web, hub, async () => ({ headers: new Headers({ 'x-real-ip': '127.0.0.1' }) }));
+  }
 
   // Vermittlungsserver als eigener Prozess: er hält interne Timer offen und würde den
   // Testprozess sonst am Beenden hindern.
@@ -145,7 +155,7 @@ async function startEnv(init = {}) {
         },
       });
     // Punkte-Zählanimation standardmäßig aus, damit Tests keine Zwischenwerte lesen
-    }, [peerPort, { JEOP_COUNT_MS: 0, JEOP_TEST: true, ...init, ...extraInit }, TRANSPORT === 'relay' ? GAME_PASSWORD : '']);
+    }, [peerPort, { JEOP_COUNT_MS: 0, JEOP_TEST: true, ...init, ...extraInit }, SERVER ? GAME_PASSWORD : '']);
     const p = await ctx.newPage();
     p.on('pageerror', (e) => errors.push(e.message));
     // Verstöße gegen die Content-Security-Policy gelten als Fehler
@@ -207,4 +217,4 @@ async function joinPlayer(env, code, { pick, name, viewport = PHONE, sfx = true 
 const scoresOf = (page, sel = '#scores') =>
   page.$$eval(`${sel} .score-value`, (els) => els.map((e) => e.textContent).join(','));
 
-module.exports = { TRANSPORT, HOST_PASSWORD, GAME_PASSWORD, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };
+module.exports = { TRANSPORT, SERVER, HOST_PASSWORD, GAME_PASSWORD, startEnv, startTurn, openHost, joinPlayer, scoresOf, PHONE, TEST_PNG };

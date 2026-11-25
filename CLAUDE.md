@@ -35,11 +35,11 @@ Board 2 (200–1000) ist insgesamt schwerer als Board 1.
 - Spielergruppe: Anfang 20, Gaming/Anime/Popkultur/Musik, deutschsprachig.
 
 ## Projekt
-- Statische Seite (HTML/CSS/JS) + Vercel-Funktionen in `api/`, Logik für Tests in `lib/`.
-- Tests: `npm test` (Unit + Browser über WebRTC), `npm run test:e2e:relay` (Browser über das Relay). CI führt beides aus.
+- Statische Seite (HTML/CSS/JS) + Vercel-Funktionen in `api/`, Logik für Tests in `lib/`. Eigener Server: `server.mjs` (nutzt dieselbe `middleware.js` und `lib/`) mit WebSocket-Relay `lib/ws-hub.mjs`, `Dockerfile` für Coolify.
+- Tests: `npm test` (Unit + Browser über WebRTC), `npm run test:e2e:relay` (Browser über das HTTP-Relay), `npm run test:e2e:ws` (Browser über das WebSocket-Relay). CI führt alle drei aus.
 - Bei jeder Änderung an `js/` die `APP_VERSION` in `js/common.js` hochzählen: Handys mit altem Stand laden sich dann im Spiel selbst neu.
 - Quizfragen nie ins Repo committen (öffentlich, Spieler könnten Antworten finden).
-- Sicherheit: Alles aus Fragen, Namen und Netzwerk vor `innerHTML` mit `J.escapeHtml`/`safeColor`/`safeNum`/`safeImg` absichern (lieber `textContent`). Keine Inline-Skripte oder `on…=`-Attribute (CSP), keine Skripte von CDNs (nach `vendor/`, per Test gegen npm geprüft). Neue Laufzeitdateien in `pathAllowed` in `middleware.js` eintragen (sonst 404 auf Vercel). Spieler-Nachrichten im Host immer prüfen.
+- Sicherheit: Alles aus Fragen, Namen und Netzwerk vor `innerHTML` mit `J.escapeHtml`/`safeColor`/`safeNum`/`safeImg` absichern (lieber `textContent`). Keine Inline-Skripte oder `on…=`-Attribute (CSP), keine Skripte von CDNs (nach `vendor/`, per Test gegen npm geprüft). Neue Laufzeitdateien in `pathAllowed` in `middleware.js` eintragen (sonst 404 auf Vercel und auf dem eigenen Server) und neue Ordner zusätzlich ins `Dockerfile`. Spieler-Nachrichten im Host immer prüfen.
 
 ## Geplant: Fragenpool mit Würfel-Modus (noch nicht gebaut)
 Idee des Nutzers, umsetzen sobald genug Fragen da sind (Ziel: 3–4 Fragen pro Stufe in den Hauptkategorien).

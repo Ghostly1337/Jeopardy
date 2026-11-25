@@ -18,7 +18,7 @@ const LOGIN_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font
 // im Repo (Tests, lib/, node_modules/, Konfiguration, Doku) antwortet mit 404, auch angemeldet.
 const ALLOWED_FILES = new Set(['/', '/index.html', '/host.html', '/player.html', '/editor.html', '/favicon.ico', LOGIN_PATH]);
 const ALLOWED_PREFIXES = ['/css/', '/js/', '/fonts/', '/vendor/', '/icons/'];
-const ALLOWED_API = new Set(['/api/relay', '/api/sets', LOGIN_API]);
+const ALLOWED_API = new Set(['/api/relay', '/api/sets', '/api/ws', LOGIN_API]);
 export function pathAllowed(pathname) {
   if (pathname.includes('..') || pathname.includes('\\')) return false;
   return ALLOWED_FILES.has(pathname) || ALLOWED_API.has(pathname)

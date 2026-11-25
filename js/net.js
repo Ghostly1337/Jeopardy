@@ -1,7 +1,8 @@
-// Verbindungsschicht: WebRTC (PeerJS) oder HTTP-Relay (Vercel, api/relay).
-// Das Relay funktioniert in jedem Netz, weil es nur normales HTTPS braucht – keine direkte
-// Verbindung zwischen den Geräten. RelayPeer/RelayConn bilden die von host.js und player.js
-// genutzte PeerJS-Schnittstelle nach, damit die Spiellogik unverändert bleibt.
+// Verbindungsschicht: WebRTC (PeerJS), HTTP-Relay (Vercel, api/relay) oder WebSocket-Relay
+// (eigener Server, api/ws). Beide Relays funktionieren in jedem Netz, weil sie nur normales HTTPS
+// brauchen – keine direkte Verbindung zwischen den Geräten. Das WebSocket-Relay hält die Verbindung
+// offen und leitet sofort weiter (kein Long-Polling). Die Relay-Klassen bilden die von host.js und
+// player.js genutzte PeerJS-Schnittstelle nach, damit die Spiellogik unverändert bleibt.
 (function () {
   const API = 'api/relay';
   const HOST_TOKEN_KEY = 'jeopardy.hostToken';
@@ -135,7 +136,9 @@
     }
   }
 
-  class RelayHostPeer extends Emitter {
+  // Gemeinsame Host-Logik beider Relays: Verbindungen verwalten, Rundsendungen bündeln.
+  // Unterklassen liefern nur den Transport (_push für ausgehende Nachrichten).
+  class HostBase extends Emitter {
     constructor(room) {
       super();
       this.room = room;
@@ -143,57 +146,13 @@
       this.conns = new Map();
       this.destroyed = false;
       this.disconnected = true;
-      this.cursor = -1;
       this.pending = [];
-      this.outbox = new Outbox(() => ({ room, as: 'host', token: this.token }));
-      this.abort = new AbortController();
-      this._start();
       this.sweep = setInterval(() => this._sweep(), HEARTBEAT_MS);
     }
-    async _start() {
-      try {
-        // Spielleiter-Passwort (nur für diesen Tab gemerkt); ersatzweise das Host-Passwort aus dem Editor
-        const pw = gamePassword();
-        const res = await api('host', { room: this.room, token: this.token }, this.abort.signal, pw ? { 'x-game-password': pw } : undefined);
-        this.cursor = res.seq;
-      } catch (e) {
-        if (this.destroyed) return;
-        if (e.status === 401) return this.emit('error', { type: 'game-password' }); // wartet auf retry()
-        if (e.status === 429) return this.emit('error', { type: 'game-password', lockedFor: e.retryAfter || 60 });
-        if (e.status === 409) return this.emit('error', { type: 'unavailable-id' });
-        this.emit('error', { type: 'network' });
-        await sleep(RETRY_MS * 2);
-        if (!this.destroyed) this._start();
-        return;
-      }
-      this._online(true);
-      this._loop();
-    }
-    // Nach Eingabe des Spielleiter-Passworts erneut anmelden
-    retry() { if (!this.destroyed) this._start(); }
     _online(ok) {
       if (ok === !this.disconnected) return;
       this.disconnected = !ok;
       this.emit(ok ? 'open' : 'disconnected');
-    }
-    async _loop() {
-      while (!this.destroyed) {
-        try {
-          const res = await api('poll', { room: this.room, as: 'host', token: this.token, after: this.cursor, wait: WAIT_MS }, this.abort.signal);
-          this.cursor = res.seq;
-          this._online(true);
-          res.msgs.forEach((m) => this._incoming(m.peer, m.body));
-        } catch (e) {
-          if (this.destroyed) return;
-          if (e.status === 403) {
-            // Raum wurde (nach langer Abwesenheit) übernommen → neu anmelden
-            this._online(false);
-            return this._start();
-          }
-          this._online(false);
-          await sleep(RETRY_MS);
-        }
-      }
     }
     _incoming(id, body) {
       if (!id || !body) return;
@@ -235,18 +194,71 @@
         groups.get(key).to.add(it.to);
       });
       const open = [...this.conns.keys()];
+      const out = [];
       groups.forEach((g) => {
         const all = open.length > 1 && open.every((id) => g.to.has(id));
         if (all) {
-          this.outbox.push({ to: null, body: g.body });
-          g.to.forEach((id) => { if (!this.conns.has(id)) this.outbox.push({ to: id, body: g.body }); });
+          out.push({ to: null, body: g.body });
+          g.to.forEach((id) => { if (!this.conns.has(id)) out.push({ to: id, body: g.body }); });
         } else {
-          g.to.forEach((id) => this.outbox.push({ to: id, body: g.body }));
+          g.to.forEach((id) => out.push({ to: id, body: g.body }));
         }
       });
+      this._push(out);
     }
     reconnect() {}
     disconnect() {}
+  }
+
+  class RelayHostPeer extends HostBase {
+    constructor(room) {
+      super(room);
+      this.cursor = -1;
+      this.outbox = new Outbox(() => ({ room, as: 'host', token: this.token }));
+      this.abort = new AbortController();
+      this._start();
+    }
+    _push(items) { items.forEach((it) => this.outbox.push(it)); }
+    async _start() {
+      try {
+        // Spielleiter-Passwort (nur für diesen Tab gemerkt); ersatzweise das Host-Passwort aus dem Editor
+        const pw = gamePassword();
+        const res = await api('host', { room: this.room, token: this.token }, this.abort.signal, pw ? { 'x-game-password': pw } : undefined);
+        this.cursor = res.seq;
+      } catch (e) {
+        if (this.destroyed) return;
+        if (e.status === 401) return this.emit('error', { type: 'game-password' }); // wartet auf retry()
+        if (e.status === 429) return this.emit('error', { type: 'game-password', lockedFor: e.retryAfter || 60 });
+        if (e.status === 409) return this.emit('error', { type: 'unavailable-id' });
+        this.emit('error', { type: 'network' });
+        await sleep(RETRY_MS * 2);
+        if (!this.destroyed) this._start();
+        return;
+      }
+      this._online(true);
+      this._loop();
+    }
+    // Nach Eingabe des Spielleiter-Passworts erneut anmelden
+    retry() { if (!this.destroyed) this._start(); }
+    async _loop() {
+      while (!this.destroyed) {
+        try {
+          const res = await api('poll', { room: this.room, as: 'host', token: this.token, after: this.cursor, wait: WAIT_MS }, this.abort.signal);
+          this.cursor = res.seq;
+          this._online(true);
+          res.msgs.forEach((m) => this._incoming(m.peer, m.body));
+        } catch (e) {
+          if (this.destroyed) return;
+          if (e.status === 403) {
+            // Raum wurde (nach langer Abwesenheit) übernommen → neu anmelden
+            this._online(false);
+            return this._start();
+          }
+          this._online(false);
+          await sleep(RETRY_MS);
+        }
+      }
+    }
     destroy() {
       if (this.destroyed) return;
       this.destroyed = true;
@@ -363,8 +375,254 @@
     }
   }
 
+  // ---------- WebSocket-Relay (eigener Server) ----------
+  // Eine offene Verbindung pro Gerät. Der Server antwortet auf die Anmeldung (host/join) mit 'ok',
+  // leitet danach sofort weiter und schickt alle 10 s ein Lebenszeichen ('ka'). Bricht die Verbindung
+  // ab (Funkloch, Handy im Hintergrund), baut sie sich von selbst neu auf – mit derselben Kennung,
+  // so dass Host und Spieler davon kaum etwas merken.
+  const KA_TIMEOUT_MS = 25000; // so lange ohne Lebenszeichen vom Server → Verbindung neu aufbauen
+  const WS_QUEUE_MAX = 200;    // Nachrichten, die während eines Neuaufbaus warten dürfen
+  function wsUrl() {
+    const u = new URL('api/ws', location.href);
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    u.search = '';
+    return u.toString();
+  }
+  function wsSend(ws, obj) {
+    const text = JSON.stringify(obj);
+    if (text.length > MAX_MSG_CHARS) { console.warn('Relay: Nachricht zu groß, verworfen'); return true; }
+    try { ws.send(text); return true; } catch (e) { return false; }
+  }
+
+  class WsHostPeer extends HostBase {
+    constructor(room) {
+      super(room);
+      this.ws = null;
+      this.ready = false;
+      this.halted = false; // wartet auf Spielleiter-Passwort bzw. Raum belegt
+      this.queue = [];
+      this.lastFrame = Date.now();
+      this._connect();
+      this.watch = setInterval(() => {
+        if (this.ws && this.ready && Date.now() - this.lastFrame > KA_TIMEOUT_MS) { try { this.ws.close(); } catch (e) {} }
+      }, HEARTBEAT_MS);
+    }
+    _connect() {
+      if (this.destroyed || this.halted) return;
+      let ws;
+      try { ws = new WebSocket(wsUrl()); } catch (e) { return this._down(null); }
+      this.ws = ws;
+      this.ready = false;
+      ws.onopen = () => {
+        const pw = gamePassword();
+        wsSend(ws, { op: 'host', room: this.room, token: this.token, ...(pw ? { pw } : {}) });
+      };
+      ws.onmessage = (e) => {
+        if (this.ws !== ws) return;
+        this.lastFrame = Date.now();
+        let m;
+        try { m = JSON.parse(e.data); } catch (err) { return; }
+        if (m.t === 'ok') {
+          this.ready = true;
+          this._online(true);
+          this._drain();
+        } else if (m.t === 'msgs' && Array.isArray(m.msgs)) {
+          m.msgs.forEach((x) => this._incoming(x.peer, x.body));
+        } else if (m.t === 'error') {
+          if (m.status === 401) { this.halted = true; this.emit('error', { type: 'game-password' }); }
+          else if (m.status === 429 && m.error === 'too many attempts') { this.halted = true; this.emit('error', { type: 'game-password', lockedFor: m.retryAfter || 60 }); }
+          else if (m.status === 409) { this.halted = true; this.emit('error', { type: 'unavailable-id' }); }
+        }
+      };
+      ws.onclose = () => this._down(ws);
+      ws.onerror = () => {};
+    }
+    _down(ws) {
+      if (ws && this.ws !== ws) return;
+      this.ws = null;
+      this.ready = false;
+      this._online(false);
+      if (this.destroyed || this.halted) return;
+      setTimeout(() => this._connect(), RETRY_MS);
+    }
+    _push(items) {
+      if (!items.length) return;
+      this.queue.push(...items);
+      if (this.queue.length > WS_QUEUE_MAX) this.queue.splice(0, this.queue.length - WS_QUEUE_MAX);
+      if (this.ready) this._drain();
+    }
+    _drain() {
+      while (this.queue.length && this.ready && this.ws) {
+        // Bündeln nach Größe: der Server nimmt höchstens ~3,5 MB pro Nachricht
+        let size = 0;
+        let n = 0;
+        while (n < this.queue.length && n < 50) {
+          const len = JSON.stringify(this.queue[n]).length;
+          if (n && size + len > MAX_BATCH_CHARS) break;
+          size += len;
+          n++;
+        }
+        const batch = this.queue.splice(0, n);
+        if (!wsSend(this.ws, { op: 'send', msgs: batch })) { this.queue.unshift(...batch); return; }
+      }
+    }
+    // Nach Eingabe des Spielleiter-Passworts erneut anmelden
+    retry() {
+      if (this.destroyed) return;
+      this.halted = false;
+      if (!this.ws) this._connect();
+    }
+    destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      clearInterval(this.sweep);
+      clearInterval(this.watch);
+      if (this.ws) { try { this.ws.close(); } catch (e) {} }
+      this.ws = null;
+    }
+  }
+
+  class WsPlayerConn extends Emitter {
+    constructor(peer, room) {
+      super();
+      this.peer = peer;
+      this.room = room;
+      this.key = randomId(32); // geheim, nur auf diesem Gerät; die ID ist sein Hash (prüft der Server)
+      this.open = false;
+      this.closed = false;
+      this.joined = false;  // erste Anmeldung bestätigt?
+      this.ws = null;
+      this.ready = false;
+      this.queue = [];
+      this.hostOnline = false;
+      this.hostSeenAt = Date.now();
+      this.lastFrame = Date.now();
+      this._connect();
+      this.watch = setInterval(() => this._check(), HEARTBEAT_MS);
+    }
+    _connect() {
+      if (this.closed) return;
+      let ws;
+      try { ws = new WebSocket(wsUrl()); } catch (e) { return this._down(null); }
+      this.ws = ws;
+      this.ready = false;
+      ws.onopen = () => wsSend(ws, { op: 'join', room: this.room, key: this.key });
+      ws.onmessage = (e) => {
+        if (this.ws !== ws || this.closed) return;
+        this.lastFrame = Date.now();
+        let m;
+        try { m = JSON.parse(e.data); } catch (err) { return; }
+        if (m.t === 'ok') {
+          this.ready = true;
+          this._host(!!m.host);
+          if (!this.joined) {
+            this.joined = true;
+            if (!m.host) {
+              this._end(false);
+              return this.peer.emit('error', { type: 'peer-unavailable' });
+            }
+            this._push({ body: { t: 'open' } });
+            this.beat = setInterval(() => this._push({ body: { t: 'hb' } }), HEARTBEAT_MS);
+          }
+          this._drain();
+        } else if (m.t === 'msgs' && Array.isArray(m.msgs)) {
+          this._host(true);
+          m.msgs.forEach((x) => this._incoming(x.body));
+        } else if (m.t === 'host' || m.t === 'ka') {
+          if ('host' in m || 'online' in m) this._host(m.t === 'host' ? !!m.online : !!m.host);
+        }
+      };
+      ws.onclose = () => this._down(ws);
+      ws.onerror = () => {};
+    }
+    _host(online) {
+      if (online) this.hostSeenAt = Date.now();
+      this.hostOnline = online;
+    }
+    _check() {
+      if (this.closed) return;
+      if (this.ws && this.ready && Date.now() - this.lastFrame > KA_TIMEOUT_MS) { try { this.ws.close(); } catch (e) {} }
+      // Host zu lange weg → Verbindung gilt als beendet (player.js verbindet neu)
+      if (this.joined && !this.hostOnline && Date.now() - this.hostSeenAt > CONN_TIMEOUT_MS) this._end(true);
+    }
+    _down(ws) {
+      if (ws && this.ws !== ws) return;
+      this.ws = null;
+      this.ready = false;
+      if (this.closed) return;
+      if (!this.joined) {
+        // Gar nicht erst verbunden: wie beim HTTP-Relay als Netzwerkfehler melden
+        this._end(false);
+        return this.peer.emit('error', { type: 'network' });
+      }
+      if (Date.now() - this.hostSeenAt > CONN_TIMEOUT_MS) return this._end(true);
+      this.hostOnline = false;
+      setTimeout(() => this._connect(), RETRY_MS);
+    }
+    _incoming(body) {
+      if (!body || this.closed) return;
+      if (body.t === 'data') {
+        if (!this.open) { this.open = true; this.emit('open'); }
+        this.emit('data', body.d);
+      } else if (body.t === 'close' || body.t === 'reopen') {
+        this._end(true);
+      }
+    }
+    _push(msg) {
+      this.queue.push(msg);
+      if (this.queue.length > WS_QUEUE_MAX) this.queue.splice(0, this.queue.length - WS_QUEUE_MAX);
+      this._drain();
+    }
+    _drain() {
+      if (!this.ready || !this.ws || !this.queue.length) return;
+      const batch = this.queue.splice(0, 50);
+      if (!wsSend(this.ws, { op: 'send', msgs: batch })) this.queue.unshift(...batch);
+      else if (this.queue.length) this._drain();
+    }
+    send(data) { if (this.open) this._push({ body: { t: 'data', d: data } }); }
+    close() {
+      if (this.closed) return;
+      if (this.ws && this.ready) wsSend(this.ws, { op: 'send', msgs: [{ body: { t: 'close' } }] });
+      this._end(false);
+    }
+    _end(emitClose) {
+      if (this.closed) return;
+      this.closed = true;
+      this.open = false;
+      clearInterval(this.beat);
+      clearInterval(this.watch);
+      const ws = this.ws;
+      this.ws = null;
+      if (ws) setTimeout(() => { try { ws.close(); } catch (e) {} }, 50); // close-Nachricht noch rausgehen lassen
+      this.peer.conns.delete(this);
+      if (emitClose) this.emit('close');
+    }
+  }
+
+  class WsPlayerPeer extends Emitter {
+    constructor() {
+      super();
+      this.conns = new Set();
+      this.destroyed = false;
+      this.disconnected = false;
+      setTimeout(() => { if (!this.destroyed) this.emit('open', 'ws'); }, 0);
+    }
+    connect(peerId) {
+      const room = String(peerId).slice(J.peerId('').length);
+      const c = new WsPlayerConn(this, room);
+      this.conns.add(c);
+      return c;
+    }
+    reconnect() {}
+    destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      this.conns.forEach((c) => c.close());
+    }
+  }
+
   // ---------- Auswahl ----------
-  // Läuft die Seite mit Relay-Server (Vercel), wird das Relay genutzt, sonst WebRTC.
+  // Eigener Server (meldet ws) → WebSocket-Relay; Vercel → HTTP-Relay; ohne Server → WebRTC.
   let mode = null;
   const ready = (async () => {
     if (window.JEOP_TRANSPORT) return (mode = window.JEOP_TRANSPORT);
@@ -374,7 +632,7 @@
       const res = await fetch(`${API}?op=ping`, { cache: 'no-store', signal: ctrl.signal });
       clearTimeout(t);
       const json = res.ok ? await res.json() : null;
-      mode = json && json.relay ? 'relay' : 'peer';
+      mode = json && json.ws && typeof WebSocket !== 'undefined' ? 'ws' : json && json.relay ? 'relay' : 'peer';
     } catch (e) {
       mode = 'peer';
     }
@@ -385,10 +643,15 @@
     ready,
     setGamePassword,
     get mode() { return mode; },
-    available: () => mode === 'relay' || typeof Peer !== 'undefined',
+    available: () => mode === 'relay' || mode === 'ws' || typeof Peer !== 'undefined',
     // PeerJS-kompatibel: mit ID = Host, ohne ID = Spieler.
     // options (z. B. ICE/TURN der Verbindungshilfe) gelten nur für WebRTC; das Relay braucht sie nicht.
     createPeer(id, options) {
+      if (mode === 'ws') {
+        const p = id ? new WsHostPeer(id.slice(J.peerId('').length)) : new WsPlayerPeer();
+        if (window.JEOP_TEST && id) window.__peer = p; // Browser-Tests kappen die Verbindung gezielt
+        return p;
+      }
       if (mode === 'relay') return id ? new RelayHostPeer(id.slice(J.peerId('').length)) : new RelayPlayerPeer();
       return id ? new Peer(id, options) : new Peer(options);
     },

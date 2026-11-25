@@ -6,7 +6,7 @@ const jsQR = require('jsqr');
 const { startEnv, openHost, joinPlayer, HOST_PASSWORD, TRANSPORT } = require('./helpers');
 
 // QR-Anzeige hängt nicht vom Transport ab: einmal (WebRTC-Durchlauf) reicht
-const ONCE = { skip: TRANSPORT === 'relay' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
+const ONCE = { skip: TRANSPORT !== 'peer' && 'transportunabhängig, läuft im WebRTC-Durchlauf' };
 
 let env;
 test.before(async () => { env = await startEnv(); });

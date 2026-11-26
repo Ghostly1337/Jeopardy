@@ -63,6 +63,10 @@ test('Joker im Einzelmodus', async (t) => {
   await t.test('Weitergeben: nur wer am Zug ist; Ziel muss antworten', async () => {
     // Nach „Fertig“ ist Ben am Zug
     await host.locator('.cell.val').nth(4).click();
+    // Übers Relay kann Ben kurz noch die abgebrochene Frage sehen. Öffnet er dort „Weitergeben“,
+    // schließt die neue Frage die Zielauswahl wieder → erst auf genau diese Frage warten.
+    const meta = await host.textContent('#clueMeta'); // „Kategorie – Wert“ (die Fragetexte sind gleich)
+    await ben.waitForFunction((t) => document.getElementById('meta').textContent === t, meta);
     await anna.waitForSelector('.joker[data-kind="pass"][disabled]');
     await ben.waitForSelector('.joker[data-kind="pass"]:not([disabled])');
     await ben.click('.joker[data-kind="pass"]');

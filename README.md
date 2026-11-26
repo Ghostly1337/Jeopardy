@@ -1,13 +1,13 @@
 # Jeopardy
 
-**▶ Spielen: https://jeopardy-two-pi.vercel.app** (Vercel mit Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)
+**▶ Spielen: https://jeopardy.prächtigames.de** (eigener Server mit WebSocket-Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)
 
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 
 ## So funktioniert's
 
 1. **Fragen bearbeiten** (`editor.html`): Kategorien, Fragen und Antworten eintragen, optional eine **Host-Notiz** (z. B. „auch richtig: …“ – sieht nur der Host, auch nach dem Aufdecken nicht die Spieler) und ein Bild pro Frage (Bild-Link oder 📁 hochladen; Uploads werden automatisch verkleinert). Mit dem Häkchen **Verpixeln** startet das Bild grob verpixelt; im Host-Pult machst du es mit **🔍 Schärfer** in vier Stufen deutlicher, beim Aufdecken ist es klar. Bei verpixelten Bildern gilt **Buzzer-Rennen**: Der Buzzer öffnet sofort für alle, wer das Bild zuerst erkennt, darf antworten (volle Punkte; nach einem Fehler wie gewohnt Klauen für die halben). Sonst könnte der Spieler am Zug einfach warten, bis das Bild scharf ist. Die Spieler bekommen bis dahin nur ein Mini-Bild aus wenigen Pixeln – das Original lässt sich also nicht heimlich öffnen. Verlinkte Bilder klappen nur, wenn die Seite das erlaubt (z. B. Wikimedia); sonst das Bild hochladen. Speichert automatisch. Mit *Export* als `.json` sichern, mit *Import* als neues Fragenset laden.
-   - **Mehrere Fragensets**: Oben im Editor zwischen Sets wechseln, neue anlegen, duplizieren, umbenennen, löschen. Das gewählte Set spielt das Host-Pult (auch live, wenn es im anderen Tab offen ist). Auf Vercel liegen die Sets auf dem Server, geschützt durch ein eigenes **Host-Passwort** (Spieler kennen nur das Seitenpasswort und kommen so nicht an die Antworten); ohne Server nur im eigenen Browser.
+   - **Mehrere Fragensets**: Oben im Editor zwischen Sets wechseln, neue anlegen, duplizieren, umbenennen, löschen. Das gewählte Set spielt das Host-Pult (auch live, wenn es im anderen Tab offen ist). Mit Server liegen die Sets dort in der Datenbank, geschützt durch ein eigenes **Host-Passwort** (Spieler kennen nur das Seitenpasswort und kommen so nicht an die Antworten); ohne Server nur im eigenen Browser.
 2. **Spiel hosten** (`host.html`): Raumcode und Beitrittslink werden angezeigt. Link an die Spieler schicken.
 3. **Spieler** öffnen den Link (oder geben auf der Startseite den Code ein). Sie sehen Board, Fragen und Punktestand live – aber **nie die Antworten**, solange du sie nicht aufdeckst.
 
@@ -57,7 +57,7 @@ Spielstand und Fragen liegen im `localStorage` deines Browsers. Ein Reload verli
 ## Technik
 Reines HTML/CSS/JS ohne Build. Live-Sync per WebRTC über [PeerJS](https://peerjs.com/) und dessen kostenlosen öffentlichen Vermittlungsserver. Dein Browser ist die einzige Datenquelle; die Spieler bekommen nur einen gefilterten Stand ohne Antworten.
 
-Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: die **Vercel-Variante** (Relay, so läuft das Spiel) oder – nur bei WebRTC, z. B. lokal – die **Verbindungshilfe** (TURN).
+Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) kommt keine direkte WebRTC-Verbindung zustande. Dafür gibt es zwei Lösungen: den **eigenen Server** (WebSocket-Relay, so läuft das Spiel) oder – nur bei WebRTC, z. B. lokal – die **Verbindungshilfe** (TURN).
 
 ## Eigener Server (Coolify) – schnelles WebSocket-Relay
 `server.mjs` ersetzt Vercel: Passwort-Sperre (derselbe Code wie `middleware.js`), Login, Fragensets und dazu ein **WebSocket-Relay** unter `/api/ws` (`lib/ws-hub.mjs`). Statt Long-Polling bleibt die Verbindung offen; Nachrichten brauchen lokal 1–3 ms statt 70–130 ms (`npm run test:load`, 30 Spieler). Das HTTP-Relay bleibt als Notlösung erreichbar. Die Seite erkennt den eigenen Server selbst (`ping` meldet `ws: true`).
@@ -67,7 +67,9 @@ Einschränkung: In stark abgeschotteten Netzen (z. B. alle im selben Uni-WLAN) k
 - Coolify: Application aus GitHub, Build Pack **Dockerfile**, Port 3000, Domain eintragen. Variablen als Runtime-Variablen (keine Build-Variablen nötig).
 - Schutz: WebSocket nur mit gültigem Login-Cookie und nur von der eigenen Seite (Origin-Prüfung); Spieler-Nachrichten max. 32 KB und 600/min, max. 60 Verbindungen pro IP, Spielleiter-Passwort mit Sperre pro IP, Verbindungs-ID nur mit passendem Schlüssel – wie beim HTTP-Relay.
 
-## Hosting auf Vercel (netzunabhängig, mit Passwort)
+## Früher: Hosting auf Vercel (HTTP-Relay)
+Bis November 2026 lief das Spiel auf Vercel. Der Code dafür ist noch da und funktioniert weiter (z. B. als Notlösung); gespielt wird aber auf dem eigenen Server (Abschnitt oben).
+
 Auf Vercel läuft die Verbindung nicht per WebRTC, sondern über ein kleines **HTTP-Relay** (`api/relay.mjs`): Host und Spieler schicken ihre Nachrichten per HTTPS an eine Vercel Function, die sie in einer Postgres-Datenbank (Neon, Region Frankfurt) zwischenlagert und per Long-Polling ausliefert. Das funktioniert in jedem Netz, in dem normale Webseiten gehen. Die Seite erkennt das Relay selbst (`api/relay?op=ping`); lokal (ohne Relay) bleibt es bei WebRTC.
 
 - **Passwort**: `middleware.js` sperrt die ganze Seite. Die Login-Seite schickt das Passwort an `api/login.mjs`; dort wird es mit Sperre pro IP geprüft (5 Versuche pro Minute, danach 1 Minute gesperrt, jede weitere Sperre doppelt so lang bis 15 Minuten; gespeichert wird nur ein Hash der IP) und ein **signiertes Cookie** gesetzt (30 Tage gültig, verrät nichts über das Passwort). Passwort ändern = alle müssen es neu eingeben. Die Middleware hat bewusst **keine Importe** (Vercel kompiliert sie zu CommonJS).
@@ -99,7 +101,7 @@ Bleiben Spieler bei „Verbinde mit dem Spiel…“ hängen, blockiert das Netz 
 - **Host prüft jede Spieler-Nachricht** (Form, Länge, Typ) und drosselt Fluten (40 Nachrichten pro Sekunde und Gerät, Emojis eigene Sperre).
 - **Vercel:** Middleware liefert nur Laufzeitdateien aus (Tests, `lib/`, `node_modules/`, Konfiguration und Doku → 404). Seiten-, Host- und Spielleiter-Passwort: Sperre pro IP nach 5 Fehlversuchen (wachsend bis 15 Minuten, `lib/throttle.mjs`, Datenbank-Tabelle `jeop_throttle`), Vergleich in konstanter Zeit, signiertes Login-Cookie.
 - **Relay:** Spieler beweisen den Besitz ihrer Verbindungs-ID (ID = Hash eines geheimen Schlüssels, der nur auf dem Gerät liegt) – niemand kann mit fremder ID senden oder fremde Tipps mitlesen. Limits: Spieler-Anfragen höchstens 32 KB, 600 Nachrichten pro Minute und Verbindung, 3000 pro IP, 30 neue Räume pro Stunde und IP, höchstens 1000 gespeicherte Nachrichten pro Raum; der Host nimmt höchstens 60 Geräte an. Header: CSP `frame-ancestors 'none'`, `X-Frame-Options`, HSTS, `Permissions-Policy`, `nosniff`.
-- **Keine GitHub-Pages-Variante mehr:** Sie lief ohne Passwort, und wer den Raumcode kannte, konnte einen offline gegangenen Host ersetzen. Gespielt wird nur noch über Vercel.
+- **Keine GitHub-Pages-Variante mehr:** Sie lief ohne Passwort, und wer den Raumcode kannte, konnte einen offline gegangenen Host ersetzen. Gespielt wird nur noch über den eigenen Server.
 - **Zufall** für Raumcodes und das Mischen der Antworten kommt aus Web Crypto.
 - Die CI bricht bei bekannten Lücken in Laufzeit-Abhängigkeiten ab (`npm audit --omit=dev`).
 
@@ -121,6 +123,6 @@ npm run test:load                 # Lasttest: 1 Host + 30 Spieler, WebSocket geg
 - Screenshots der Handy-Ansicht: `SHOTS=./shots npm run test:e2e`.
 
 ## CI und Veröffentlichung
-`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus (WebRTC, HTTP-Relay und WebSocket-Relay) und prüft die Laufzeit-Abhängigkeiten auf bekannte Lücken. Veröffentlicht wird über Vercel, das jeden Push auf `main` selbst baut.
+`.github/workflows/ci.yml` führt bei jedem Push und Pull Request alle Tests aus (WebRTC, HTTP-Relay und WebSocket-Relay) und prüft die Laufzeit-Abhängigkeiten auf bekannte Lücken. Veröffentlicht wird über Coolify auf dem eigenen Server, das jeden Push auf `main` selbst baut und startet.
 
 Lokal ansehen: `python3 -m http.server` im Repo-Ordner, dann `http://localhost:8000` öffnen.

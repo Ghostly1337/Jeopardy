@@ -1,6 +1,6 @@
 # Jeopardy
 
-**▶ Spielen: https://jeopardy.prächtigames.de** (eigener Server mit WebSocket-Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)
+**▶ Spielen: https://jeopardy.praechtigames.de** (eigener Server mit WebSocket-Relay – klappt in jedem Netz, auch im Uni-WLAN; Passwort nötig)
 
 Browser-Jeopardy mit zwei Runden (je 6 Kategorien × 5 Felder; Runde 1: 100–500, Runde 2: 200–1000), eigenem Fragen-Editor, Host-Pult und Live-Spieleransicht – ohne Bildschirmübertragung. Einzelspieler- und Team-Modus.
 

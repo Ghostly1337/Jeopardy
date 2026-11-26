@@ -58,6 +58,7 @@ test('Team-Modus: Reihenfolge und Schätzfrage sind live auf allen Team-Geräten
     await host.locator('.cell.val').nth(0).click();
     await anna.waitForSelector('.order-list.editable li');
     await ben.waitForSelector('.order-list.editable li');
+    await cem.waitForSelector('.order-list.editable li'); // übers Relay kommt Cems Liste evtl. etwas später
     const start = await order(anna);
     assert.equal(await order(ben), start, 'gleiche Startreihenfolge');
     const cemStart = await order(cem);

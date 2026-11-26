@@ -42,7 +42,7 @@ test('Team-Modus von Beitritt bis Siegerehrung', async (t) => {
     await host.locator('.jrow').nth(1).locator('.red').click(); // Blau falsch
     await anna.waitForSelector('#buzzer.live');
     await ben.waitForSelector('#buzzer.live');
-    assert.ok(await cem.isHidden('#buzzer'));
+    await cem.waitForSelector('#buzzer', { state: 'hidden', timeout: 5000 }); // Blau lag falsch
     await ben.waitForTimeout(250);
     await ben.click('#buzzer');
     await host.waitForFunction(() => document.getElementById('buzzStatus').textContent.includes('Ben (Rot)'));

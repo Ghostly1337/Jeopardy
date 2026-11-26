@@ -55,7 +55,8 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
     await host.waitForFunction(() => document.getElementById('buzzStatus').textContent.includes('gleich'));
     assert.ok(await anna.isVisible('#buzzer.wait'), 'direkt nach ✗ noch grau');
     await anna.waitForSelector('#buzzer.live', { timeout: 3000 });
-    assert.ok(await ben.isHidden('#buzzer'), 'Ben lag falsch und darf nicht mehr');
+    // Bens Gerät bekommt das Update evtl. etwas später als Annas: darauf warten
+    await ben.waitForSelector('#buzzer', { state: 'hidden', timeout: 5000 }); // Ben lag falsch und darf nicht mehr
     assert.equal(await anna.textContent('#buzzInfo'), 'Klauen bringt +50');
   });
 

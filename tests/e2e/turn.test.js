@@ -40,7 +40,7 @@ test('Mit Verbindungshilfe kommt der Spieler über den TURN-Server rein', { skip
     await host.fill('#turnUser', turn.username);
     await host.fill('#turnPass', turn.credential);
     await host.click('#turnSave');
-    await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+    await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
     assert.match(await host.textContent('#turnState'), /aktiv \(1 Adresse\)/, 'ungültige Zeile wird verworfen');
     assert.match(await host.textContent('#link'), /#t=[\w-]+$/);
   });
@@ -62,7 +62,7 @@ test('Mit Verbindungshilfe kommt der Spieler über den TURN-Server rein', { skip
   await t.test('Verbindungshilfe lässt sich wieder entfernen', async () => {
     await host.click('#turnBox summary').catch(() => {});
     await host.click('#turnClear');
-    await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+    await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
     assert.match(await host.textContent('#turnState'), /nicht eingerichtet/);
     assert.ok(!(await host.textContent('#link')).includes('#t='));
   });

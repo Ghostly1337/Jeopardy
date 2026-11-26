@@ -17,7 +17,7 @@ test('Team-Modus: alle im Team sehen, was fürs Team abgegeben wurde', async () 
     localStorage.setItem('jeopardy.set', JSON.stringify(s));
   });
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   const anna = await joinPlayer(env, code, { name: 'Anna', pick: 'Rot' });
   const ben = await joinPlayer(env, code, { name: 'Ben', pick: 'Rot' });
   await host.waitForFunction(() => document.getElementById('players').textContent.includes('Anna, Ben'));
@@ -47,7 +47,7 @@ test('Team-Modus: Reihenfolge und Schätzfrage sind live auf allen Team-Geräten
     localStorage.setItem('jeopardy.set', JSON.stringify(s));
   });
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   const anna = await joinPlayer(env, code, { name: 'Anna', pick: 'Rot' });
   const ben = await joinPlayer(env, code, { name: 'Ben', pick: 'Rot' });
   const cem = await joinPlayer(env, code, { name: 'Cem', pick: 'Blau' });

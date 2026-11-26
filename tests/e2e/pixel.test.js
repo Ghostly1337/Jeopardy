@@ -42,7 +42,7 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
   await ed.context().route('https://noimg.example.com/**', (r) => r.abort());
   const host = await ed.context().newPage();
   await host.goto(env.base + '/host.html');
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   await host.fill('#newName', 'Anna');
   await host.click('#addForm button');
   const p = await joinPlayer(env, await host.textContent('#code'), { pick: 'Anna' });

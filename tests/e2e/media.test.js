@@ -73,7 +73,7 @@ test('Clips im Editor, auf allen Geräten, gesteuert vom Host', async (t) => {
 
   const host = await ed.context().newPage();
   await host.goto(env.base + '/host.html');
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   for (const n of ['Anna', 'Ben']) { await host.fill('#newName', n); await host.click('#addForm button'); }
   const code = await host.textContent('#code');
   const anna = await joinPlayer(env, code, { pick: 'Anna' });

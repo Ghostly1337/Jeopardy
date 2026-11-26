@@ -188,7 +188,7 @@ async function openHost(env, { names = [], mode = 'single', teamSize, viewport }
   await host.goto(env.base + '/host.html');
   await host.evaluate(() => localStorage.clear());
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   if (mode === 'team') await host.click('#modeTeam');
   if (teamSize) {
     await host.fill('#teamSize', String(teamSize));

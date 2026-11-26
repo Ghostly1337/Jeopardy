@@ -19,7 +19,7 @@ async function setup(mode = 'single') {
     localStorage.setItem('jeopardy.set', JSON.stringify(s));
   });
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   return { host, code };
 }
 

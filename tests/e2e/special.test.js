@@ -58,7 +58,7 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
 
   const host = await ed.context().newPage();
   await host.goto(env.base + '/host.html');
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   for (const n of ['Anna', 'Ben']) { await host.fill('#newName', n); await host.click('#addForm button'); }
   // Diese Tests prüfen die Grundregeln mit vollen Punkten für alle (Anteile: share.test.js)
   await host.selectOption('#otherShare', '100');

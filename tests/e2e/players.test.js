@@ -38,16 +38,27 @@ test('Ein Name gehört genau einem Gerät', async (t) => {
     // Auf den Endzustand warten statt fester Zeit (CI ist manchmal langsamer; übers Relay blendet
     // die Auswahl nach dem Klick kurz aus und kommt beim Verlierer zurück): genau einer ist drin,
     // der andere sieht die Meldung
-    const state = (pg) => pg.evaluate(() => ({ in: document.getElementById('picker').hidden, err: !!document.getElementById('pickerError').textContent }));
+    // Zwei gültige Ausgänge für den Verlierer:
+    //  (1) sein Klick kam beim Host an → Meldung „auf einem anderen Gerät vergeben“
+    //  (2) die Bestätigung des Gewinners kam schneller an als sein Klick (über WebSocket nur
+    //      wenige ms) → „Anna“ war schon ausgegraut, der Klick hat gar nichts ausgelöst.
+    // Beides heißt: Der Name gehört genau einem Gerät.
+    const state = (pg) => pg.evaluate(() => ({
+      in: document.getElementById('picker').hidden,
+      err: !!document.getElementById('pickerError').textContent,
+      greyed: [...document.querySelectorAll('.pick.taken')].some((b) => b.textContent === 'Anna'),
+    }));
+    const settled = (w, l) => w.in && !l.in && l.greyed;
     for (let i = 0; i < 100; i++) {
       const [sa, sb] = [await state(a), await state(b)];
-      if ((sa.in && !sb.in && sb.err) || (sb.in && !sa.in && sa.err)) break;
+      if (settled(sa, sb) || settled(sb, sa)) break;
       await a.waitForTimeout(100);
     }
     const aOk = await a.isHidden('#picker');
     assert.notEqual(aOk, await b.isHidden('#picker'));
     [winner, loser] = aOk ? [a, b] : [b, a];
-    assert.match(await loser.textContent('#pickerError'), /anderen Gerät/);
+    const err = await loser.textContent('#pickerError');
+    if (err) assert.match(err, /anderen Gerät/);
     assert.ok(await loser.locator('.pick.taken:text-is("Anna")').isDisabled());
     await loser.click('.pick:text-is("Ben")');
     await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 2);

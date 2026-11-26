@@ -83,7 +83,10 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     await ben.click('.est-form button');
     await tv.waitForFunction(() => document.querySelector('.special-status').textContent === '🔢 2/2 haben getippt');
     await host.waitForFunction(() => document.getElementById('special').textContent.includes('350'));
-    assert.ok(!(await tv.content()).includes('350'), 'TV sieht keine Tipps');
+    // Nur den Spielbereich prüfen: die ganze Seite enthält den Beitrittslink mit zufälligem Port
+    // (z. B. 127.0.0.1:35012) – das wäre ein Zufallstreffer, kein Leck
+    const tvGame = await tv.evaluate(() => ['overlay', 'board', 'scores'].map((id) => document.getElementById(id)?.outerHTML || '').join(''));
+    assert.ok(!tvGame.includes('350'), 'TV sieht keine Tipps');
     await anna.waitForFunction(() => document.querySelector('.special-status').textContent.includes('Dein Tipp: 300 ✓'));
   });
 

@@ -27,7 +27,7 @@ test('Ohne Spielleiter-Passwort kein Raum, mit Passwort schon', ONLY_RELAY, asyn
   assert.notEqual(await host.textContent('#peerStatus'), 'online');
   await host.fill('#gamePw', GAME_PASSWORD);
   await host.click('#gameGate button');
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   assert.ok(await host.isHidden('#gameGate'));
   // Spieler brauchen das Passwort nicht
   await host.fill('#newName', 'Anna');
@@ -45,7 +45,7 @@ test('Das Host-Passwort aus dem Editor reicht auch', ONLY_RELAY, async () => {
   const host = await openGatedHost();
   await host.evaluate((pw) => localStorage.setItem('jeopardy.hostPw', pw), HOST_PASSWORD);
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
   assert.ok(await host.isHidden('#gameGate'));
   await host.context().close();
 });

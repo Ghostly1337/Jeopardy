@@ -43,7 +43,7 @@ test('Bilder in Fragen: Upload, Link und unsichere Links', async (t) => {
     const host = await ed.context().newPage();
     host.on('dialog', (d) => d.accept());
     await host.goto(env.base + '/host.html');
-    await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+    await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
     await host.fill('#newName', 'Anna');
     await host.click('#addForm button');
     const code = await host.textContent('#code');
@@ -162,7 +162,7 @@ test('Handy-Layout', async (t) => {
     J.saveSet(s);
   });
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
 
   for (const [vp, name] of [[{ width: 360, height: 740 }, 'Anna'], [{ width: 390, height: 844 }, 'Ben']]) {
     await t.test(`Spielerseite passt auf ${vp.width} px`, async () => {

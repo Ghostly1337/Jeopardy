@@ -29,7 +29,7 @@ test('HTML in Fragen, Namen und Tipps bleibt Text (Host, Spieler, TV)', ONCE, as
     J.saveSet(s);
   }, EVIL);
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
 
   // Teammitglied mit HTML im Namen
   const player = await joinPlayer(env, code, { name: EVIL, pick: EVIL_NAME });

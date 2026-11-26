@@ -34,7 +34,7 @@ test('Kompletter Spielablauf zwischen Host und Spieler', async (t) => {
     J.saveSet(s);
   });
   await host.reload();
-  await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online');
+  await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online');
 
   const anna = await joinPlayer(env, code, { pick: 'Anna' });
   await anna.waitForFunction(() => document.querySelector('#board').textContent.includes('Geschichte'));
@@ -102,7 +102,7 @@ test('Kompletter Spielablauf zwischen Host und Spieler', async (t) => {
 
   await t.test('Spieler verbindet sich nach Host-Reload automatisch neu', async () => {
     await host.reload();
-    await host.waitForFunction(() => document.getElementById('peerStatus').textContent === 'online', null, { timeout: 30000 });
+    await host.waitForFunction(() => document.getElementById('peerStatus')?.textContent === 'online', null, { timeout: 30000 });
     await host.waitForFunction(() => document.getElementById('viewers').textContent === '1 verbunden', null, { timeout: 30000 });
   });
 

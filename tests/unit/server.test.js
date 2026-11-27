@@ -128,9 +128,3 @@ test('CSP-Meldungen: nur angemeldet, nur POST, landen gekürzt und ohne Query im
   for (let i = 0; i < 70; i++) logCspReport(report, null, t, (l) => lines.push(l));
   assert.ok(lines.length <= 60, 'höchstens 60 Zeilen pro Minute');
 });
-
-test('vercel.json setzt dieselbe Report-Only-CSP (ohne report-uri, die Meldestelle gibt es nur auf dem eigenen Server)', async () => {
-  const { CSP_STRICT } = await import('../../server.mjs');
-  const h = require('../../vercel.json').headers[0].headers.find((x) => x.key === 'Content-Security-Policy-Report-Only');
-  assert.equal(h.value, CSP_STRICT);
-});

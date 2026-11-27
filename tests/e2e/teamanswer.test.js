@@ -35,7 +35,7 @@ test('Team-Modus: alle im Team sehen, was fürs Team abgegeben wurde', async () 
   await host.click('#resolveBtn');
   // Rot richtig +100; Blau hat nichts abgegeben → zählt wie falsch (−50), Enthalten gibt es nicht
   await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '100,-50');
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Team-Modus: Reihenfolge und Schätzfrage sind live auf allen Team-Geräten gleich', async (t) => {
@@ -97,5 +97,5 @@ test('Team-Modus: Reihenfolge und Schätzfrage sind live auf allen Team-Geräten
     await anna.waitForFunction(() => document.querySelector('.special-status').textContent.includes('Euer Tipp: 1.024'));
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

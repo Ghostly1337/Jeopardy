@@ -72,5 +72,5 @@ test('Tipp-Art pro Frage', async (t) => {
     await host.click('#cancel');
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

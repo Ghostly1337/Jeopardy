@@ -126,6 +126,6 @@ test('Clips im Editor, auf allen Geräten, gesteuert vom Host', async (t) => {
       return out;
     });
     assert.deepEqual(r, ['', '', '', '', ''], 'nichts davon geladen');
-    assert.deepEqual(env.errors, []);
+    assert.deepEqual(env.allErrors, []);
   });
 });

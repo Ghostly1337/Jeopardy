@@ -19,7 +19,7 @@ test('Anderer Stand als der Host: einmal neu laden, sonst Hinweis', async () => 
   // Neu geladen, aber Host bleibt anders (hier: Host „veraltet“) → Hinweis statt Endlosschleife
   await anna.waitForSelector('#versionBanner:not([hidden])', { timeout: 15000 });
   await host.evaluate(() => { J.APP_VERSION = window.__orig || J.APP_VERSION; });
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Editor verwirft unbekannte Fragearten nicht still', async () => {
@@ -32,5 +32,5 @@ test('Editor verwirft unbekannte Fragearten nicht still', async () => {
   const msg = new Promise((res) => ed.once('dialog', (d) => res(d.message())));
   await ed.setInputFiles('#importFile', { name: 'zukunft.json', mimeType: 'application/json', buffer: Buffer.from(data) });
   assert.match(await msg, /neu laden/);
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

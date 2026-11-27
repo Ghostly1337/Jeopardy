@@ -48,7 +48,7 @@ test('Host zeigt QR und Link; QR enthält nur den Beitrittslink', ONCE, async ()
   await p.waitForSelector('#picker:not([hidden])');
   await p.click('.pick:has-text("Anna")');
   await host.waitForFunction(() => document.querySelectorAll('#players .device').length === 1);
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
   await host.context().close();
   await p.context().close();
 });
@@ -74,5 +74,5 @@ test('TV zeigt großen QR bis zum Spielstart, QR-Taste blendet ein und aus', ONC
   const p = await joinPlayer(env, code, { pick: 'Anna' });
   assert.ok(await p.isHidden('#qrBtn'));
   assert.ok(await p.isHidden('#invite'));
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

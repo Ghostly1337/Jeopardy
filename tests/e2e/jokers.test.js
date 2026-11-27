@@ -103,7 +103,7 @@ test('Joker im Einzelmodus', async (t) => {
     assert.equal(await scores(host), '200,0,0');
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Joker zählen pro Team', async () => {
@@ -116,7 +116,7 @@ test('Joker zählen pro Team', async () => {
   await host.waitForFunction(() => document.getElementById('jokerStatus').textContent.includes('🎲 Rot'));
   await ben.waitForSelector('.joker[data-kind="double"].used[disabled]');
   await ben.waitForSelector('.joker-active');
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Joker gelten fürs ganze Spiel, nicht pro Runde', async () => {
@@ -132,7 +132,7 @@ test('Joker gelten fürs ganze Spiel, nicht pro Runde', async () => {
   await anna.waitForFunction(() => document.getElementById('meta').textContent.endsWith('800'));
   await anna.waitForSelector('.joker[data-kind="double"].used[disabled]');
   assert.ok(await anna.locator('.joker[data-kind="hint"]').isEnabled(), 'andere Joker bleiben');
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Kein Teamwechsel während des Spiels – keine Joker anderer Teams', async (t) => {
@@ -179,6 +179,6 @@ test('Kein Teamwechsel während des Spiels – keine Joker anderer Teams', async
       if (btn) btn.click();
     });
     await ben.waitForSelector('#picker:not([hidden])');
-    assert.deepEqual(env.errors, []);
+    assert.deepEqual(env.allErrors, []);
   });
 });

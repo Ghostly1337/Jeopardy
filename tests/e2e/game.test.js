@@ -106,5 +106,5 @@ test('Kompletter Spielablauf zwischen Host und Spieler', async (t) => {
     await host.waitForFunction(() => document.getElementById('viewers').textContent === '1 verbunden', null, { timeout: 30000 });
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

@@ -38,7 +38,7 @@ test('Ohne Spielleiter-Passwort kein Raum, mit Passwort schon', ONLY_RELAY, asyn
   assert.equal(await host.evaluate(() => localStorage.getItem('jeopardy.gamePw')), null);
   await host.context().close();
   await p.context().close();
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Das Host-Passwort aus dem Editor reicht auch', ONLY_RELAY, async () => {

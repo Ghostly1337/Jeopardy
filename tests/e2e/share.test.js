@@ -44,7 +44,7 @@ test('Standard 50 %: Am Zug voll, alle anderen halb (Multiple Choice)', async ()
   await host.click('#undo');
   assert.equal(await scores(host), '0,0');
   await host.close();
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Einstellung ist nach Spielbeginn gesperrt, Zurücksetzen gibt sie frei', async () => {
@@ -74,7 +74,7 @@ test('Teams: jedes Team einzeln; Schätzfrage-Sieger nicht am Zug bekommt den An
   await host.click('#resolveBtn');
   await host.waitForFunction(() => [...document.querySelectorAll('.pscore')].map((e) => e.value).join(',') === '0,75');
   await host.close();
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Ohne „am Zug“ bekommen alle volle Punkte', async () => {

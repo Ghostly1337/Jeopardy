@@ -93,5 +93,5 @@ test('Team-Modus von Beitritt bis Siegerehrung', async (t) => {
     assert.ok(await host.isHidden('#teamSizeRow'));
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

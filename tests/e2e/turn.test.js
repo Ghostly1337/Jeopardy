@@ -66,5 +66,5 @@ test('Mit Verbindungshilfe kommt der Spieler über den TURN-Server rein', { skip
     assert.match(await host.textContent('#turnState'), /nicht eingerichtet/);
     assert.ok(!(await host.textContent('#link')).includes('#t='));
   });
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

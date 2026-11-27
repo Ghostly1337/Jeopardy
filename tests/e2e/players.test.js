@@ -109,5 +109,5 @@ test('Zuschauer und TV-Ansicht', async (t) => {
     assert.equal(await host.locator('#players .device').count(), 0);
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

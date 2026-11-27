@@ -94,7 +94,22 @@ async function startEnv(init = {}) {
     };
   }
 
-  const web = http.createServer((req, res) => {
+  // Dieselbe strengere CSP im Test-Modus (Report-Only) wie server.mjs, plus lokaler Vermittlungsserver.
+  // Gemeldete Verstöße (report-uri) landen in cspReports und lassen die Tests fehlschlagen.
+  const { CSP_STRICT, CSP_REPORT_PATH } = await import('../../server.mjs');
+  const localPeer = `http://127.0.0.1:${peerPort} ws://127.0.0.1:${peerPort}`;
+  const cspReportOnly = CSP_STRICT.replace('wss://0.peerjs.com', 'wss://0.peerjs.com ' + localPeer) + '; report-uri ' + CSP_REPORT_PATH;
+  const cspReports = [];
+
+  const web = http.createServer(async (req, res) => {
+    if (req.url.startsWith(CSP_REPORT_PATH)) {
+      const body = await readBody(req);
+      let r = {};
+      try { r = JSON.parse(body)['csp-report'] || {}; } catch (e) { r = { raw: body.slice(0, 200) }; }
+      cspReports.push(`${r['effective-directive'] || r['violated-directive']} blockiert=${r['blocked-uri']} seite=${r['document-uri']}`);
+      res.writeHead(204);
+      return res.end();
+    }
     if (relay && req.url.startsWith('/api/relay')) return relay(req, res);
     if (sets && req.url.startsWith('/api/sets')) return sets(req, res);
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
@@ -104,7 +119,10 @@ async function startEnv(init = {}) {
       res.writeHead(404);
       return res.end();
     }
-    res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
+      ...(file.endsWith('.html') ? { 'content-security-policy-report-only': cspReportOnly } : {}),
+    });
     if (file.endsWith('.html')) {
       // Dieselbe Content-Security-Policy wie live, nur zusätzlich der lokale Vermittlungsserver
       const local = `http://127.0.0.1:${peerPort} ws://127.0.0.1:${peerPort}`;
@@ -139,6 +157,11 @@ async function startEnv(init = {}) {
     const ctx = await browser.newContext({ viewport });
     await ctx.route('https://img.example.com/**', (r) => r.fulfill({ body: TEST_PNG, contentType: 'image/png' }));
     await ctx.addInitScript(([port, vars, gamePw]) => {
+      // Jeder CSP-Verstoß (auch im Test-Modus „report“) landet in der Konsole → zählt als Fehler
+      document.addEventListener('securitypolicyviolation', (e) => {
+        (window.__csp = window.__csp || []).push({ disposition: e.disposition, directive: e.effectiveDirective, blocked: e.blockedURI });
+        if (!window.__cspExpected) console.error(`Content Security Policy (${e.disposition}): ${e.effectiveDirective} blockiert ${e.blockedURI}`);
+      });
       Object.assign(window, vars);
       if (gamePw && !vars.noGamePw) { try { sessionStorage.setItem('jeopardy.gamePw', gamePw); } catch (e) {} }
       let P;
@@ -173,7 +196,8 @@ async function startEnv(init = {}) {
     peerProc.kill();
   }
 
-  return { base, page, stop, errors };
+  // Fehlerliste inklusive gemeldeter CSP-Verstöße (die meldet der Browser per report-uri)
+  return { base, page, stop, errors, cspReports, get allErrors() { return [...errors, ...cspReports.map((r) => 'CSP-Report: ' + r)]; } };
 }
 
 // 1×1-Pixel-PNG als Testbild

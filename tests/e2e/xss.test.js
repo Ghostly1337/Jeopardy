@@ -102,7 +102,7 @@ test('HTML in Fragen, Namen und Tipps bleibt Text (Host, Spieler, TV)', ONCE, as
   await t.test('Nirgends wurde Code ausgeführt, keine CSP-Verstöße', async () => {
     await player.waitForTimeout(300);
     for (const pg of views) assert.equal(await xss(pg), undefined);
-    assert.deepEqual(env.errors, []);
+    assert.deepEqual(env.allErrors, []);
   });
   for (const pg of views) await pg.context().close();
 });
@@ -126,7 +126,7 @@ test('Host verkraftet kaputte und geflutete Spieler-Nachrichten', async () => {
   await host.locator('.cell.val').nth(0).click();
   await p.waitForSelector('#overlay.show');
   assert.ok(await host.locator('.react-float').count() <= 15, 'Emoji-Flut begrenzt');
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
   await host.context().close();
   await p.context().close();
 });

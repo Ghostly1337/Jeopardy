@@ -119,7 +119,7 @@ test('Buzzer-Ablauf mit drei Spielern', async (t) => {
     for (const s of ['open', 'tick', 'timeup', 'wrong', 'buzzopen', 'buzz', 'right']) assert.ok(sfx.includes(s), 'Sound fehlt: ' + s);
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Gefälschte Buzzer-Zeit gewinnt nicht gegen einen echten schnellen Druck', async () => {

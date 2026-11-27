@@ -95,7 +95,7 @@ test('Emoji-Spam-Sperre und Schalter im Host-Pult', async (t) => {
 
   await host.context().close();
   await p.context().close();
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 test('Host tippt Punkte, während sich ein Spieler verbindet: Eingabe bleibt erhalten', async () => {
@@ -217,5 +217,5 @@ test('Handy-Layout', async (t) => {
     assert.ok(await h.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await shot(h, 'handy-host');
   });
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

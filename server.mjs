@@ -25,12 +25,22 @@ import { createHub, WS_LIMITS } from './lib/ws-hub.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 
+// Strengere CSP zunächst nur im Test-Modus (Report-Only): Verstöße werden gemeldet, nicht blockiert.
+// Ausnahmen: Fragen laden Bilder/Audio/Video von https-Links oder als data:/blob:; PeerJS für den
+// WebRTC-Modus; Inline-Styles für Teamfarben/Animationen. Skripte nur von der eigenen Seite.
+export const CSP_STRICT = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' https: data: blob:; media-src 'self' https: data: blob:; font-src 'self'; " +
+  "connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; object-src 'none'; base-uri 'none'; " +
+  "form-action 'self'; frame-ancestors 'none'";
+export const CSP_REPORT_PATH = '/api/csp-report';
+
 export const SECURITY_HEADERS = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-robots-tag': 'noindex',
   'x-frame-options': 'DENY',
   'content-security-policy': "frame-ancestors 'none'; object-src 'none'; base-uri 'none'",
+  'content-security-policy-report-only': `${CSP_STRICT}; report-uri ${CSP_REPORT_PATH}`,
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
   'cross-origin-opener-policy': 'same-origin',
   'strict-transport-security': 'max-age=63072000; includeSubDomains',
@@ -113,6 +123,28 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(file).pipe(res);
 }
 
+// CSP-Meldungen ins Server-Log (Coolify → Logs). Nur die nötigen Felder, Adressen ohne Query
+// (könnte Daten enthalten), gekürzt; höchstens 60 Zeilen pro Minute, damit niemand das Log flutet.
+const cspLog = { minute: 0, count: 0 };
+const cspShort = (v) => {
+  if (typeof v !== 'string') return '';
+  const t = v.replace(/[\r\n\t]/g, ' ');
+  try { const u = new URL(t); return (u.origin === 'null' ? u.protocol : u.origin + u.pathname).slice(0, 120); } catch (e) { return t.slice(0, 60); }
+};
+export function logCspReport(text, headers, now = Date.now(), log = console.warn) {
+  const minute = Math.floor(now / 60_000);
+  if (cspLog.minute !== minute) { cspLog.minute = minute; cspLog.count = 0; }
+  if (++cspLog.count > 60) return false;
+  let r;
+  try { r = JSON.parse(text)['csp-report']; } catch (e) { r = null; }
+  if (!r || typeof r !== 'object') return false;
+  const ua = String((headers && headers.get && headers.get('user-agent')) || '');
+  const device = /Mobile|Android|iPhone|iPad/.test(ua) ? 'Handy' : 'PC';
+  log(`CSP-Verstoß (Test-Modus): ${cspShort(r['effective-directive'] || r['violated-directive'])} ` +
+    `blockiert=${cspShort(r['blocked-uri'])} seite=${cspShort(r['document-uri'])} quelle=${cspShort(r['source-file'])}:${Number(r['line-number']) || 0} gerät=${device}`);
+  return true;
+}
+
 /**
  * Startet den Server. Für Tests: port 0, eigene Umgebung, gibt { server, port, hub, close } zurück.
  */
@@ -166,6 +198,13 @@ export async function startServer({
         const r = await handleRelay({ method: req.method, query: url.searchParams, headers, rawBody: raw }, relayStore,
           { gamePassword, hostPassword, throttle, ws: true });
         return json(res, r.status, r.json, r.headers);
+      }
+      if (url.pathname === CSP_REPORT_PATH) {
+        if (!isPost) return json(res, 405, { error: 'method not allowed' });
+        const raw = await readBody(req, 16_000);
+        logCspReport(raw.toString('utf8'), headers);
+        res.writeHead(204, { ...SECURITY_HEADERS, 'cache-control': 'no-store' });
+        return res.end();
       }
       if (url.pathname.startsWith('/api/')) return json(res, 404, { error: 'not found' });
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method not allowed' });

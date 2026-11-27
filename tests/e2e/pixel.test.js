@@ -116,5 +116,5 @@ test('Verpixeltes Bild wird schrittweise schärfer', async (t) => {
     assert.ok(await p.isHidden('#img'));
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

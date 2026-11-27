@@ -116,5 +116,5 @@ test('Fragensets verwalten und wechseln', async (t) => {
     });
   }
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

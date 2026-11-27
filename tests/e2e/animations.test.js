@@ -96,6 +96,6 @@ test('Animationen auf Handy und TV', async (t) => {
     assert.ok(!(await ben.evaluate(() => J.timerMusicOn())));
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 

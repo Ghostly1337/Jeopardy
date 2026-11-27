@@ -166,5 +166,5 @@ test('Schätzfrage, Reihenfolge und Zoom-Bild', async (t) => {
     assert.ok(await host.isHidden('#pixelBtn'));
   });
 
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });

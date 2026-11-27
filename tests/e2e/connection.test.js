@@ -78,7 +78,7 @@ test('Host meldet sich nach stillem Verbindungsabbruch neu an', { skip: TRANSPOR
   await host.fill('#newName', 'Cem');
   await host.click('#addForm button');
   await a.waitForFunction(() => document.querySelectorAll('#scores .score').length === 3, null, { timeout: 10000 });
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
 });
 
 // WebSocket-Relay: Bricht die Verbindung ab (Funkloch), bauen Spieler und Host sie selbst neu auf –
@@ -99,7 +99,7 @@ test('WebSocket: Verbindungsabbruch heilt sich selbst', { skip: TRANSPORT !== 'w
   await host.click('#close');
   await p.waitForSelector('#overlay:not(.show)', { state: 'attached', timeout: 10000 });
   assert.equal(await host.locator('#players .device').count(), 1, 'Spieler bleibt verbunden');
-  assert.deepEqual(env.errors, []);
+  assert.deepEqual(env.allErrors, []);
   await host.context().close();
   await p.context().close();
 });

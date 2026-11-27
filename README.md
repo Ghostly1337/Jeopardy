@@ -95,6 +95,13 @@ Bleiben Spieler bei „Verbinde mit dem Spiel…“ hängen, blockiert das Netz 
 ## Sicherheit
 - **Alles von außen ist Text:** Fragen, Namen, Tipps und alles, was übers Netz kommt, wird vor der Anzeige escaped; Farben, Zahlen und Bild-Adressen werden geprüft (`safeColor`, `safeNum`, `safeImg`). Bilder nur über `https://` oder als Bilddaten (kein SVG, kein `javascript:`).
 - **Content-Security-Policy** auf allen Seiten (als `<meta>` in jeder Seite): nur eigene Skripte, keine Inline-Skripte, keine Plugins. Selbst eine übersehene Lücke könnte so keinen fremden Code ausführen.
+- **Strengere CSP als Header, zunächst im Test-Modus** (`Content-Security-Policy-Report-Only`, gesetzt in `server.mjs`, gleich in `vercel.json`). Der Browser blockiert dabei noch nichts, meldet Verstöße aber an `/api/csp-report` → Server-Log (Coolify → Jeopardy → Logs, Zeilen „CSP-Verstoß“). Nach ein paar Tagen ohne Meldungen wird daraus die echte `Content-Security-Policy`. Die Regel:
+  - `script-src 'self'`: Skripte nur von der eigenen Seite. Es gibt keine Inline-Skripte und keine `on…=`-Attribute, deshalb ohne Ausnahme.
+  - `img-src` / `media-src 'self' https: data: blob:`: Fragen zeigen Bilder, Audio und Video von beliebigen `https://`-Links oder als hochgeladene Datei (`data:`), geprüft durch `safeImg`/`safeMedia`.
+  - `connect-src 'self' https://0.peerjs.com wss://0.peerjs.com`: eigener Server (Relay, WebSocket, Fragensets) und der PeerJS-Vermittler für den WebRTC-Modus.
+  - `style-src 'self' 'unsafe-inline'`: `style="…"` für Teamfarben und Animationen (common.js, host.js, player.js, editor.html). Über Styles lässt sich kein Code ausführen.
+  - `font-src 'self'`, `object-src 'none'`, `base-uri 'none'`, `form-action 'self'`, `frame-ancestors 'none'`.
+  - Meldungen enthalten nur Regel, blockierte Adresse und Seite (ohne Query), höchstens 60 Zeilen pro Minute. Die Browser-Tests (WebRTC, Relay, WebSocket) schlagen bei jedem Verstoß fehl, auch bei solchen im Test-Modus.
 - **Clips:** nur `https://`-Links oder `data:audio/…`/`data:video/…` (base64) in erlaubter Größe – geprüft im Editor, beim Import und noch einmal auf jedem Spielergerät; nie über `innerHTML`. Das Relay bündelt nach Größe und begrenzt Antworten, damit große Clips nicht an den Vercel-Limits scheitern.
 - **Keine fremden Skripte:** PeerJS und der QR-Generator liegen in `vendor/` (bytegleich mit den npm-Paketen, per Test geprüft), kein CDN.
 - **Buzzer fälschungssicher:** Die Reaktionszeit vom Handy ist nur eine Angabe. Der Host misst selbst die Zeit seit dem Öffnen und per Ping die Netzwerk-Verzögerung jedes Geräts; eine Angabe deutlich unter „Messung minus Netz“ wird hochgesetzt (Spielraum gedeckelt: WebRTC 300 ms, Relay 900 ms). Wer per Entwicklertools „101 ms“ schickt, gewinnt so nicht mehr.
